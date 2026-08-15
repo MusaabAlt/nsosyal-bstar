@@ -1,0 +1,42 @@
+{
+  "run_id": "02_failure_analysis",
+  "source": "results/01_baseline_berturk/dev_predictions.csv (best.pt = epoch 1, commit 837c351)",
+  "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4",
+  "tagged_by": "manual reading (assistant); a model judging labels, not ground truth",
+  "tag_definitions": {
+    "MISLABEL": "no offense discernible in the text; the gold OFF label looks wrong",
+    "IMPLICIT": "genuine offense carrying no profanity token - insult by metaphor, sarcasm, mockery, threat, sexual solicitation, group-directed hate",
+    "EVASION": "profanity present but obfuscated, abbreviated, or non-Turkish, so the frozen lexicon missed it",
+    "AMBIG": "cannot be ruled without the team's annotation convention - includes the political / institutional-criticism band, left untouched by instruction"
+  },
+  "samples": {
+    "top60_by_confidence": {
+      "description": "the 60 most confidently-wrong false negatives (lowest p_OFF). BIASED sample: sorting by confidence selects for label noise, so its mislabel rate is an upper bound, not an estimate of the slice.",
+      "counts": {"MISLABEL": 14, "IMPLICIT": 18, "EVASION": 6, "AMBIG": 22},
+      "mislabel_pct": 23.3,
+      "checkpoint_specific_count": 0,
+      "ids": ["22270","41936","39136","13223","33786","23271","40523","40655","28385","32227","10458","30932","20102","40713","36488","33545","24869","30559","24241","15912","12398","39472","39334","21148","12252","15953","40737","22925","30210","37307","22927","15344","12314","23243","32416","26846","34917","14556","27525","35971","15877","20571","13552","20584","37753","35938","31965","43373","36477","22591","38376","14148","28469","36904","34977","11336","23346","10050","41414","23277"],
+      "tags": ["MISLABEL","MISLABEL","MISLABEL","IMPLICIT","MISLABEL","EVASION","EVASION","AMBIG","MISLABEL","MISLABEL","AMBIG","EVASION","AMBIG","AMBIG","MISLABEL","IMPLICIT","EVASION","MISLABEL","IMPLICIT","IMPLICIT","IMPLICIT","EVASION","AMBIG","IMPLICIT","IMPLICIT","MISLABEL","MISLABEL","AMBIG","IMPLICIT","IMPLICIT","IMPLICIT","AMBIG","AMBIG","IMPLICIT","MISLABEL","AMBIG","IMPLICIT","AMBIG","AMBIG","IMPLICIT","MISLABEL","MISLABEL","AMBIG","IMPLICIT","MISLABEL","IMPLICIT","IMPLICIT","AMBIG","AMBIG","AMBIG","IMPLICIT","AMBIG","EVASION","AMBIG","AMBIG","AMBIG","AMBIG","IMPLICIT","AMBIG","AMBIG"]
+    },
+    "random40_of_247_lexicon_free": {
+      "description": "UNBIASED sample: 40 drawn with random.Random(42).sample() from the 247 lexicon-free false negatives. This is the defensible estimate of the slice's annotation-noise rate.",
+      "seed": 42,
+      "population": 247,
+      "counts": {"MISLABEL": 4, "IMPLICIT": 14, "EVASION": 1, "AMBIG": 21},
+      "mislabel_pct": 10.0,
+      "checkpoint_specific_count": 2,
+      "ids": ["41936","40523","40655","32227","15953","40737","37307","15344","27525","34977","23277","31278","40287","38289","23321","16660","27875","21842","14011","44666","40855","36955","14183","35143","17221","22255","32144","22698","21779","39917","39656","29626","12397","11946","29520","11393","39737","44326","40683","42265"],
+      "tags": ["MISLABEL","EVASION","AMBIG","MISLABEL","MISLABEL","MISLABEL","IMPLICIT","AMBIG","AMBIG","AMBIG","AMBIG","IMPLICIT","AMBIG","IMPLICIT","AMBIG","IMPLICIT","IMPLICIT","IMPLICIT","AMBIG","IMPLICIT","IMPLICIT","IMPLICIT","AMBIG","AMBIG","IMPLICIT","AMBIG","AMBIG","AMBIG","IMPLICIT","AMBIG","IMPLICIT","AMBIG","AMBIG","IMPLICIT","AMBIG","IMPLICIT","AMBIG","AMBIG","AMBIG","AMBIG"],
+      "checkpoint_specific": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1]
+    }
+  },
+  "headline": "Day 1's ~30-35% annotation-noise estimate was inflated by confidence-sorting bias. The defensible figure is ~10%. The dominant mode is genuine implicit offense, not label noise.",
+  "checkpoint_stability": {
+    "fn_checkpoint_specific_total": 43,
+    "fn_checkpoint_specific_median_p_off": 0.4017,
+    "fn_stable_median_p_off": 0.1724,
+    "fn_checkpoint_specific_min_p_off": 0.0821,
+    "conclusion": "checkpoint disagreement is a decision-boundary phenomenon; none of the confidently-wrong failures this analysis rests on are checkpoint-specific"
+  },
+  "note_text_withheld": "Row text is corpus content and is not stored in git (same rule as dev_predictions.csv). Join on row_id against the Drive mirror to recover it."
+}

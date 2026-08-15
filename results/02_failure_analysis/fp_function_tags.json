@@ -1,0 +1,63 @@
+{
+  "run_id": "02_failure_analysis",
+  "source": "results/01_baseline_berturk/dev_predictions.csv (best.pt = epoch 1, commit 837c351)",
+  "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4",
+  "scope": "ALL 213 false positives (gold=NOT, pred=OFF), ordered by p_OFF descending",
+  "tagged_by": "manual reading (assistant); a model judging labels, not ground truth",
+  "tag_definitions": {
+    "FILL": "profanity token used as filler / intensifier / exclamation, not aimed at anyone",
+    "META": "the word is mentioned rather than used - discussing or advising against the slur",
+    "NEG": "the profanity token is explicitly negated",
+    "QUOT": "someone else's slur is being quoted or reported",
+    "SENSE": "sense collision - homograph, kinship term, religious formula, or a false lexicon prefix hit",
+    "SELF": "profanity is self-directed",
+    "NONDIR": "profanity present but aimed at a generic or absent third party, not the addressee",
+    "DIRECT": "a genuinely directed insult or sexual solicitation - the gold NOT label looks wrong",
+    "NOPROF": "no profanity or slur token at all; the model fired on topic, register or a subword artifact"
+  },
+  "counts_all_213": {
+    "profanity_token_present": 95,
+    "no_profanity_token": 118,
+    "by_function": {
+      "NONDIR": 26, "FILL": 19, "SENSE": 16, "DIRECT": 11,
+      "META": 9, "NEG": 6, "QUOT": 5, "SELF": 3, "NOPROF": 118
+    },
+    "use_mention_family_META_NEG_QUOT": 20,
+    "present_but_not_an_offensive_act": 84,
+    "present_but_not_an_offensive_act_pct_of_95": 88.4
+  },
+  "counts_lexicon_hit_47": {
+    "SENSE": 13, "NONDIR": 7, "FILL": 6, "NOPROF": 6,
+    "META": 4, "DIRECT": 4, "NEG": 3, "SELF": 2, "QUOT": 2,
+    "not_a_directed_offensive_use": 43,
+    "not_a_directed_offensive_use_pct": 91.5,
+    "use_mention_family_META_NEG_QUOT": 9
+  },
+  "note_text_withheld": "Row text is corpus content and is not stored in git (same rule as dev_predictions.csv). Join on row_id against the Drive mirror to recover it.",
+  "ids": ["28248","33763","27568","26950","23517","15812","46183","11982","10485","37012","20690","17751","12757","20875","15803","32062","13554","42951","16362","21386","22154","39788","25616","13266","20906","28645","19267","28037","10856","27461","43319","26947","34804","16134","17964","21628","35997","24188","33198","14015","20039","38867","26631","27253","41849","38457","18023","38216","28460","33691","38170","29384","17220","17127","26443","22136","44129","22482","12510","35018","42396","43994","24246","31530","29343","24279","31414","43771","28411","39954","21992","42383","43222","13987","36884","18249","45065","43506","39767","36280","12632","39933","10056","28442","38474","40490","29761","44594","40512","12950","45450","44187","30133","40893","28672","12197","26636","41909","41682","28253","27284","30937","20592","43021","13787","42522","14516","16939","45208","36551","10693","25843","15933","35649","21782","30039","39168","33360","29707","25871","32386","43427","14244","38917","37667","27184","39490","23696","14985","29113","37616","43719","18987","42296","17123","41405","26937","36312","37975","30608","39512","42689","16842","24954","31306","23417","22057","18628","37792","41838","17027","43012","38083","38084","43591","39746","38321","13890","41062","19252","12356","39378","31556","39515","19741","22073","19579","18238","43392","31726","17317","15282","30806","14124","44014","40974","44142","44168","26643","14731","45029","17366","31571","34191","43309","40114","45912","27419","23362","45875","42004","43132","15908","13060","36218","23425","13783","21293","42557","12707","10774","41061","43348","32701","42366","10181","19439","16720","30150","29639","32842","29142","37782"],
+  "tags": [
+    "FILL","FILL","DIRECT","SENSE","NOPROF","NONDIR","DIRECT","SENSE","NONDIR","NOPROF",
+    "FILL","NONDIR","NEG","NONDIR","QUOT","SENSE","DIRECT","FILL","NOPROF","NONDIR",
+    "NOPROF","SENSE","NOPROF","SENSE","SELF","META","SENSE","NONDIR","NEG","NONDIR",
+    "SELF","NOPROF","DIRECT","NOPROF","NEG","NEG","NOPROF","DIRECT","META","NOPROF",
+    "SENSE","NOPROF","NEG","NONDIR","NOPROF","DIRECT","DIRECT","NOPROF","SENSE","NOPROF",
+    "NOPROF","FILL","NOPROF","NOPROF","NONDIR","NOPROF","NOPROF","NOPROF","DIRECT","SENSE",
+    "NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","FILL","NOPROF","NONDIR","FILL","FILL",
+    "QUOT","NOPROF","FILL","NOPROF","FILL","NOPROF","NONDIR","NOPROF","NONDIR","NOPROF",
+    "NONDIR","QUOT","FILL","SENSE","NONDIR","NOPROF","FILL","NONDIR","SELF","NOPROF",
+    "META","NOPROF","NONDIR","NOPROF","NOPROF","NOPROF","NOPROF","FILL","NOPROF","NONDIR",
+    "NOPROF","DIRECT","NONDIR","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","META","NOPROF",
+    "SENSE","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","META","META",
+    "NOPROF","NOPROF","DIRECT","NOPROF","SENSE","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF",
+    "NOPROF","NONDIR","DIRECT","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","FILL","NONDIR",
+    "NOPROF","NEG","NOPROF","NOPROF","NOPROF","NONDIR","NOPROF","NONDIR","SENSE","NOPROF",
+    "NOPROF","NOPROF","NONDIR","NOPROF","FILL","NOPROF","NOPROF","NOPROF","NONDIR","NOPROF",
+    "NOPROF","NOPROF","NONDIR","FILL","NOPROF","NOPROF","NOPROF","NOPROF","META","NOPROF",
+    "NONDIR","NOPROF","NOPROF","NOPROF","META","FILL","NOPROF","NOPROF","NOPROF","NOPROF",
+    "META","NOPROF","NOPROF","SENSE","FILL","QUOT","NOPROF","NOPROF","NOPROF","NOPROF",
+    "NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF","NOPROF",
+    "NOPROF","FILL","SENSE","NOPROF","SENSE","NOPROF","NOPROF","NOPROF","NOPROF","QUOT",
+    "NOPROF","NOPROF","NOPROF"
+  ],
+  "checkpoint_specific": [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0,0,0,1,0,0,1,0,0,1,0,0,0,0,0,0,1,1,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0,0,0,0,1,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,1,1,1,0,1,0,0,1,0,0,1,0,0,1,1,0,0,1,0,1,1,0,0,0,1,1,1,1,0,0,0,1,0,0,1,1,0,0,1,1,0,0,0,1,0,1,0,1,0,0,1,1,0,1,0,1,1,1,1,0,0,1,1,1,0,0,1,1,0,0,1,1,1,0,1,1,0,1,0,0,0,1,0,1,0,0,0,0,1]
+}
