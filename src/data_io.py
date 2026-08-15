@@ -194,6 +194,38 @@ def stratified_split(rows, dev_fraction=None, seed=None):
     return train_rows, dev_rows
 
 
+def stratified_kfold(rows, k=5, seed=None):
+    """Deterministic label-stratified k-fold partition. Returns a list of k lists.
+
+    Used to obtain OUT-OF-FOLD predictions inside the training split (phase 03 C1):
+    insertion patterns for the defense must be derived from training-split errors,
+    never from dev, or the reported error reduction partly measures the template
+    rather than the model. Out-of-fold predictions are made on rows the model did
+    not train on, which is the condition dev is evaluated under.
+
+    Same ordering discipline as stratified_split: sort by id inside each label
+    bucket before shuffling, so the partition does not depend on read order.
+    """
+    import config
+
+    seed = config.SEED if seed is None else seed
+    if k < 2:
+        raise ValueError(f"k must be >= 2, got {k}")
+
+    buckets = defaultdict(list)
+    for r in rows:
+        buckets[r["label"]].append(r)
+
+    rng = random.Random(seed)
+    folds = [[] for _ in range(k)]
+    for label in sorted(buckets):
+        bucket = sorted(buckets[label], key=lambda r: str(r["id"]))
+        rng.shuffle(bucket)
+        for i, row in enumerate(bucket):  # deal round-robin -> even, stratified folds
+            folds[i % k].append(row)
+    return folds
+
+
 def dev_fingerprint(dev_rows):
     """sha256 over the sorted dev ids -- the identity of a dev set.
 

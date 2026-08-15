@@ -29,10 +29,10 @@ results/**
 !results/**/*.json
 !results/**/*.txt
 !results/**/*.md
-# ...with one exception, listed last so it wins: the per-row predictions carry
-# corpus text (licensing, briefing S5) and are large. Phase 2 reads them from
-# the Drive mirror or a local download, never from git.
-results/**/dev_predictions.csv
+# ...with one exception, listed last so it wins: any per-row prediction dump
+# carries corpus text (licensing, briefing S5) and is large. Analyses read them
+# from the Drive mirror or a local download, never from git.
+results/**/*predictions*.csv
 
 # --- model artifacts / checkpoints ---
 *.zip
