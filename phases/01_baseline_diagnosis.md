@@ -164,8 +164,14 @@ slice **comparison**, it is measuring the wrong thing.
 
 Consequences already applied in this phase:
 
-- `metrics.json` per-slice blocks carry `off_recall` (with CI) and the support
-  counts, and deliberately do **not** carry a per-slice macro-F1.
+- `metrics.json` per-slice blocks carry `off_recall` (with CI), the support
+  counts, the base rate, and the **raw confusion counts** (`tp/fp/fn/tn`), and
+  deliberately do **not** carry a per-slice macro-F1. The constraint is against
+  pre-computing a misleading cross-slice comparison, not against retaining
+  primitives: phase 4 needs false-positive behaviour *within* `lexicon_free` to
+  characterise the deferral queue, and OFF-recall alone cannot give it. Raw
+  counts also let any later phase recompute a within-slice metric without
+  re-running training.
 - The per-slice sections of `classification_report.txt` are kept — the output
   contract asks for them and they are useful *within* a slice — but the file
   carries a header saying the F1 columns are not comparable across slices.
@@ -210,3 +216,20 @@ way nobody notices until the report is being written.
   measured.
 - `metrics.json` carries `decision_rule_applied: null` until a human writes the
   verdict into `docs/RESULTS_LOG.md`.
+- **The driver does not append to `docs/RESULTS_LOG.md`.** Two of that table's
+  columns are Interpretation and Decision, and a script cannot honestly fill
+  them; an auto-appended row carrying placeholder text in the project's
+  engineering log is worse than no row. Instead the run writes a fifth file,
+  `results_log_row.md` — the numbers pre-filled, the two judgement columns left
+  as explicit TODO — which a human pastes in after writing the verdict. This
+  makes the log an output-contract file in practice, one more than the table
+  above lists.
+- The post-training path is exercised locally before it ever reaches a GPU:
+  `tests/_dryrun_phase01_outputs.py` calls the same `prepare()` and
+  `evaluate_and_write()` the driver calls, with mock predictions substituted for
+  the model, and asserts the structure of all five output files. Two modes:
+  `all_not` (degenerate — OFF-precision undefined, exercising the None-handling
+  path) and `random` (non-degenerate confusion matrices and CI spread). Every
+  artifact it writes is stamped `MOCK_RUN`, it writes only to a temp directory,
+  and `evaluate_and_write` refuses to write mock output into the canonical run
+  directory. The production CLI has no flag that reaches the mock path.

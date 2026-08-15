@@ -157,7 +157,229 @@ def sanity_gate(all_rows, lex_list):
     return block
 
 
-def main():
+def evaluate_and_write(*, dev_rows, dev_gold, dev_slices, dev_pred, p_off,
+                       kw, kw_pred, history, env, gate, checks, split_meta,
+                       split_path, train_sha, lex_sha, out_dir, ckpt_dir,
+                       args, started, mock_note=None):
+    """Everything after `predict()`: scoring, the gap CI, and the four output
+    files. Split out of main() so it can be exercised end to end with mock
+    predictions on a machine with no GPU -- see tests/_dryrun_phase01_outputs.py.
+    A KeyError in here should surface locally in seconds, not after a completed
+    Colab training run.
+
+    `mock_note` is set ONLY by the dry-run harness. It stamps every artifact as
+    fake and refuses to write into the canonical run directory. The production
+    CLI has no flag that reaches it: a fabrication path in the real driver is
+    exactly the kind of second source of truth the master brief forbids.
+    """
+    out_dir = Path(out_dir)
+    canonical = Path(config.RESULTS_DIR / RUN_ID).resolve()
+    if mock_note and out_dir.resolve() == canonical:
+        sys.exit(f"Refusing to write mock output into the canonical run directory {canonical}.")
+
+    overall = evaluate.score(dev_gold, dev_pred, n_boot=args.n_boot, seed=args.seed)
+    by_slice = evaluate.score_by_slice(dev_gold, dev_pred, dev_slices,
+                                       n_boot=args.n_boot, seed=args.seed)
+
+    hit_idx = [i for i, t in enumerate(dev_slices) if t == "lexicon_hit"]
+    free_idx = [i for i, t in enumerate(dev_slices) if t == "lexicon_free"]
+    gap = evaluate.bootstrap_gap_ci(
+        [dev_gold[i] for i in hit_idx], [dev_pred[i] for i in hit_idx],
+        [dev_gold[i] for i in free_idx], [dev_pred[i] for i in free_idx],
+        metric="off_recall", n_boot=args.n_boot, seed=args.seed,
+    )
+
+    def fmt(v, spec=".4f"):
+        """None means the metric is undefined on this slice -- print it as such
+        rather than crashing or, worse, printing 0.0000."""
+        return "undefined" if v is None else format(v, spec)
+
+    print("\n" + "=" * 68)
+    if mock_note:
+        print(f"*** MOCK RUN -- {mock_note} -- NUMBERS BELOW ARE NOT RESULTS ***")
+    print("RESULTS (dev split -- the official test set was NOT touched)")
+    print("=" * 68)
+    print(f"BERTurk overall : macro-F1 {fmt(overall['macro_f1'])}  "
+          f"OFF-P {fmt(overall['off_precision'])}  OFF-R {fmt(overall['off_recall'])}")
+    for tag in ("lexicon_hit", "lexicon_free"):
+        s = by_slice[tag]
+        ci = s["ci"]["off_recall"]
+        c = s["confusion"]
+        print(f"  {tag:<13}: n={s['n']:>5}  OFF n={s['support_off']:>4}  "
+              f"base rate {s['support_off'] / s['n']:.3f}  "
+              f"OFF-recall {fmt(s['off_recall'])} [{fmt(ci['ci_low'])}, {fmt(ci['ci_high'])}]")
+        print(f"                 counts tp={c['tp']} fn={c['fn']} fp={c['fp']} tn={c['tn']}")
+    print("  (Cross-slice comparison is OFF-recall only, by pre-registered constraint: the")
+    print("   base rates differ sharply, so a per-slice macro-F1 difference would be driven")
+    print("   by class balance. Raw counts are kept so later phases can recompute anything.)")
+    print(f"\nRECALL GAP (hit - free) : {fmt(gap['delta'], '+.4f')}   "
+          f"95% CI [{fmt(gap['ci_low'], '+.4f')}, {fmt(gap['ci_high'], '+.4f')}]   "
+          f"excludes zero: {gap['excludes_zero']}")
+    print("This is the pivotal number. Apply the pre-registered three-way decision rule in")
+    print("phases/01_baseline_diagnosis.md to it -- out loud, before anything else is built.")
+
+    # --- output contract ----------------------------------------------------
+    out_dir.mkdir(parents=True, exist_ok=True)
+
+    header = (
+        "NOTE (pre-registered constraint, phases/01_baseline_diagnosis.md):\n"
+        "The per-slice sections below are diagnostic, useful WITHIN a slice. Their F1 and\n"
+        "accuracy columns are NOT comparable ACROSS slices -- base rates are 57.8% OFF in\n"
+        "lexicon_hit vs 13.6% in lexicon_free, so a difference there reflects class balance,\n"
+        "not model behaviour. The only cross-slice comparison this project makes is\n"
+        "OFF-recall, which conditions on gold=OFF and is immune to base rate.\n"
+    )
+    if mock_note:
+        header = f"*** MOCK RUN -- {mock_note} -- NOT A RESULT ***\n\n" + header
+    report_lines = [
+        header + "=" * 78,
+        evaluate.sklearn_report(dev_gold, dev_pred, title="BERTurk -- dev, overall", strict=False),
+    ]
+    for tag in ("lexicon_hit", "lexicon_free"):
+        idx = hit_idx if tag == "lexicon_hit" else free_idx
+        report_lines.append(evaluate.sklearn_report(
+            [dev_gold[i] for i in idx], [dev_pred[i] for i in idx],
+            title=f"BERTurk -- dev, slice={tag} (n={len(idx)})", strict=False))
+    report_lines.append(evaluate.sklearn_report(
+        dev_gold, kw_pred, title="Keyword filter (frozen lexicon) -- dev, overall", strict=False))
+    (out_dir / "classification_report.txt").write_text(
+        "\n\n".join(report_lines), encoding="utf-8")
+
+    with open(out_dir / "dev_predictions.csv", "w", encoding="utf-8", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["row_id", "text", "gold", "pred", "confidence", "slice"])
+        for r, g, p, c, s in zip(dev_rows, dev_gold, dev_pred, p_off, dev_slices):
+            # confidence = softmax P(OFF); the failure analysis and the
+            # risk-coverage curve both read this column.
+            w.writerow([r["id"], r["text"], g, p, f"{c:.6f}", s])
+
+    def slice_block(tag):
+        """Per-slice block: OFF-recall (the only sanctioned cross-slice metric)
+        plus RAW COUNTS. The counts are primitives, not a comparison -- phase 4
+        needs false-positive behaviour inside lexicon_free to characterise the
+        deferral queue, and any later phase can recompute a metric from them
+        without re-running training."""
+        s = by_slice[tag]
+        return {
+            "n": s["n"],
+            "support_off": s["support_off"],
+            "support_not": s["support_not"],
+            "base_rate_off": s["support_off"] / s["n"] if s["n"] else None,
+            "off_recall": s["off_recall"],
+            "off_recall_ci": s["ci"]["off_recall"],
+            "confusion": s["confusion"],  # {tn, fp, fn, tp} -- gold OFF = tp+fn
+            "macro_f1": None,
+            "macro_f1_note": (
+                "omitted by pre-registered constraint -- not comparable across slices "
+                "(base rates 57.8% vs 13.6%); recompute from `confusion` if ever needed "
+                "WITHIN a slice"
+            ),
+        }
+
+    metrics = {
+        "run_id": RUN_ID,
+        "git_sha": git_sha(),
+        "sanity_gate": gate,
+        "keyword_filter": {
+            "macro_f1": kw["macro_f1"],
+            "off_recall": kw["off_recall"],
+            "off_precision": kw["off_precision"],
+            "confusion": kw["confusion"],
+            "ci": kw["ci"],
+            "note": "slice recalls are tautological (1.0 / 0.0) and deliberately not reported",
+        },
+        "berturk": {
+            "overall": {
+                "macro_f1": overall["macro_f1"],
+                "off_precision": overall["off_precision"],
+                "off_recall": overall["off_recall"],
+                "n": overall["n"],
+                "support_off": overall["support_off"],
+                "confusion": overall["confusion"],
+                "ci": overall["ci"],
+            },
+            "lexicon_hit": slice_block("lexicon_hit"),
+            "lexicon_free": slice_block("lexicon_free"),
+            "recall_gap": {
+                "delta": gap["delta"],
+                "ci_low": gap["ci_low"],
+                "ci_high": gap["ci_high"],
+                "excludes_zero": gap["excludes_zero"],
+                "method": gap["resampling"],
+                "n_boot": gap["n_boot"],
+            },
+        },
+        "training_history": history,
+        "decision_rule_applied": None,  # filled by a human, from the log entry
+    }
+    if mock_note:
+        metrics = {"MOCK_RUN": mock_note, **metrics}
+    with open(out_dir / "metrics.json", "w", encoding="utf-8") as f:
+        json.dump(metrics, f, ensure_ascii=False, indent=2)
+
+    run_config = {
+        "run_id": RUN_ID,
+        "git_sha": metrics["git_sha"],
+        "started_at": started.isoformat(timespec="seconds"),
+        "finished_at": datetime.now().isoformat(timespec="seconds"),
+        "env": config.ENV,
+        "paths": {"root": str(config.ROOT), "data": str(config.DATA_DIR),
+                  "results": str(out_dir), "checkpoints": str(ckpt_dir),
+                  "split_file": str(split_path)},
+        "hashes": {"train_sha256": train_sha, "lexicon_sha256": lex_sha,
+                   "dev_fingerprint": split_meta["dev_fingerprint"]},
+        "preconditions": checks,
+        "split": {k: split_meta[k] for k in
+                  ("seed", "dev_fraction", "counts", "reused_existing_file", "matches_regeneration")},
+        "model": args.model,
+        "hyperparams": {"epochs": args.epochs, "batch_size": args.batch_size, "lr": args.lr,
+                        "max_len": args.max_len, "seed": args.seed, "warmup_ratio": 0.1,
+                        "weight_decay": 0.01, "fp16": not args.no_fp16,
+                        "class_weighting": None, "threshold": 0.5},
+        "bootstrap": {"n_boot": args.n_boot, "alpha": 0.05, "seed": args.seed},
+        "environment": env,
+        "official_test_set_touched": False,
+    }
+    if mock_note:
+        run_config = {"MOCK_RUN": mock_note, **run_config}
+    with open(out_dir / "run_config.json", "w", encoding="utf-8") as f:
+        json.dump(run_config, f, ensure_ascii=False, indent=2)
+
+    # A ready-to-paste RESULTS_LOG row. The driver does NOT append to
+    # docs/RESULTS_LOG.md itself: two of that table's columns are Interpretation
+    # and Decision, and a script cannot honestly fill them. An auto-appended row
+    # with placeholder text in the project's engineering log is worse than no
+    # row -- so the numbers are pre-filled here and a human writes the judgement.
+    log_row = (
+        f"| {datetime.now().date().isoformat()} | Phase 01 {'MOCK' if mock_note else 'BERTurk baseline'} | "
+        f"`phase01_baseline.py --stage train` ({args.model}, seed {args.seed}, "
+        f"{args.epochs} epochs) | BERTurk dev macro-F1 {fmt(overall['macro_f1'])}, "
+        f"OFF-recall {fmt(overall['off_recall'])}. Slice OFF-recall: lexicon_hit "
+        f"{fmt(by_slice['lexicon_hit']['off_recall'])} (n OFF "
+        f"{by_slice['lexicon_hit']['support_off']}), lexicon_free "
+        f"{fmt(by_slice['lexicon_free']['off_recall'])} (n OFF "
+        f"{by_slice['lexicon_free']['support_off']}). **Gap {fmt(gap['delta'], '+.4f')} "
+        f"95% CI [{fmt(gap['ci_low'], '+.4f')}, {fmt(gap['ci_high'], '+.4f')}]**, "
+        f"excludes zero: {gap['excludes_zero']}. | _interpretation: TO BE WRITTEN BY A HUMAN_ "
+        f"| _decision: apply the three-way pre-registered rule_ |\n"
+    )
+    if mock_note:
+        log_row = f"<!-- MOCK RUN ({mock_note}) -- DO NOT PASTE INTO RESULTS_LOG.md -->\n" + log_row
+    (out_dir / "results_log_row.md").write_text(log_row, encoding="utf-8")
+
+    print(f"\nWritten -> {out_dir}")
+    for name in ("metrics.json", "classification_report.txt", "dev_predictions.csv",
+                 "run_config.json", "results_log_row.md"):
+        print(f"  {name}")
+    if mock_note:
+        print("\nMOCK RUN complete -- the code path executed; the numbers mean nothing.")
+    else:
+        print("\nNext: paste this output back, and paste results_log_row.md into")
+        print("docs/RESULTS_LOG.md once the interpretation and decision are written.")
+    return metrics
+
+
+def build_parser():
     ap = argparse.ArgumentParser()
     ap.add_argument("--stage", choices=["preflight", "train"], default="preflight",
                     help="preflight = no GPU, gates only; train = full run")
@@ -174,26 +396,22 @@ def main():
     ap.add_argument("--ckpt_dir", default=None)
     ap.add_argument("--force", action="store_true", help="allow overwriting existing result files")
     ap.add_argument("--allow_hash_mismatch", action="store_true")
-    args = ap.parse_args()
+    return ap
 
-    started = datetime.now()
-    out_dir = Path(args.out_dir or config.RESULTS_DIR / RUN_ID)
-    ckpt_dir = Path(args.ckpt_dir or config.CKPT_DIR / RUN_ID)
+
+def prepare(args):
+    """Everything both stages need: preconditions, corpus, sanity gate, split,
+    slice tags, keyword baseline. Returns a context dict.
+
+    Shared with the dry-run harness on purpose -- if the harness reimplemented
+    this setup it would be exercising a different pipeline than the real one.
+    """
     train_path = Path(config.COLTEKIN_TRAIN)
     lex_path = Path(config.LEXICON_PATH)
-
-    print(f"NSosyal B* -- phase 01 ({args.stage})")
-    print(f"env={config.ENV}  root={config.ROOT}")
-    print(f"data={config.DATA_DIR}\nout={out_dir}\nckpt={ckpt_dir}\n")
 
     if not train_path.exists():
         sys.exit(f"Training file not found: {train_path}\n"
                  "Raw data is gitignored -- mount/copy it, or set NSOSYAL_DATA.")
-
-    metrics_path = out_dir / "metrics.json"
-    if args.stage == "train" and metrics_path.exists() and not args.force:
-        sys.exit(f"Refusing to overwrite an existing result: {metrics_path}\n"
-                 "Use --out_dir for a new run, or --force if you really mean to replace it.")
 
     # --- preconditions -----------------------------------------------------
     checks, train_sha, lex_sha = check_preconditions(
@@ -244,6 +462,34 @@ def main():
     print("   lexicon_hit and NOT on lexicon_free BY DEFINITION, so its slice recalls are")
     print("   1.0 and 0.0 tautologically. Only the model's slice recalls carry information.)")
 
+    return {
+        "checks": checks, "train_sha": train_sha, "lex_sha": lex_sha,
+        "all_rows": all_rows, "lex_list": lex_list, "gate": gate,
+        "split_path": split_path, "split_meta": split_meta,
+        "train_rows": train_rows, "dev_rows": dev_rows,
+        "dev_gold": dev_gold, "dev_slices": dev_slices,
+        "kw": kw, "kw_pred": kw_pred,
+    }
+
+
+def main():
+    args = build_parser().parse_args()
+
+    started = datetime.now()
+    out_dir = Path(args.out_dir or config.RESULTS_DIR / RUN_ID)
+    ckpt_dir = Path(args.ckpt_dir or config.CKPT_DIR / RUN_ID)
+
+    print(f"NSosyal B* -- phase 01 ({args.stage})")
+    print(f"env={config.ENV}  root={config.ROOT}")
+    print(f"data={config.DATA_DIR}\nout={out_dir}\nckpt={ckpt_dir}\n")
+
+    metrics_path = out_dir / "metrics.json"
+    if args.stage == "train" and metrics_path.exists() and not args.force:
+        sys.exit(f"Refusing to overwrite an existing result: {metrics_path}\n"
+                 "Use --out_dir for a new run, or --force if you really mean to replace it.")
+
+    ctx = prepare(args)
+
     if args.stage == "preflight":
         print("\nPreflight complete. Gates passed, split fixed, matrix row 1 measured.")
         print("Nothing was written except the split file. Next: --stage train on the GPU box.")
@@ -260,165 +506,22 @@ def main():
           f"sklearn={env['scikit_learn']}  device={env['device_name']}")
 
     model, tokenizer, history = models.train(
-        train_rows, dev_rows, args.model, ckpt_dir,
+        ctx["train_rows"], ctx["dev_rows"], args.model, ckpt_dir,
         epochs=args.epochs, batch_size=args.batch_size, lr=args.lr,
         max_len=args.max_len, seed=args.seed, fp16=not args.no_fp16, resume=args.resume,
     )
 
     # --- S5: evaluate -------------------------------------------------------
-    dev_pred, p_off = models.predict(model, tokenizer, dev_rows, max_len=args.max_len)
+    dev_pred, p_off = models.predict(model, tokenizer, ctx["dev_rows"], max_len=args.max_len)
 
-    overall = evaluate.score(dev_gold, dev_pred, n_boot=args.n_boot, seed=args.seed)
-    by_slice = evaluate.score_by_slice(dev_gold, dev_pred, dev_slices,
-                                       n_boot=args.n_boot, seed=args.seed)
-
-    hit_idx = [i for i, t in enumerate(dev_slices) if t == "lexicon_hit"]
-    free_idx = [i for i, t in enumerate(dev_slices) if t == "lexicon_free"]
-    gap = evaluate.bootstrap_gap_ci(
-        [dev_gold[i] for i in hit_idx], [dev_pred[i] for i in hit_idx],
-        [dev_gold[i] for i in free_idx], [dev_pred[i] for i in free_idx],
-        metric="off_recall", n_boot=args.n_boot, seed=args.seed,
+    evaluate_and_write(
+        dev_rows=ctx["dev_rows"], dev_gold=ctx["dev_gold"], dev_slices=ctx["dev_slices"],
+        dev_pred=dev_pred, p_off=p_off, kw=ctx["kw"], kw_pred=ctx["kw_pred"],
+        history=history, env=env, gate=ctx["gate"], checks=ctx["checks"],
+        split_meta=ctx["split_meta"], split_path=ctx["split_path"],
+        train_sha=ctx["train_sha"], lex_sha=ctx["lex_sha"],
+        out_dir=out_dir, ckpt_dir=ckpt_dir, args=args, started=started,
     )
-
-    print("\n" + "=" * 68)
-    print("RESULTS (dev split -- the official test set was NOT touched)")
-    print("=" * 68)
-    print(f"BERTurk overall : macro-F1 {overall['macro_f1']:.4f}  "
-          f"OFF-P {overall['off_precision']:.4f}  OFF-R {overall['off_recall']:.4f}")
-    for tag in ("lexicon_hit", "lexicon_free"):
-        s = by_slice[tag]
-        ci = s["ci"]["off_recall"]
-        print(f"  {tag:<13}: n={s['n']:>5}  OFF n={s['support_off']:>4}  "
-              f"base rate {s['support_off'] / s['n']:.3f}  "
-              f"OFF-recall {s['off_recall']:.4f} [{ci['ci_low']:.4f}, {ci['ci_high']:.4f}]")
-    print("  (OFF-recall only, by pre-registered constraint: the slices' base rates differ")
-    print("   sharply, so a per-slice macro-F1 difference would be driven by class balance.)")
-    print(f"\nRECALL GAP (hit - free) : {gap['delta']:+.4f}   "
-          f"95% CI [{gap['ci_low']:+.4f}, {gap['ci_high']:+.4f}]   "
-          f"excludes zero: {gap['excludes_zero']}")
-    print("This is the pivotal number. Apply the pre-registered decision rule in")
-    print("phases/01_baseline_diagnosis.md to it -- out loud, before anything else is built.")
-
-    # --- output contract ----------------------------------------------------
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    report_lines = [
-        "NOTE (pre-registered constraint, phases/01_baseline_diagnosis.md):\n"
-        "The per-slice sections below are diagnostic, useful WITHIN a slice. Their F1 and\n"
-        "accuracy columns are NOT comparable ACROSS slices -- base rates are 57.8% OFF in\n"
-        "lexicon_hit vs 13.6% in lexicon_free, so a difference there reflects class balance,\n"
-        "not model behaviour. The only cross-slice comparison this project makes is\n"
-        "OFF-recall, which conditions on gold=OFF and is immune to base rate.\n"
-        + "=" * 78,
-        evaluate.sklearn_report(dev_gold, dev_pred, title="BERTurk -- dev, overall", strict=False),
-    ]
-    for tag in ("lexicon_hit", "lexicon_free"):
-        idx = hit_idx if tag == "lexicon_hit" else free_idx
-        report_lines.append(evaluate.sklearn_report(
-            [dev_gold[i] for i in idx], [dev_pred[i] for i in idx],
-            title=f"BERTurk -- dev, slice={tag} (n={len(idx)})", strict=False))
-    report_lines.append(evaluate.sklearn_report(
-        dev_gold, kw_pred, title="Keyword filter (frozen lexicon) -- dev, overall", strict=False))
-    (out_dir / "classification_report.txt").write_text(
-        "\n\n".join(report_lines), encoding="utf-8")
-
-    with open(out_dir / "dev_predictions.csv", "w", encoding="utf-8", newline="") as f:
-        w = csv.writer(f)
-        w.writerow(["row_id", "text", "gold", "pred", "confidence", "slice"])
-        for r, g, p, c, s in zip(dev_rows, dev_gold, dev_pred, p_off, dev_slices):
-            # confidence = softmax P(OFF); the failure analysis and the
-            # risk-coverage curve both read this column.
-            w.writerow([r["id"], r["text"], g, p, f"{c:.6f}", s])
-
-    metrics = {
-        "run_id": RUN_ID,
-        "git_sha": git_sha(),
-        "sanity_gate": gate,
-        "keyword_filter": {
-            "macro_f1": kw["macro_f1"],
-            "off_recall": kw["off_recall"],
-            "off_precision": kw["off_precision"],
-            "ci": kw["ci"],
-            "note": "slice recalls are tautological (1.0 / 0.0) and deliberately not reported",
-        },
-        "berturk": {
-            "overall": {
-                "macro_f1": overall["macro_f1"],
-                "off_precision": overall["off_precision"],
-                "off_recall": overall["off_recall"],
-                "n": overall["n"],
-                "support_off": overall["support_off"],
-                "confusion": overall["confusion"],
-                "ci": overall["ci"],
-            },
-            # Pre-registered constraint (phases/01_baseline_diagnosis.md): the
-            # per-slice comparison is OFF-recall ONLY. Base rates are 57.8% OFF
-            # in lexicon_hit vs 13.6% in lexicon_free, so a per-slice macro-F1
-            # difference would report class balance as if it were model
-            # behaviour. macro_f1 is therefore deliberately absent here.
-            "lexicon_hit": {
-                "n": by_slice["lexicon_hit"]["n"],
-                "support_off": by_slice["lexicon_hit"]["support_off"],
-                "base_rate_off": by_slice["lexicon_hit"]["support_off"] / by_slice["lexicon_hit"]["n"],
-                "off_recall": by_slice["lexicon_hit"]["off_recall"],
-                "off_recall_ci": by_slice["lexicon_hit"]["ci"]["off_recall"],
-                "macro_f1": None,
-                "macro_f1_note": "omitted by pre-registered constraint -- not comparable across slices",
-            },
-            "lexicon_free": {
-                "n": by_slice["lexicon_free"]["n"],
-                "support_off": by_slice["lexicon_free"]["support_off"],
-                "base_rate_off": by_slice["lexicon_free"]["support_off"] / by_slice["lexicon_free"]["n"],
-                "off_recall": by_slice["lexicon_free"]["off_recall"],
-                "off_recall_ci": by_slice["lexicon_free"]["ci"]["off_recall"],
-                "macro_f1": None,
-                "macro_f1_note": "omitted by pre-registered constraint -- not comparable across slices",
-            },
-            "recall_gap": {
-                "delta": gap["delta"],
-                "ci_low": gap["ci_low"],
-                "ci_high": gap["ci_high"],
-                "excludes_zero": gap["excludes_zero"],
-                "method": gap["resampling"],
-                "n_boot": gap["n_boot"],
-            },
-        },
-        "training_history": history,
-        "decision_rule_applied": None,  # filled by a human, from the log entry
-    }
-    with open(metrics_path, "w", encoding="utf-8") as f:
-        json.dump(metrics, f, ensure_ascii=False, indent=2)
-
-    run_config = {
-        "run_id": RUN_ID,
-        "git_sha": metrics["git_sha"],
-        "started_at": started.isoformat(timespec="seconds"),
-        "finished_at": datetime.now().isoformat(timespec="seconds"),
-        "env": config.ENV,
-        "paths": {"root": str(config.ROOT), "data": str(config.DATA_DIR),
-                  "results": str(out_dir), "checkpoints": str(ckpt_dir),
-                  "split_file": str(split_path)},
-        "hashes": {"train_sha256": train_sha, "lexicon_sha256": lex_sha,
-                   "dev_fingerprint": split_meta["dev_fingerprint"]},
-        "preconditions": checks,
-        "split": {k: split_meta[k] for k in
-                  ("seed", "dev_fraction", "counts", "reused_existing_file", "matches_regeneration")},
-        "model": args.model,
-        "hyperparams": {"epochs": args.epochs, "batch_size": args.batch_size, "lr": args.lr,
-                        "max_len": args.max_len, "seed": args.seed, "warmup_ratio": 0.1,
-                        "weight_decay": 0.01, "fp16": not args.no_fp16,
-                        "class_weighting": None, "threshold": 0.5},
-        "bootstrap": {"n_boot": args.n_boot, "alpha": 0.05, "seed": args.seed},
-        "environment": env,
-        "official_test_set_touched": False,
-    }
-    with open(out_dir / "run_config.json", "w", encoding="utf-8") as f:
-        json.dump(run_config, f, ensure_ascii=False, indent=2)
-
-    print(f"\nWritten -> {out_dir}")
-    for name in ("metrics.json", "classification_report.txt", "dev_predictions.csv", "run_config.json"):
-        print(f"  {name}")
-    print("\nNext: paste this output back. The decision rule is applied before phase 2 opens.")
 
 
 if __name__ == "__main__":
