@@ -21,7 +21,7 @@ functional evasion text.
 | Step | State |
 |---|---|
 | Day 1 — data loading + lexicon freeze + go/no-go gate | ✅ done, `results/day1_report.json` |
-| Phase 0 — private GitHub remote + Colab clone | ⛔ blocked: no remote exists yet |
+| Phase 0 — private GitHub remote + Colab clone | remote ✅ `MusaabAlt/nsosyal-bstar` (private, verified 404 unauthenticated); Colab clone not yet exercised |
 | Phase 1 — [baseline diagnosis](phases/01_baseline_diagnosis.md) | preflight ✅ (split + sanity gate + keyword row); BERTurk training not yet run |
 | Phase 2 — failure analysis + defense design | not started |
 | Phase 3 — obfuscation families + cross-corpus (Mayda, Beyhan) | not started |
