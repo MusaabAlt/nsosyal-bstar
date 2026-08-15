@@ -37,7 +37,7 @@ Colab Secrets as `GH_TOKEN`; do not paste it into a cell.
 from google.colab import userdata
 import os, subprocess
 TOKEN = userdata.get('GH_TOKEN')
-USER, REPO = 'realoab', 'nsosyal-bstar'          # <-- set to the real values
+USER, REPO = 'MusaabAlt', 'nsosyal-bstar'
 !rm -rf /content/nsosyal-bstar
 subprocess.run(['git', 'clone',
                 f'https://{TOKEN}@github.com/{USER}/{REPO}.git',
