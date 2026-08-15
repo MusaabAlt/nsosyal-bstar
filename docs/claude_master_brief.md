@@ -137,7 +137,9 @@ directly and explain what is missing.
 
 ## 6. Environment reminder
 
-Training runs happen on Kaggle Notebooks (free GPU). You cannot execute code
+Training runs happen on Colab Pro+ (decided 15 Aug 2026; this line originally
+said Kaggle Notebooks — corrected so the repo has one source of truth, per
+phase 01 precondition 3). You cannot execute code
 yourself — you write it, the user runs it and pastes back real output. Do not
 write code assuming a specific pre-existing file layout without first asking
 the user to confirm paths, since their local/Kaggle directory structure has

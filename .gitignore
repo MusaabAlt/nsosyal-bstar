@@ -12,6 +12,11 @@ __pycache__/
 data/**
 !data/**/
 !data/**/.gitkeep
+# Exception: the train/dev split file. It holds row ids only -- no corpus text,
+# so no licensing issue -- and phase 01 S1 requires the dev set to be identical
+# across every row of the comparison matrix. Committing it makes that auditable
+# instead of merely reproducible.
+!data/splits/*.json
 
 # --- results: summary JSON/CSV are committed evidence, everything else is not ---
 results/**

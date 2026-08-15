@@ -21,11 +21,13 @@ functional evasion text.
 | Step | State |
 |---|---|
 | Day 1 — data loading + lexicon freeze + go/no-go gate | ✅ done, `results/day1_report.json` |
-| Day 2 — BERTurk / ConvBERTurk baselines + failure analysis | not started |
-| Defense design (obfuscation + implicit) | not started |
-| Cross-corpus (Mayda, Beyhan) | not started |
-| Calibration + risk–coverage | not started |
-| Official Çöltekin test run (once, at the end) | not started |
+| Phase 0 — private GitHub remote + Colab clone | ⛔ blocked: no remote exists yet |
+| Phase 1 — [baseline diagnosis](phases/01_baseline_diagnosis.md) | preflight ✅ (split + sanity gate + keyword row); BERTurk training not yet run |
+| Phase 2 — failure analysis + defense design | not started |
+| Phase 3 — obfuscation families + cross-corpus (Mayda, Beyhan) | not started |
+| Phase 4 — calibration + risk–coverage | not started |
+| Phase 5 — official Çöltekin test run (once) + offline demo | not started |
+| ConvBERTurk | cut; reinstated only if phase 4 finishes early |
 
 Day 1 headline: **3,892 of 6,131 OFF tweets (63%) evade a 695-word lexicon**
 even with agglutination-aware root matching.

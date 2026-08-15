@@ -188,9 +188,11 @@ Turkish operational synthesis:
 
 ## 11. Environment
 
-- **Compute:** Kaggle Notebooks (free GPU, ~30h/week, more stable than free Colab).
-  BERT-base fine-tuning on ~30K examples is a light job (minutes on a T4). Checkpoint
-  everything — free sessions can drop.
+- **Compute: Colab Pro+** — decided 15 Aug 2026 (phase 01 precondition 3). This
+  supersedes the earlier Kaggle Notebooks plan; `NSOSYAL_ENV=colab`. BERT-base
+  fine-tuning on ~30K examples is a light job (minutes on an A100/T4). Checkpoint
+  everything — a session can still drop, and `/content` is wiped when it does, so
+  point `NSOSYAL_RESULTS` and `NSOSYAL_CKPT` at Drive.
 - **Stack:** `transformers`, `datasets`, `torch`, `scikit-learn`.
 - `max_len=128`, fixed seed (42), stratified split, `fp16` when GPU available.
 

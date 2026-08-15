@@ -11,6 +11,9 @@ NSOSYAL_ROOT  overrides the repo root entirely (useful when the repo is cloned
               somewhere unexpected)
 NSOSYAL_DATA  overrides only the data directory, e.g. when raw files live in
               Drive / a Kaggle input mount while the code lives elsewhere
+NSOSYAL_RESULTS  overrides the results directory (point it at Drive on Colab --
+              /content is wiped when the session ends)
+NSOSYAL_CKPT  overrides the checkpoint directory (same reason)
 
 Set these BEFORE importing config:
 
@@ -35,8 +38,14 @@ else:
 # Raw data is gitignored, so on a cloned checkout it has to be mounted or
 # copied in. NSOSYAL_DATA lets that happen without touching any code.
 DATA_DIR = Path(os.getenv("NSOSYAL_DATA", ROOT / "data"))
-RESULTS_DIR = ROOT / "results"
+# On Colab the repo clone lives in /content, which is wiped when the session
+# ends -- results and checkpoints must be able to point at Drive instead.
+RESULTS_DIR = Path(os.getenv("NSOSYAL_RESULTS", ROOT / "results"))
 DOCS_DIR = ROOT / "docs"
+# Model checkpoints. Gitignored (see .gitignore): they are reproducible from a
+# seed + a results file, and a free Kaggle/Colab session can drop mid-run, so
+# this directory is what makes a run resumable rather than restartable.
+CKPT_DIR = Path(os.getenv("NSOSYAL_CKPT", ROOT / "checkpoints"))
 
 # --- Çöltekin / OffensEval-2020 TR ------------------------------------------
 COLTEKIN_DIR = DATA_DIR / "coltekin"
@@ -50,6 +59,13 @@ BEYHAN_DIR = DATA_DIR / "beyhan"
 
 # --- frozen lexicon (Day 1) --------------------------------------------------
 LEXICON_PATH = DATA_DIR / "lexicon" / "karaliste.txt"
+
+# --- train/dev split (phase 01 S1) -------------------------------------------
+# Deliberately ROOT-relative, not DATA_DIR-relative: the split file holds row
+# ids only, it is committed to the repo (see .gitignore), and it must travel
+# with the code so a Colab clone reuses the exact same dev set instead of
+# regenerating one. Raw corpora move; the split must not.
+SPLITS_DIR = Path(os.getenv("NSOSYAL_SPLITS", ROOT / "data" / "splits"))
 
 # --- experiment constants ----------------------------------------------------
 SEED = 42

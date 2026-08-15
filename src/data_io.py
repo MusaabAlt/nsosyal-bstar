@@ -19,7 +19,8 @@ Traps this module exists to prevent
 """
 
 import hashlib
-from collections import Counter
+import random
+from collections import Counter, defaultdict
 from pathlib import Path
 
 # --------------------------------------------------------------------------
@@ -143,6 +144,178 @@ def assert_binary_labels(rows):
             "Stop and fix before continuing; do not filter these rows away."
         )
     return dict(dist)
+
+
+# --------------------------------------------------------------------------
+# train / dev split  (briefing S5: 85/15 stratified, error analysis on dev only)
+# --------------------------------------------------------------------------
+
+
+def stratified_split(rows, dev_fraction=None, seed=None):
+    """Deterministic label-stratified split of the Çöltekin training corpus.
+
+    Returns (train_rows, dev_rows).
+
+    Two properties matter more than the split itself:
+
+    * **Order independence.** Rows are sorted by id inside each label bucket
+      before shuffling, so the split does not depend on the order the file
+      happened to be read in. A future reader change cannot silently move
+      examples between train and dev.
+    * **Reproducibility across steps.** BERTurk, ConvBERTurk, the defense and
+      the calibration layer must all be measured on the *same* dev set, or the
+      comparison matrix (briefing S8) compares systems on different data. The
+      seed is fixed and `dev_fingerprint()` lets every result file prove which
+      dev set it used.
+
+    Per-class dev size is round(n_class * dev_fraction), so the OFF rate of the
+    dev set matches the corpus to within one example per class.
+    """
+    import config
+
+    dev_fraction = config.DEV_FRACTION if dev_fraction is None else dev_fraction
+    seed = config.SEED if seed is None else seed
+    if not 0.0 < dev_fraction < 1.0:
+        raise ValueError(f"dev_fraction must be in (0, 1), got {dev_fraction!r}")
+
+    buckets = defaultdict(list)
+    for r in rows:
+        buckets[r["label"]].append(r)
+
+    rng = random.Random(seed)
+    train_rows, dev_rows = [], []
+    for label in sorted(buckets):  # sorted -> label iteration order is fixed
+        bucket = sorted(buckets[label], key=lambda r: str(r["id"]))
+        rng.shuffle(bucket)
+        n_dev = int(round(len(bucket) * dev_fraction))
+        dev_rows.extend(bucket[:n_dev])
+        train_rows.extend(bucket[n_dev:])
+
+    return train_rows, dev_rows
+
+
+def dev_fingerprint(dev_rows):
+    """sha256 over the sorted dev ids -- the identity of a dev set.
+
+    Recorded in every result file. If two result files disagree, this says
+    immediately whether they were even measured on the same examples.
+    """
+    ids = sorted(str(r["id"]) for r in dev_rows)
+    if len(set(ids)) != len(ids):
+        raise ValueError(
+            "Duplicate ids in the dev split -- the corpus has non-unique ids, so a "
+            "fingerprint cannot identify the split. Investigate before trusting any "
+            "number measured on it."
+        )
+    return hashlib.sha256("\n".join(ids).encode("utf-8")).hexdigest()
+
+
+# --------------------------------------------------------------------------
+# the split as a FILE: generated once, then loaded and verified forever after
+# --------------------------------------------------------------------------
+#
+# Phase 1 S1: "The dev set must be byte-identical across all four rows of the
+# Section 8 comparison matrix -- regenerating it per run is how a matrix quietly
+# stops comparing like with like."
+#
+# So the file on disk is authoritative, not the algorithm. `stratified_split()`
+# is only ever used to CREATE it. On every later run the file is loaded and
+# checked against the corpus fingerprint, and we additionally record whether a
+# fresh deterministic split would still reproduce it -- a drift detector, not an
+# override: a mismatch is reported, never silently corrected.
+
+
+def save_split(path, all_rows, train_rows, dev_rows, train_sha256, seed, dev_fraction):
+    """Persist a split as ids (authoritative) + positional indices (convenience)."""
+    import json
+    from datetime import datetime
+
+    index_of = {str(r["id"]): i for i, r in enumerate(all_rows)}
+    payload = {
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+        "seed": seed,
+        "dev_fraction": dev_fraction,
+        "train_sha256": train_sha256,
+        "n_rows": len(all_rows),
+        "dev_fingerprint": dev_fingerprint(dev_rows),
+        "counts": {
+            "train": dict(Counter(r["label"] for r in train_rows)),
+            "dev": dict(Counter(r["label"] for r in dev_rows)),
+        },
+        "train_ids": [str(r["id"]) for r in train_rows],
+        "dev_ids": [str(r["id"]) for r in dev_rows],
+        "train_indices": [index_of[str(r["id"])] for r in train_rows],
+        "dev_indices": [index_of[str(r["id"])] for r in dev_rows],
+    }
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(payload, f, indent=2)
+    return payload
+
+
+def load_split(path, all_rows, train_sha256=None):
+    """Load a saved split and verify it still describes THIS corpus.
+
+    Raises if the corpus fingerprint changed, if any saved id is missing, or if
+    train/dev overlap. Returns (train_rows, dev_rows, meta).
+    """
+    import json
+
+    meta = json.loads(Path(path).read_text(encoding="utf-8"))
+    if train_sha256 is not None and meta.get("train_sha256") != train_sha256:
+        raise ValueError(
+            f"Split file {path} was built from a different corpus.\n"
+            f"  split file : {meta.get('train_sha256')}\n"
+            f"  corpus now : {train_sha256}\n"
+            "Every number measured against this split would be measured on different "
+            "data than the one it claims. Regenerate deliberately, do not ignore."
+        )
+
+    by_id = {str(r["id"]): r for r in all_rows}
+    missing = [i for i in meta["train_ids"] + meta["dev_ids"] if i not in by_id]
+    if missing:
+        raise ValueError(
+            f"{len(missing)} ids in {path} are not in the corpus (first: {missing[:5]})."
+        )
+    overlap = set(meta["train_ids"]) & set(meta["dev_ids"])
+    if overlap:
+        raise ValueError(
+            f"Split file leaks {len(overlap)} ids into both train and dev "
+            f"(first: {sorted(overlap)[:5]}). Every dev number would be train accuracy."
+        )
+
+    train_rows = [by_id[i] for i in meta["train_ids"]]
+    dev_rows = [by_id[i] for i in meta["dev_ids"]]
+    return train_rows, dev_rows, meta
+
+
+def get_split(all_rows, path, train_sha256, seed=None, dev_fraction=None):
+    """The only split entry point callers should use.
+
+    Creates the split file on first use, loads and verifies it thereafter.
+    Returns (train_rows, dev_rows, meta) where meta["reused_existing_file"] and
+    meta["matches_regeneration"] record how the split was obtained -- both go
+    into the result file so a reader can tell.
+    """
+    import config
+
+    seed = config.SEED if seed is None else seed
+    dev_fraction = config.DEV_FRACTION if dev_fraction is None else dev_fraction
+    path = Path(path)
+
+    if not path.exists():
+        train_rows, dev_rows = stratified_split(all_rows, dev_fraction, seed)
+        meta = save_split(path, all_rows, train_rows, dev_rows, train_sha256, seed, dev_fraction)
+        meta["reused_existing_file"] = False
+        meta["matches_regeneration"] = True
+        return train_rows, dev_rows, meta
+
+    train_rows, dev_rows, meta = load_split(path, all_rows, train_sha256)
+    _, fresh_dev = stratified_split(all_rows, meta["dev_fraction"], meta["seed"])
+    meta["reused_existing_file"] = True
+    meta["matches_regeneration"] = dev_fingerprint(fresh_dev) == meta["dev_fingerprint"]
+    return train_rows, dev_rows, meta
 
 
 # --------------------------------------------------------------------------
