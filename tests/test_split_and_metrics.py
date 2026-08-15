@@ -182,6 +182,59 @@ def test_tag_slices_uses_the_frozen_root_matcher(tmp_path):
     assert evaluate.tag_slices(rows, lex) == ["lexicon_hit", "lexicon_free"]
 
 
+# --------------------------------------------------------------------------
+# the Drive mirror: a completed run only, never mock or partial output
+# --------------------------------------------------------------------------
+
+
+def _fake_run_dir(tmp_path, name="run", mock=False):
+    d = tmp_path / name
+    d.mkdir()
+    payload = {"run_id": "01_baseline_berturk", "berturk": {}}
+    if mock:
+        payload = {"MOCK_RUN": "fabricated", **payload}
+    (d / "metrics.json").write_text(json.dumps(payload), encoding="utf-8")
+    (d / "classification_report.txt").write_text("report body", encoding="utf-8")
+    (d / "results_log_row.md").write_text("| row |\n", encoding="utf-8")
+    return d
+
+
+def test_mirror_copies_every_file_and_verifies_it(tmp_path):
+    import phase01_baseline as drv
+
+    src = _fake_run_dir(tmp_path)
+    dst = tmp_path / "drive" / "01_baseline_berturk"
+
+    copied = drv.mirror_outputs(src, dst)
+
+    assert {n for n, _ in copied} == {"metrics.json", "classification_report.txt",
+                                      "results_log_row.md"}
+    for name, size in copied:
+        assert (dst / name).exists()
+        assert (dst / name).stat().st_size == size == (src / name).stat().st_size
+
+
+def test_mirror_refuses_mock_output(tmp_path):
+    """Mock numbers reaching Drive would look exactly like results."""
+    import phase01_baseline as drv
+
+    src = _fake_run_dir(tmp_path, mock=True)
+    with pytest.raises(SystemExit, match="MOCK"):
+        drv.mirror_outputs(src, tmp_path / "drive")
+    assert not (tmp_path / "drive").exists(), "nothing may be written before the check"
+
+
+def test_mirror_refuses_an_incomplete_run(tmp_path):
+    import phase01_baseline as drv
+
+    src = tmp_path / "partial"
+    src.mkdir()
+    (src / "classification_report.txt").write_text("half a run", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="did not complete"):
+        drv.mirror_outputs(src, tmp_path / "drive")
+
+
 def test_score_by_slice_partitions_the_rows():
     y_true = ["OFF", "OFF", "NOT", "NOT"]
     y_pred = ["OFF", "NOT", "NOT", "NOT"]

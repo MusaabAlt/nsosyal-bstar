@@ -84,7 +84,8 @@ re-running training to recover them would waste a day.
 
 ## Output contract
 
-Write to `<DRIVE>/nsosyal-bstar/results/01_baseline_berturk/`:
+Write to `<REPO>/results/01_baseline_berturk/` (canonical), then mirror to
+`/content/drive/MyDrive/nsosyal-bstar/results/01_baseline_berturk/`:
 
 | File | Contents |
 |---|---|
@@ -92,6 +93,11 @@ Write to `<DRIVE>/nsosyal-bstar/results/01_baseline_berturk/`:
 | `classification_report.txt` | sklearn report, overall + per slice |
 | `dev_predictions.csv` | `row_id, text, gold, pred, confidence, slice` |
 | `run_config.json` | seeds, hashes, model string, hyperparams, git SHA, timestamp |
+| `results_log_row.md` | pre-filled `RESULTS_LOG.md` row, Interpretation and Decision left as TODO |
+
+Five files, not four: `results_log_row.md` exists because the driver does not
+append to `docs/RESULTS_LOG.md` itself — Interpretation and Decision must be
+written by a person who read the numbers (see the implementation notes).
 
 `metrics.json` schema:
 
@@ -233,3 +239,20 @@ way nobody notices until the report is being written.
   artifact it writes is stamped `MOCK_RUN`, it writes only to a temp directory,
   and `evaluate_and_write` refuses to write mock output into the canonical run
   directory. The production CLI has no flag that reaches the mock path.
+- **Any number printed by the dry-run harness is mock output with no
+  interpretive value.** Its predictions are fabricated coin flips (or a constant
+  NOT), so its macro-F1, slice recalls, confusion counts and recall gap describe
+  nothing but the harness itself. They exist to prove the code path executes.
+  They are not results, they must never be quoted in the report or the results
+  log, and the pre-registered decision rule must never be applied to them. Only
+  output from a real `--stage train` run on the real model is a result.
+- **Drive is a mirror, never the source of truth.** A completed run writes to
+  `<REPO>/results/01_baseline_berturk/`, which is the canonical copy and the one
+  that gets committed; `--mirror_dir` then copies those files to Drive so they
+  survive the session being wiped. Consequences, deliberately: `NSOSYAL_RESULTS`
+  points at the repo clone, not at Drive; the mirror runs only after the run
+  succeeds, so partial output cannot be mirrored; and the mirror refuses to copy
+  anything stamped `MOCK_RUN`. Checkpoints are the one thing that stays on Drive
+  (`NSOSYAL_CKPT`) — they are not results, they are gitignored, and `--resume`
+  needs them to outlive a dropped session. The split file and all data paths are
+  unaffected: the split stays ROOT-relative in git.

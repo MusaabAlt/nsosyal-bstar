@@ -29,12 +29,18 @@ stays armed and unused (briefing S7.2).
 
 Inputs  : config.COLTEKIN_TRAIN, config.LEXICON_PATH
 Outputs : <RESULTS_DIR>/01_baseline_berturk/{metrics.json,
-          classification_report.txt, dev_predictions.csv, run_config.json}
+          classification_report.txt, dev_predictions.csv, run_config.json,
+          results_log_row.md} -- five files. results_log_row.md is a
+          ready-to-paste RESULTS_LOG row with the two judgement columns left
+          as TODO; the driver deliberately does not append to the log itself.
+          With --mirror_dir, those files are copied to Drive after a
+          successful run. The repo copy stays canonical.
 """
 
 import argparse
 import csv
 import json
+import shutil
 import subprocess
 import sys
 from datetime import datetime
@@ -155,6 +161,44 @@ def sanity_gate(all_rows, lex_list):
         )
     print("  [PASS] tagger matches the frozen record")
     return block
+
+
+def mirror_outputs(out_dir, mirror_dir):
+    """Copy a COMPLETED run's outputs to Drive.
+
+    The repo copy stays canonical and is the one that gets committed; Drive is a
+    durable mirror, because /content is wiped when the Colab session ends. Never
+    the reverse -- nothing in this project reads results back from Drive.
+
+    Called only after `evaluate_and_write` returns, so partial output cannot be
+    mirrored, and it refuses anything stamped MOCK_RUN. (The dry-run harness
+    calls `evaluate_and_write` directly and never reaches main(), so mock output
+    has no path here at all; this check is the second lock on that door.)
+    """
+    out_dir, mirror_dir = Path(out_dir), Path(mirror_dir)
+    metrics_file = out_dir / "metrics.json"
+    if not metrics_file.exists():
+        sys.exit(f"Refusing to mirror: {metrics_file} does not exist, so the run did not complete.")
+    if "MOCK_RUN" in json.loads(metrics_file.read_text(encoding="utf-8")):
+        sys.exit("Refusing to mirror MOCK output. Mock numbers are not results.")
+
+    mirror_dir.mkdir(parents=True, exist_ok=True)
+    copied = []
+    for src in sorted(p for p in out_dir.iterdir() if p.is_file()):
+        dst = mirror_dir / src.name
+        shutil.copy2(src, dst)
+        if not dst.exists() or dst.stat().st_size != src.stat().st_size:
+            sys.exit(f"Mirror verification FAILED for {src.name} -- sizes differ or file missing.")
+        copied.append((src.name, dst.stat().st_size))
+
+    print("\n" + "=" * 68)
+    print(f"MIRRORED TO DRIVE -> {mirror_dir}")
+    print("=" * 68)
+    for name, size in copied:
+        print(f"  {name:<28} {size:>12,} bytes")
+    print(f"  {len(copied)} file(s), verified by size after copy.")
+    print("  The repo copy remains canonical and is the one to commit; this is a mirror.")
+    return copied
 
 
 def evaluate_and_write(*, dev_rows, dev_gold, dev_slices, dev_pred, p_off,
@@ -396,6 +440,9 @@ def build_parser():
     ap.add_argument("--ckpt_dir", default=None)
     ap.add_argument("--force", action="store_true", help="allow overwriting existing result files")
     ap.add_argument("--allow_hash_mismatch", action="store_true")
+    ap.add_argument("--mirror_dir", default=None,
+                    help="after a SUCCESSFUL run, copy the output files here "
+                         "(e.g. the mounted Drive path). The repo copy stays canonical.")
     return ap
 
 
@@ -522,6 +569,11 @@ def main():
         train_sha=ctx["train_sha"], lex_sha=ctx["lex_sha"],
         out_dir=out_dir, ckpt_dir=ckpt_dir, args=args, started=started,
     )
+
+    # Only reached if the whole run above succeeded -- partial output never
+    # gets mirrored.
+    if args.mirror_dir:
+        mirror_outputs(out_dir, Path(args.mirror_dir))
 
 
 if __name__ == "__main__":

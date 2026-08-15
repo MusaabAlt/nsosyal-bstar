@@ -45,17 +45,25 @@ subprocess.run(['git', 'clone',
 !git -C /content/nsosyal-bstar log --oneline -1
 ```
 
-**Cell 4 — environment.** These four variables are the entire Colab-specific
+**Cell 4 — environment.** These variables are the entire Colab-specific
 configuration. Set them *before* importing anything from the repo.
+
+Note what is **not** here: `NSOSYAL_RESULTS` points at the repo clone, not at
+Drive. The repo copy of a result is canonical and is what gets committed; Drive
+is a mirror written after the run succeeds (cell 6). Checkpoints are the
+exception and do live on Drive — they are not results, they are gitignored, and
+`--resume` needs them to outlive a dropped session. The split file is untouched
+by any of this: it stays ROOT-relative, inside the clone, in git.
 
 ```python
 import os
 DRIVE = '/content/drive/MyDrive/nsosyal-bstar'
+REPO  = '/content/nsosyal-bstar'
 os.environ['NSOSYAL_ENV']     = 'colab'
-os.environ['NSOSYAL_ROOT']    = '/content/nsosyal-bstar'
-os.environ['NSOSYAL_DATA']    = f'{DRIVE}/data'
-os.environ['NSOSYAL_RESULTS'] = f'{DRIVE}/results'
-os.environ['NSOSYAL_CKPT']    = f'{DRIVE}/checkpoints'
+os.environ['NSOSYAL_ROOT']    = REPO
+os.environ['NSOSYAL_DATA']    = f'{DRIVE}/data'       # raw corpora live on Drive
+os.environ['NSOSYAL_RESULTS'] = f'{REPO}/results'     # canonical; mirrored to Drive after the run
+os.environ['NSOSYAL_CKPT']    = f'{DRIVE}/checkpoints'  # must survive a dropped session
 !pip -q install -U "transformers>=4.40"
 ```
 
@@ -72,17 +80,23 @@ Expected (must match the local run exactly, or the environments disagree):
 dev fingerprint starting `034415af3a23b388`, and the split **loaded from** the
 committed file rather than created.
 
-**Cell 6 — train + evaluate.** Writes the four output-contract files to
-`$DRIVE/results/01_baseline_berturk/`.
+**Cell 6 — train + evaluate + mirror.** Writes the five output-contract files to
+`$REPO/results/01_baseline_berturk/` (canonical), then — only if the run
+succeeded — copies them to Drive and prints the destination path and file list
+so you can confirm the write landed. Mock or partial output is never mirrored.
 
 ```python
-!cd /content/nsosyal-bstar && python phase01_baseline.py --stage train 2>&1 | tee /content/phase01.log
+!cd /content/nsosyal-bstar && python phase01_baseline.py --stage train \
+    --mirror_dir /content/drive/MyDrive/nsosyal-bstar/results/01_baseline_berturk \
+    2>&1 | tee /content/phase01.log
 ```
 
 **Cell 6b — if the session dropped mid-run.** Re-run cells 1–4, then:
 
 ```python
-!cd /content/nsosyal-bstar && python phase01_baseline.py --stage train --resume 2>&1 | tee -a /content/phase01.log
+!cd /content/nsosyal-bstar && python phase01_baseline.py --stage train --resume \
+    --mirror_dir /content/drive/MyDrive/nsosyal-bstar/results/01_baseline_berturk \
+    2>&1 | tee -a /content/phase01.log
 ```
 
 `--resume` reads `$DRIVE/checkpoints/01_baseline_berturk/latest.pt`, which is
@@ -92,8 +106,20 @@ optimizer, scheduler and RNG state restored.
 **Cell 7 — paste back.** The full stdout of cell 6, plus:
 
 ```python
-print(open(f'{DRIVE}/results/01_baseline_berturk/metrics.json', encoding='utf-8').read())
+print(open(f'{REPO}/results/01_baseline_berturk/metrics.json', encoding='utf-8').read())
 ```
 
-Then download `dev_predictions.csv` from Drive — phase 2's failure analysis
-reads it, and it is not committed (it contains corpus text).
+Then download `dev_predictions.csv` from the Drive mirror — phase 2's failure
+analysis reads it, and it is not committed (it contains corpus text).
+
+**Cell 8 — get the canonical copy into git.** `/content` is wiped when the
+session ends, so the repo copy has to leave the clone or it dies with it. Either
+commit and push from Colab (needs a token with write scope), or take the four
+committable files off the Drive mirror and commit them locally.
+
+```python
+!cd /content/nsosyal-bstar && git status --short results/
+```
+
+`dev_predictions.csv` is gitignored by design (corpus text); the other four
+files are committed as evidence.

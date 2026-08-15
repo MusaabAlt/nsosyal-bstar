@@ -23,6 +23,16 @@ results/**
 !results/**/
 !results/*.json
 !results/*.csv
+# Phase run directories (results/01_baseline_berturk/, ...) are one level down,
+# which the top-level exceptions above do not reach. Their evidence files are
+# committed: the repo copy of a result is canonical, the Drive mirror is not.
+!results/**/*.json
+!results/**/*.txt
+!results/**/*.md
+# ...with one exception, listed last so it wins: the per-row predictions carry
+# corpus text (licensing, briefing S5) and are large. Phase 2 reads them from
+# the Drive mirror or a local download, never from git.
+results/**/dev_predictions.csv
 
 # --- model artifacts / checkpoints ---
 *.zip
