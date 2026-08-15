@@ -1,0 +1,27 @@
+# --- environments / IDE ---
+.venv/
+venv/
+.idea/
+.vscode/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.env
+
+# --- raw data: never committed (licensing + size), keep the directory shape ---
+data/**
+!data/**/
+!data/**/.gitkeep
+
+# --- results: summary JSON/CSV are committed evidence, everything else is not ---
+results/**
+!results/**/
+!results/*.json
+!results/*.csv
+
+# --- model artifacts / checkpoints ---
+*.zip
+*.bin
+*.safetensors
+checkpoints/
+runs/

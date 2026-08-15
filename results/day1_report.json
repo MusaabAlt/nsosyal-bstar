@@ -1,0 +1,22 @@
+{
+  "frozen_at": "2026-08-14T14:43:33",
+  "train_file": "offenseval-tr-training-v1.tsv",
+  "train_sha256": "8509c01c4bf387d9e387c4637829585431cc045adaf7d0413c0022bf2bcd4baa",
+  "n_rows": 31756,
+  "label_dist": {
+    "NOT": 25625,
+    "OFF": 6131
+  },
+  "lexicon_file": "karaliste.txt",
+  "lexicon_sha256": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+  "lexicon_size": 695,
+  "off_total": 6131,
+  "lexicon_hit_literal": 1787,
+  "lexicon_hit_root": 2239,
+  "lexicon_free_root": 3892,
+  "agglutination_delta": 452,
+  "censored_selfmasked": 5,
+  "abbrev_profanity": 208,
+  "truly_clean_implicit": 3679,
+  "demo_safe_final": 2755
+}
