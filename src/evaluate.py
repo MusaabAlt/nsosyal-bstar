@@ -163,6 +163,50 @@ def bootstrap_ci(y_true, y_pred, metric="macro_f1", n_boot=1000, seed=42, alpha=
     }
 
 
+def bootstrap_delta_ci(y_true, pred_a, pred_b, metric="macro_f1", n_boot=1000,
+                       seed=42, alpha=0.05):
+    """PAIRED CI for (metric of system A) - (metric of system B) on the SAME rows.
+
+    Two systems evaluated on one evaluation set are not independent samples: they
+    see identical rows, so the correct procedure resamples row indices once per
+    iteration and scores BOTH systems on that same resample. Comparing their
+    separately-computed CIs instead would overstate the uncertainty of the
+    difference and can hide a real change (or manufacture a spurious one).
+
+    Returns the point delta plus the percentile CI of the resampled deltas.
+    """
+    _check(y_true, pred_a)
+    _check(y_true, pred_b)
+    codes_a = _codes(y_true, pred_a)
+    codes_b = _codes(y_true, pred_b)
+
+    point_a = _metrics_from_tally(*_tally(codes_a))[metric]
+    point_b = _metrics_from_tally(*_tally(codes_b))[metric]
+    delta = None if (point_a is None or point_b is None) else point_a - point_b
+
+    rng = random.Random(seed)
+    n = len(y_true)
+    population = range(n)
+    deltas, dropped = [], 0
+    for _ in range(n_boot):
+        idx = rng.choices(population, k=n)          # ONE resample, both systems
+        va = _metrics_from_tally(*_tally([codes_a[i] for i in idx]))[metric]
+        vb = _metrics_from_tally(*_tally([codes_b[i] for i in idx]))[metric]
+        if va is None or vb is None:
+            dropped += 1
+        else:
+            deltas.append(va - vb)
+    deltas.sort()
+    lo, hi = _percentile(deltas, alpha / 2), _percentile(deltas, 1 - alpha / 2)
+    return {
+        "metric": metric, "value_a": point_a, "value_b": point_b, "delta": delta,
+        "ci_low": lo, "ci_high": hi,
+        "excludes_zero": None if (lo is None or hi is None) else (lo > 0 or hi < 0),
+        "n_boot": n_boot, "n_boot_used": len(deltas), "n_boot_undefined": dropped,
+        "alpha": alpha, "seed": seed, "resampling": "paired (same rows for both systems)",
+    }
+
+
 def bootstrap_gap_ci(
     y_true_a, y_pred_a, y_true_b, y_pred_b, metric="off_recall", n_boot=1000, seed=42, alpha=0.05
 ):
