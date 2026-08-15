@@ -1,0 +1,38 @@
+{
+  "run_id": "03_defense_augmentation_review",
+  "seed": 42,
+  "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4",
+  "dev_augmented": false,
+  "official_test_set_touched": false,
+  "train_rows": 26992,
+  "1a": {
+    "gold_off_rows": 5211,
+    "qualified": 382,
+    "skipped": 4829,
+    "skip_reasons": {
+      "no_profanity_token": 3716,
+      "no_second_person_address": 545,
+      "multiple_profanity_tokens": 296,
+      "profanity_is_only_a_filler": 209,
+      "too_little_residual_content": 50,
+      "profanity_is_the_insult_head": 13
+    }
+  },
+  "1b": {
+    "generated": 382,
+    "by_pattern": {
+      "1b_FILLER": 55,
+      "1b_ADVERBIAL": 55,
+      "1b_NON_PERSON_TARGET": 55,
+      "1b_NEGATED": 55,
+      "1b_QUOTED": 54,
+      "1b_META": 54,
+      "1b_SELF": 54
+    },
+    "pattern_provenance": "training-split out-of-fold errors only (C1)"
+  },
+  "totals": {
+    "augmented_rows": 764,
+    "training_rows_after_augmentation": 27756
+  }
+}
