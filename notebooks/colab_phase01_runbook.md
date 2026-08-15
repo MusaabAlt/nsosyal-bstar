@@ -15,12 +15,18 @@ MyDrive/nsosyal-bstar/data/lexicon/karaliste.txt
 
 ---
 
-**Cell 1 — GPU check.** Abort the session and get a better runtime if this is
-empty; the run is minutes on a GPU and hours on CPU.
+**Cell 1 — GPU check.** If this shows no GPU, or torch reports a `+cpu` build,
+change the runtime (Runtime → Change runtime type → L4/T4 GPU) and restart the
+session before going further. Cell 6 enforces the same thing and will abort, but
+finding out here costs seconds.
 
 ```python
-!nvidia-smi
+!nvidia-smi -L || echo "NO GPU -- change the runtime type"
+import torch; print(torch.__version__, "| cuda:", torch.cuda.is_available())
 ```
+
+A `+cpu` torch build means the *session* is a CPU runtime — nothing in this repo
+installs torch, so reinstalling it is not the fix; changing the runtime type is.
 
 **Cell 2 — Drive.** Results and checkpoints go here, not to `/content`, which
 is wiped when the session drops.

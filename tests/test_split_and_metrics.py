@@ -7,6 +7,7 @@ before any Colab time is spent.
 """
 
 import json
+import sys
 
 import pytest
 
@@ -183,6 +184,60 @@ def test_tag_slices_uses_the_frozen_root_matcher(tmp_path):
 
 
 # --------------------------------------------------------------------------
+# the runtime gate: a CPU-only build must fail at minute 0, not at minute 90
+# --------------------------------------------------------------------------
+
+
+def _stub_torch(version, cuda_available, device="NVIDIA L4"):
+    """Minimal stand-in for torch, so the gate's logic is testable on a machine
+    that has no torch at all."""
+    import types
+
+    mod = types.ModuleType("torch")
+    mod.__version__ = version
+    mod.cuda = types.SimpleNamespace(
+        is_available=lambda: cuda_available,
+        get_device_name=lambda i: device,
+    )
+    return mod
+
+
+def test_runtime_gate_passes_on_a_cuda_build_with_a_gpu(monkeypatch):
+    import phase01_baseline as drv
+
+    monkeypatch.setitem(sys.modules, "torch", _stub_torch("2.11.0+cu124", True))
+    info = drv.assert_trainable_runtime()
+    assert info["cuda_available"] is True
+    assert info["device_name"] == "NVIDIA L4"
+
+
+def test_runtime_gate_aborts_when_no_gpu_is_visible(monkeypatch):
+    import phase01_baseline as drv
+
+    monkeypatch.setitem(sys.modules, "torch", _stub_torch("2.11.0+cu124", False))
+    with pytest.raises(SystemExit, match="no CUDA device is visible"):
+        drv.assert_trainable_runtime()
+
+
+def test_runtime_gate_aborts_on_a_cpu_wheel_even_if_a_gpu_is_attached(monkeypatch):
+    """The dangerous case: a GPU is present, so nothing looks wrong, but the
+    wheel has no CUDA compiled in and every step silently runs on CPU."""
+    import phase01_baseline as drv
+
+    monkeypatch.setitem(sys.modules, "torch", _stub_torch("2.11.0+cpu", True))
+    with pytest.raises(SystemExit, match=r"CPU-only build"):
+        drv.assert_trainable_runtime()
+
+
+def test_runtime_gate_can_be_overridden_deliberately(monkeypatch):
+    import phase01_baseline as drv
+
+    monkeypatch.setitem(sys.modules, "torch", _stub_torch("2.11.0+cpu", False))
+    info = drv.assert_trainable_runtime(allow_cpu=True)
+    assert info["cpu_override"] is True
+
+
+# --------------------------------------------------------------------------
 # the Drive mirror: a completed run only, never mock or partial output
 # --------------------------------------------------------------------------
 
@@ -196,6 +251,9 @@ def _fake_run_dir(tmp_path, name="run", mock=False):
     (d / "metrics.json").write_text(json.dumps(payload), encoding="utf-8")
     (d / "classification_report.txt").write_text("report body", encoding="utf-8")
     (d / "results_log_row.md").write_text("| row |\n", encoding="utf-8")
+    (d / "run_config.json").write_text('{"run_id": "01_baseline_berturk"}', encoding="utf-8")
+    (d / "dev_predictions.csv").write_text("row_id,text,gold,pred,confidence,slice\n1,a,OFF,OFF,0.9,lexicon_hit\n",
+                                           encoding="utf-8")
     return d
 
 
@@ -208,7 +266,8 @@ def test_mirror_copies_every_file_and_verifies_it(tmp_path):
     copied = drv.mirror_outputs(src, dst)
 
     assert {n for n, _ in copied} == {"metrics.json", "classification_report.txt",
-                                      "results_log_row.md"}
+                                      "results_log_row.md", "run_config.json",
+                                      "dev_predictions.csv"}
     for name, size in copied:
         assert (dst / name).exists()
         assert (dst / name).stat().st_size == size == (src / name).stat().st_size
@@ -222,6 +281,25 @@ def test_mirror_refuses_mock_output(tmp_path):
     with pytest.raises(SystemExit, match="MOCK"):
         drv.mirror_outputs(src, tmp_path / "drive")
     assert not (tmp_path / "drive").exists(), "nothing may be written before the check"
+
+
+@pytest.mark.parametrize("state", ["missing", "empty"])
+def test_mirror_refuses_when_dev_predictions_is_lost(tmp_path, state):
+    """The mirror is the ONLY surviving copy of dev_predictions.csv: it is
+    gitignored and /content is wiped at session end. Reporting a successful
+    mirror without it would cost a retrain to notice."""
+    import phase01_baseline as drv
+
+    src = _fake_run_dir(tmp_path, name=f"run_{state}")
+    csv_file = src / "dev_predictions.csv"
+    if state == "missing":
+        csv_file.unlink()
+    else:
+        csv_file.write_text("", encoding="utf-8")
+
+    with pytest.raises(SystemExit, match="dev_predictions.csv"):
+        drv.mirror_outputs(src, tmp_path / f"drive_{state}")
+    assert not (tmp_path / f"drive_{state}").exists()
 
 
 def test_mirror_refuses_an_incomplete_run(tmp_path):

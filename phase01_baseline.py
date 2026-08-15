@@ -163,6 +163,71 @@ def sanity_gate(all_rows, lex_list):
     return block
 
 
+def assert_trainable_runtime(allow_cpu=False):
+    """Fail at minute 0 if this runtime cannot actually train on a GPU.
+
+    A CPU-only torch build on a GPU runtime trains silently at roughly 20x the
+    wall-clock with no error of any kind -- the run just appears slow, and the
+    discovery happens ninety minutes in, usually after the session has dropped.
+    So this is a hard gate, not a warning.
+
+    Two distinct failures are caught:
+      * no CUDA device visible (CPU runtime, or GPU not attached yet)
+      * a `+cpu` local-version torch wheel, which has no CUDA support compiled
+        in at all and cannot use a GPU even when one is attached
+
+    Where a +cpu build comes from: NOT from this repo. requirements.txt asks for
+    a plain `torch>=2.2` (the default PyPI Linux wheel is CUDA-enabled), and the
+    Colab runbook installs only transformers -- it never installs torch. A
+    `+cpu` build therefore comes from the runtime image itself, i.e. the session
+    was started on a CPU runtime. The fix is to change the runtime type and
+    restart the session, not to reinstall torch blind.
+    """
+    try:
+        import torch
+    except ImportError:
+        sys.exit("ABORT: torch is not installed in this environment, so training cannot start.\n"
+                 "On Colab it ships with the runtime; locally, `pip install -r requirements.txt`.")
+
+    version = torch.__version__
+    cuda_ok = torch.cuda.is_available()
+    device_name = torch.cuda.get_device_name(0) if cuda_ok else None
+    cpu_wheel = "+cpu" in version
+
+    print("\nRuntime gate")
+    print(f"  torch          : {version}")
+    print(f"  cuda available : {cuda_ok}")
+    print(f"  device         : {device_name or 'NONE'}")
+
+    if cuda_ok and not cpu_wheel:
+        print("  [PASS] GPU present and torch is a CUDA build.")
+        return {"torch": version, "cuda_available": True, "device_name": device_name}
+
+    reason = ("torch is a CPU-only build (`+cpu`), which cannot use a GPU even if one "
+              "is attached" if cpu_wheel else "no CUDA device is visible")
+    message = (
+        f"ABORT: this runtime cannot train on a GPU -- {reason}.\n\n"
+        "BERT-base on ~27k examples for 3 epochs is minutes on an L4 and many hours on\n"
+        "CPU. Training would start and appear to work; you would find out at minute 90.\n\n"
+        "Fix:\n"
+        "  1. Runtime -> Change runtime type -> L4 GPU (or T4), then Runtime -> Restart session.\n"
+        "  2. Re-run the environment cell and check this gate prints [PASS].\n\n"
+        "Note on where a `+cpu` wheel comes from: not from this repo. requirements.txt\n"
+        "asks for a plain `torch>=2.2` (the default PyPI Linux wheel is CUDA-enabled) and\n"
+        "the runbook installs only transformers -- it never installs torch. A `+cpu` build\n"
+        "means the SESSION is a CPU runtime; changing the runtime type is the fix, not a\n"
+        "blind reinstall.\n\n"
+        "To train on CPU anyway (a deliberate slow smoke test, never a reported result),\n"
+        "pass --allow_cpu."
+    )
+    if allow_cpu:
+        print("  [WARN] gate overridden with --allow_cpu.")
+        print("         Any number this run produces is a smoke test, not a result.")
+        return {"torch": version, "cuda_available": cuda_ok, "device_name": device_name,
+                "cpu_override": True}
+    sys.exit(message)
+
+
 def mirror_outputs(out_dir, mirror_dir):
     """Copy a COMPLETED run's outputs to Drive.
 
@@ -181,6 +246,25 @@ def mirror_outputs(out_dir, mirror_dir):
         sys.exit(f"Refusing to mirror: {metrics_file} does not exist, so the run did not complete.")
     if "MOCK_RUN" in json.loads(metrics_file.read_text(encoding="utf-8")):
         sys.exit("Refusing to mirror MOCK output. Mock numbers are not results.")
+
+    # dev_predictions.csv is gitignored (corpus text) and /content is wiped when
+    # the session ends, so THE DRIVE MIRROR IS ITS ONLY SURVIVING COPY. Phase 2
+    # reads it for the failure analysis and phase 4 reads its confidence column
+    # for calibration; losing it means retraining to recover it. Reporting a
+    # successful mirror without it would be the expensive kind of quiet failure.
+    for name in ("metrics.json", "classification_report.txt", "dev_predictions.csv",
+                 "run_config.json", "results_log_row.md"):
+        f = out_dir / name
+        if not f.exists() or f.stat().st_size == 0:
+            state = "missing" if not f.exists() else "zero-length"
+            extra = ""
+            if name == "dev_predictions.csv":
+                extra = ("\nThis file is the one that cannot be regenerated without retraining: "
+                         "it is gitignored,\n/content is wiped at session end, and this mirror "
+                         "would have been its only copy.\nPhase 2 (failure analysis) and phase 4 "
+                         "(calibration confidences) both read it.")
+            sys.exit(f"Refusing to mirror: {name} is {state} in {out_dir}. "
+                     f"The run did not produce a complete output set.{extra}")
 
     mirror_dir.mkdir(parents=True, exist_ok=True)
     copied = []
@@ -440,6 +524,9 @@ def build_parser():
     ap.add_argument("--ckpt_dir", default=None)
     ap.add_argument("--force", action="store_true", help="allow overwriting existing result files")
     ap.add_argument("--allow_hash_mismatch", action="store_true")
+    ap.add_argument("--allow_cpu", action="store_true",
+                    help="override the GPU gate and train on CPU anyway (~20x slower). "
+                         "A smoke test only -- never a reported result.")
     ap.add_argument("--mirror_dir", default=None,
                     help="after a SUCCESSFUL run, copy the output files here "
                          "(e.g. the mounted Drive path). The repo copy stays canonical.")
@@ -551,6 +638,9 @@ def main():
     env = models.environment_info()
     print(f"  torch={env['torch']}  transformers={env['transformers']}  "
           f"sklearn={env['scikit_learn']}  device={env['device_name']}")
+
+    # Hard gate BEFORE the corpus is tokenised or a single step is taken.
+    assert_trainable_runtime(allow_cpu=args.allow_cpu)
 
     model, tokenizer, history = models.train(
         ctx["train_rows"], ctx["dev_rows"], args.model, ckpt_dir,

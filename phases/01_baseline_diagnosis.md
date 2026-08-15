@@ -64,6 +64,18 @@ is row 1 of the comparison matrix. Compute it here so it never gets produced
 under slightly different conditions later.
 
 ### 4. Train BERTurk
+
+**Runtime gate first.** `--stage train` asserts `torch.cuda.is_available()` and
+that the torch build is not a `+cpu` wheel, printing the version and device
+name, and aborts before tokenising anything if either fails. A CPU-only build on
+a GPU runtime trains silently at roughly 20x the wall-clock with no error — the
+run just looks slow, and the discovery comes at minute 90, typically after the
+session has dropped. `--allow_cpu` overrides it for a deliberate smoke test;
+anything produced under that flag is not a result. Note that a `+cpu` wheel
+cannot come from this repo: `requirements.txt` asks for a plain `torch>=2.2`
+(the default PyPI Linux wheel is CUDA-enabled) and the runbook installs only
+`transformers`. A `+cpu` build means the session itself is a CPU runtime, so the
+fix is to change the runtime type and restart — not to reinstall torch.
 `dbmdz/bert-base-turkish-cased`, `max_len=128`, `seed=42`, fp16, checkpoint per
 epoch. lr `2e-5`, batch 32, 3 epochs, linear warmup 10%. Single configuration —
 no hyperparameter search. A sweep costs a day and earns nothing on a rubric that
@@ -94,6 +106,15 @@ Write to `<REPO>/results/01_baseline_berturk/` (canonical), then mirror to
 | `dev_predictions.csv` | `row_id, text, gold, pred, confidence, slice` |
 | `run_config.json` | seeds, hashes, model string, hyperparams, git SHA, timestamp |
 | `results_log_row.md` | pre-filled `RESULTS_LOG.md` row, Interpretation and Decision left as TODO |
+
+⚠️ **`dev_predictions.csv` has exactly one durable copy: the Drive mirror.** It
+is gitignored (it carries corpus text — briefing S5) and `/content` is wiped
+when the Colab session ends, so the repo copy dies with the session. Phase 2
+reads it for the failure analysis (the confidently-wrong false negatives *are*
+rows of this file) and phase 4 reads its `confidence` column for calibration and
+the risk–coverage curve. Losing it means re-running training to get it back.
+The mirror step therefore refuses to report success if that file is missing or
+zero-length, and the same check covers the other four.
 
 Five files, not four: `results_log_row.md` exists because the driver does not
 append to `docs/RESULTS_LOG.md` itself — Interpretation and Decision must be
