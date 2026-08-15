@@ -1,3 +1,9 @@
+# Versions phase 01 actually resolved to on Colab, 2026-08-15 (recorded in
+# results/01_baseline_berturk/run_config.json): torch 2.11.0+cu128,
+# transformers 5.15.0, scikit-learn 1.6.1, on an NVIDIA L4.
+# The floors below are what the code needs; the runbook pins transformers
+# exactly and asserts torch/scikit-learn, so a later phase cannot silently
+# land on a different major without it showing up in the log.
 transformers>=4.40
 datasets>=2.19
 torch>=2.2

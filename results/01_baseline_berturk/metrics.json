@@ -1,0 +1,170 @@
+{
+  "run_id": "01_baseline_berturk",
+  "git_sha": "837c35188c5043d76341ade9886d8e049d372f0b-dirty",
+  "sanity_gate": {
+    "lexicon_free_off": 3892,
+    "total_off": 6131,
+    "expected_lexicon_free_off": 3892,
+    "expected_total_off": 6131,
+    "passed": true
+  },
+  "keyword_filter": {
+    "macro_f1": 0.6798824672611369,
+    "off_recall": 0.3858695652173913,
+    "off_precision": 0.5781758957654723,
+    "confusion": {
+      "tn": 3585,
+      "fp": 259,
+      "fn": 565,
+      "tp": 355
+    },
+    "ci": {
+      "macro_f1": {
+        "metric": "macro_f1",
+        "ci_low": 0.6621096152425808,
+        "ci_high": 0.6969206661974825,
+        "n_boot": 1000,
+        "n_boot_used": 1000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      },
+      "off_recall": {
+        "metric": "off_recall",
+        "ci_low": 0.35387843630127414,
+        "ci_high": 0.41870350690754515,
+        "n_boot": 1000,
+        "n_boot_used": 1000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      }
+    },
+    "note": "slice recalls are tautological (1.0 / 0.0) and deliberately not reported"
+  },
+  "berturk": {
+    "overall": {
+      "macro_f1": 0.8270752670616224,
+      "off_precision": 0.7488207547169812,
+      "off_recall": 0.6902173913043478,
+      "n": 4764,
+      "support_off": 920,
+      "confusion": {
+        "tn": 3631,
+        "fp": 213,
+        "fn": 285,
+        "tp": 635
+      },
+      "ci": {
+        "macro_f1": {
+          "metric": "macro_f1",
+          "ci_low": 0.8138925991245577,
+          "ci_high": 0.8404931829690758,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "off_recall": {
+          "metric": "off_recall",
+          "ci_low": 0.6603335876514874,
+          "ci_high": 0.7191433437118332,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        }
+      }
+    },
+    "lexicon_hit": {
+      "n": 614,
+      "support_off": 355,
+      "support_not": 259,
+      "base_rate_off": 0.5781758957654723,
+      "off_recall": 0.8929577464788733,
+      "off_recall_ci": {
+        "metric": "off_recall",
+        "ci_low": 0.8617812985609081,
+        "ci_high": 0.9247963091922006,
+        "n_boot": 1000,
+        "n_boot_used": 1000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      },
+      "confusion": {
+        "tn": 212,
+        "fp": 47,
+        "fn": 38,
+        "tp": 317
+      },
+      "macro_f1": null,
+      "macro_f1_note": "omitted by pre-registered constraint -- not comparable across slices (base rates 57.8% vs 13.6%); recompute from `confusion` if ever needed WITHIN a slice"
+    },
+    "lexicon_free": {
+      "n": 4150,
+      "support_off": 565,
+      "support_not": 3585,
+      "base_rate_off": 0.13614457831325302,
+      "off_recall": 0.5628318584070796,
+      "off_recall_ci": {
+        "metric": "off_recall",
+        "ci_low": 0.5210336958632744,
+        "ci_high": 0.600994905085022,
+        "n_boot": 1000,
+        "n_boot_used": 1000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      },
+      "confusion": {
+        "tn": 3419,
+        "fp": 166,
+        "fn": 247,
+        "tp": 318
+      },
+      "macro_f1": null,
+      "macro_f1_note": "omitted by pre-registered constraint -- not comparable across slices (base rates 57.8% vs 13.6%); recompute from `confusion` if ever needed WITHIN a slice"
+    },
+    "recall_gap": {
+      "delta": 0.33012588807179366,
+      "ci_low": 0.2771480590457781,
+      "ci_high": 0.3826950345077446,
+      "excludes_zero": true,
+      "method": "independent (disjoint slices), percentile CI",
+      "n_boot": 1000
+    }
+  },
+  "training_history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.3466165497969677,
+      "dev_macro_f1": 0.8270752670616224,
+      "seconds": 91.4
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.21298542834147458,
+      "dev_macro_f1": 0.8246369676730552,
+      "seconds": 91.8
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.1359960284631399,
+      "dev_macro_f1": 0.8270752670616224,
+      "seconds": 91.4
+    }
+  ],
+  "decision_rule_applied": "outcome_1_gap_survives",
+  "decision_rule_note": "Applied by the project lead on 2026-08-15 after reading the numbers. Delta +0.3301, 95% CI [+0.2771, +0.3827], excludes zero and is far above the ~6pp resolution floor implied by the 355/565 recall denominators. Phase 2 opens.",
+  "lexical_shortcut_both_directions": {
+    "false_positive_rate_lexicon_hit": 0.18146718146718147,
+    "false_positive_rate_lexicon_free": 0.04630404463040446,
+    "ratio": 3.9190352142159375,
+    "note": "Profanity presence over-triggers OFF and its absence under-triggers: FPR on gold-NOT rows is 47/259 = 18.1% inside lexicon_hit vs 166/3585 = 4.6% inside lexicon_free, ~4x. A stronger claim than reduced recall alone."
+  },
+  "stated_limitation": "Day 1 manual reading suggests ~30-35% of the lexicon-free slice is annotation noise, so part of the 247 lexicon-free false negatives may be mislabeled rather than missed. The 33pp gap is an UPPER BOUND until Phase 2 quantifies it.",
+  "checkpoint_tie": "Epochs 1 and 3 tie at macro-F1 0.8270752670616224 with identical confusion matrices, but are different models: they disagree on 198/4764 dev rows (43 gold-OFF flips each way, 56 gold-NOT each way). Reported numbers and dev_predictions.csv come from best.pt = epoch 1."
+}

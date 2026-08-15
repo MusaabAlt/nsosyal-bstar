@@ -1,0 +1,79 @@
+{
+  "run_id": "01_baseline_berturk",
+  "git_sha": "837c35188c5043d76341ade9886d8e049d372f0b-dirty",
+  "started_at": "2026-08-15T16:12:34",
+  "finished_at": "2026-08-15T16:18:18",
+  "env": "colab",
+  "paths": {
+    "root": "/content/nsosyal-bstar",
+    "data": "/content/drive/MyDrive/nsosyal-bstar/data",
+    "results": "/content/nsosyal-bstar/results/01_baseline_berturk",
+    "checkpoints": "/content/drive/MyDrive/nsosyal-bstar/checkpoints/01_baseline_berturk",
+    "split_file": "/content/nsosyal-bstar/data/splits/split_seed42.json"
+  },
+  "hashes": {
+    "train_sha256": "8509c01c4bf387d9e387c4637829585431cc045adaf7d0413c0022bf2bcd4baa",
+    "lexicon_sha256": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+    "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4"
+  },
+  "preconditions": {
+    "train_sha256": {
+      "got": "8509c01c4bf387d9e387c4637829585431cc045adaf7d0413c0022bf2bcd4baa",
+      "expected": "8509c01c4bf387d9e387c4637829585431cc045adaf7d0413c0022bf2bcd4baa",
+      "passed": true
+    },
+    "lexicon_sha256": {
+      "got": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+      "expected": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+      "passed": true
+    },
+    "day1_reproduction_record": {
+      "path": "/content/nsosyal-bstar/results/day1_report_rerun.json",
+      "present": true,
+      "note": null
+    },
+    "official_test_set_touched": false
+  },
+  "split": {
+    "seed": 42,
+    "dev_fraction": 0.15,
+    "counts": {
+      "train": {
+        "NOT": 21781,
+        "OFF": 5211
+      },
+      "dev": {
+        "NOT": 3844,
+        "OFF": 920
+      }
+    },
+    "reused_existing_file": true,
+    "matches_regeneration": true
+  },
+  "model": "dbmdz/bert-base-turkish-cased",
+  "hyperparams": {
+    "epochs": 3,
+    "batch_size": 32,
+    "lr": 2e-05,
+    "max_len": 128,
+    "seed": 42,
+    "warmup_ratio": 0.1,
+    "weight_decay": 0.01,
+    "fp16": true,
+    "class_weighting": null,
+    "threshold": 0.5
+  },
+  "bootstrap": {
+    "n_boot": 1000,
+    "alpha": 0.05,
+    "seed": 42
+  },
+  "environment": {
+    "torch": "2.11.0+cu128",
+    "cuda_available": true,
+    "device_name": "NVIDIA L4",
+    "transformers": "5.15.0",
+    "scikit_learn": "1.6.1"
+  },
+  "official_test_set_touched": false
+}

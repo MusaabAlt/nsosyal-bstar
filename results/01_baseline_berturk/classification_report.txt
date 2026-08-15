@@ -1,0 +1,50 @@
+NOTE (pre-registered constraint, phases/01_baseline_diagnosis.md):
+The per-slice sections below are diagnostic, useful WITHIN a slice. Their F1 and
+accuracy columns are NOT comparable ACROSS slices -- base rates are 57.8% OFF in
+lexicon_hit vs 13.6% in lexicon_free, so a difference there reflects class balance,
+not model behaviour. The only cross-slice comparison this project makes is
+OFF-recall, which conditions on gold=OFF and is immune to base rate.
+==============================================================================
+
+BERTurk -- dev, overall
+              precision    recall  f1-score   support
+
+         NOT     0.9272    0.9446    0.9358      3844
+         OFF     0.7488    0.6902    0.7183       920
+
+    accuracy                         0.8955      4764
+   macro avg     0.8380    0.8174    0.8271      4764
+weighted avg     0.8928    0.8955    0.8938      4764
+
+
+BERTurk -- dev, slice=lexicon_hit (n=614)
+              precision    recall  f1-score   support
+
+         NOT     0.8480    0.8185    0.8330       259
+         OFF     0.8709    0.8930    0.8818       355
+
+    accuracy                         0.8616       614
+   macro avg     0.8594    0.8557    0.8574       614
+weighted avg     0.8612    0.8616    0.8612       614
+
+
+BERTurk -- dev, slice=lexicon_free (n=4150)
+              precision    recall  f1-score   support
+
+         NOT     0.9326    0.9537    0.9430      3585
+         OFF     0.6570    0.5628    0.6063       565
+
+    accuracy                         0.9005      4150
+   macro avg     0.7948    0.7583    0.7747      4150
+weighted avg     0.8951    0.9005    0.8972      4150
+
+
+Keyword filter (frozen lexicon) -- dev, overall
+              precision    recall  f1-score   support
+
+         NOT     0.8639    0.9326    0.8969      3844
+         OFF     0.5782    0.3859    0.4628       920
+
+    accuracy                         0.8270      4764
+   macro avg     0.7210    0.6592    0.6799      4764
+weighted avg     0.8087    0.8270    0.8131      4764

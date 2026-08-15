@@ -70,7 +70,24 @@ os.environ['NSOSYAL_ROOT']    = REPO
 os.environ['NSOSYAL_DATA']    = f'{DRIVE}/data'       # raw corpora live on Drive
 os.environ['NSOSYAL_RESULTS'] = f'{REPO}/results'     # canonical; mirrored to Drive after the run
 os.environ['NSOSYAL_CKPT']    = f'{DRIVE}/checkpoints'  # must survive a dropped session
-!pip -q install -U "transformers>=4.40"
+
+# Pinned to what phase 01 actually resolved on 2026-08-15. `>=4.40` silently
+# resolved to 5.15.0; a later phase picking up a different major would change
+# results with nothing in the record to show it.
+!pip -q install "transformers==5.15.0"
+
+# torch and scikit-learn come from the Colab image, not from pip -- pinning torch
+# here would fight the runtime's CUDA build. So they are ASSERTED, not installed:
+# a mismatch is printed loudly and belongs in the results log.
+import torch, sklearn, transformers
+PHASE01 = {'torch': '2.11.0+cu128', 'transformers': '5.15.0', 'scikit-learn': '1.6.1'}
+now = {'torch': torch.__version__, 'transformers': transformers.__version__,
+       'scikit-learn': sklearn.__version__}
+for k, want in PHASE01.items():
+    print(f"{'OK  ' if now[k] == want else 'DIFF'} {k:<13} phase01={want:<12} now={now[k]}")
+if now != PHASE01:
+    print("\n[WARN] library versions differ from the phase 01 baseline run.")
+    print("       Record this in docs/RESULTS_LOG.md -- do not silently compare across it.")
 ```
 
 **Cell 5 — preflight.** Gates only: hashes, the 3,892/6,131 sanity check, the

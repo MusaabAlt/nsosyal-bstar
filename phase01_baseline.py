@@ -67,6 +67,15 @@ EXPECTED_TOTAL_OFF = 6131
 
 
 def git_sha():
+    """HEAD sha, suffixed `-dirty` only if a TRACKED file was modified.
+
+    Untracked files are deliberately excluded (`--untracked-files=no`). The
+    first phase-01 run reported `837c351-dirty` purely because it had written
+    its own four output files into results/, which are untracked until
+    committed -- so every run marked itself dirty by succeeding, and the flag
+    carried no information. It now means what it should: the code that produced
+    the numbers differs from the commit.
+    """
     try:
         out = subprocess.run(
             ["git", "rev-parse", "HEAD"],
@@ -77,7 +86,7 @@ def git_sha():
         if out.returncode != 0 or not sha:
             return None
         dirty = subprocess.run(
-            ["git", "status", "--porcelain"],
+            ["git", "status", "--porcelain", "--untracked-files=no"],
             cwd=Path(__file__).resolve().parent,
             capture_output=True, text=True, timeout=10,
         ).stdout.strip()
