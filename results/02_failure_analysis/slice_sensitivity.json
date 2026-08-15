@@ -1,0 +1,35 @@
+{
+  "run_id": "02_failure_analysis_slice_sensitivity",
+  "question": "Does the lexicon_hit prefix-match contamination change the headline recall gap?",
+  "method": "One recomputation on the existing best.pt dev predictions. The frozen lexicon is NOT modified and no row is relabelled. A lexicon_hit row is excluded from the measurement if EVERY lexicon root matching ANY of its tokens is in the suspect set; a single clean profanity match retains the row. Excluded rows are dropped from the comparison, not moved into lexicon_free.",
+  "suspect_roots": ["allah", "ana", "cim", "emi", "göt", "mal", "sie"],
+  "suspect_roots_note": "all seven are present in the frozen lexicon; 'got' in the request is the ASCII form of 'göt'",
+  "source": "results/01_baseline_berturk/dev_predictions.csv (best.pt = epoch 1, commit 837c351)",
+  "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4",
+  "bootstrap": {"n_boot": 1000, "alpha": 0.05, "seed": 42, "method": "independent (disjoint slices), percentile CI"},
+  "excluded": {
+    "n": 248,
+    "pct_of_hit_slice": 40.4,
+    "exact_match_to_suspect_root": 151,
+    "prefix_only_match": 97,
+    "gold_distribution": {"NOT": 175, "OFF": 73}
+  },
+  "retained_hit_slice": {
+    "n": 366,
+    "gold_distribution": {"NOT": 84, "OFF": 282}
+  },
+  "as_reported_frozen_definition": {
+    "lexicon_hit_n": 614, "lexicon_hit_support_off": 355, "lexicon_hit_off_recall": 0.8929577464788733,
+    "lexicon_free_n": 4150, "lexicon_free_support_off": 565, "lexicon_free_off_recall": 0.5628318584070796,
+    "gap_delta": 0.33012588807179366, "ci_low": 0.2771480590457781, "ci_high": 0.3826950345077446,
+    "excludes_zero": true
+  },
+  "sensitivity_suspect_only_excluded": {
+    "lexicon_hit_n": 366, "lexicon_hit_support_off": 282, "lexicon_hit_off_recall": 0.9291,
+    "lexicon_free_n": 4150, "lexicon_free_support_off": 565, "lexicon_free_off_recall": 0.5628,
+    "gap_delta": 0.3662, "ci_low": 0.3187, "ci_high": 0.4169,
+    "excludes_zero": true
+  },
+  "delta_shift": 0.0361,
+  "conclusion": "The gap WIDENS by +0.0361 when contaminated rows are excluded, and the CI still excludes zero. Slice contamination was understating the headline, so the reported +0.3301 is the conservative figure. The headline reported in the comparison matrix remains +0.3301 under the frozen Day 1 slice definition; this is a robustness check, not a replacement."
+}

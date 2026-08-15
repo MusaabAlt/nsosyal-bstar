@@ -11,6 +11,22 @@ judgment, not mine.
 
 ---
 
+## Central claim
+
+> **The model detects offensive VOCABULARY rather than offensive ACTS.** 84 of 95
+> profanity-bearing false positives perform no offensive act toward anyone, while the
+> genuine false negatives are directed offense carrying no profanity. One mechanism, both
+> error directions, quantified.
+
+Use–mention proper (meta-discussion + negated + quoted) is 20 rows — a sub-pattern within
+this family, not the whole of it. The 118 false positives carrying no profanity token at
+all reflect a separate topic/register effect and are not part of this claim.
+
+This is what the phase 01 asymmetry (18.1% vs 4.6% false-positive rate) and the 33pp
+recall gap are two views of: a single lexical-trigger mechanism, visible from both sides.
+
+---
+
 ## Finding 1 — The 30–35% noise estimate was inflated by confidence-sorting bias
 
 Day 1 estimated ~30–35% annotation noise in the lexicon-free slice. That figure came
@@ -34,10 +50,23 @@ noise-contaminated than the Day 1 caveat implied. The gap remains an upper bound
 tighter one.
 
 Note the ambiguous bucket is *larger* than the mislabel bucket in the unbiased sample
-(52.5%), and roughly a third of the random sample is criticism of politicians or
-institutions whose offensiveness is an annotation-convention question. **Those rows are
-left tagged ambiguous by instruction — the team writes that convention before it is
-applied.**
+(52.5%).
+
+### Stated limitation — political / institutional criticism
+
+**Ruled 15 Aug 2026: the project adopts Çöltekin's annotation convention as given and
+relabels nothing.** No row is reclassified on our own judgment of what counts as
+offensive.
+
+The limitation this leaves, stated for the report: **~13 of the 40 rows in the unbiased
+lexicon-free false-negative sample (roughly one third) are criticism of politicians or
+institutions**, whose offensiveness is convention-dependent rather than self-evident
+(`#LiseciZihniyetinizBatsın`, `çakma adalet merdiven altı adalet`, `48 yaşında emekli olan
+Tayyip…`, `Faiz haram diyen diyanetin imamlarının…`). Under a different annotation
+convention these rows would not be OFF, and both the lexicon-free recall figure and the
+gap would change. They remain tagged `AMBIG` in `fn_tags.json` and are counted in every
+number reported here — excluding them would be a selection decision, which is exactly what
+adopting the source convention avoids.
 
 ### What the genuine implicit failures look like
 
@@ -129,10 +158,35 @@ Turkish curses (`allah belanı versin`); many are ordinary religious speech.
 
 This is **frozen Day 1 behaviour and is not being changed** — changing it after seeing
 results would be post-hoc tuning and would invalidate the frozen record. But it means the
-two slices are not cleanly "has profanity / does not", and the 33pp gap should be reported
-with that stated. Direction of the bias is not obvious and has not been measured: false
-hits move non-profane rows *into* the hit slice, which if anything makes the two slices
-more alike and would *understate* the gap.
+two slices are not cleanly "has profanity / does not", so the size of the effect was
+measured directly.
+
+### Sensitivity analysis — the headline is robust, and conservative
+
+One recomputation, on the existing `best.pt` predictions. The lexicon stays frozen and no
+row is relabelled; rows whose `lexicon_hit` status comes **only** from a suspect root
+(`allah`, `emi`, `mal`, `ana`, `göt`, `cim`, `sie` — all seven are in the frozen lexicon)
+are excluded from the measurement. A row is excluded only if *every* lexicon root matching
+*any* of its tokens is suspect; one clean profanity match retains it.
+
+**248 of the 614 hit-slice rows (40%) are suspect-only** — 151 containing an exact match to
+a suspect entry (mostly the bare word `allah`), 97 prefix-only (`götürür`, `eminim`,
+`malatya`). Their gold distribution is 175 NOT / 73 OFF, against 84 NOT / 282 OFF for the
+366 retained — i.e. the excluded rows are overwhelmingly non-offensive, as expected if the
+match is spurious.
+
+| | lexicon_hit n | OFF n | hit recall | free recall | **gap** | 95% CI |
+|---|---:|---:|---:|---:|---:|---|
+| **As reported** (frozen definition) | 614 | 355 | 0.8930 | 0.5628 | **+0.3301** | [+0.2771, +0.3827] |
+| **Sensitivity** (248 excluded) | 366 | 282 | 0.9291 | 0.5628 | **+0.3662** | [+0.3187, +0.4169] |
+
+The gap **widens by +0.0361** and the CI still excludes zero. Contamination was
+*understating* the headline, so the reported 33pp is the conservative figure. The
+`lexicon_free` slice is untouched in both rows (n=4,150, 565 OFF); excluded rows are
+dropped from the comparison, not moved between slices.
+
+**The reported headline remains +0.3301** — the frozen definition is what Day 1 committed
+to. The sensitivity figure is a robustness check, not a replacement.
 
 ---
 
@@ -155,10 +209,14 @@ failures — which is all this analysis rests on — are stable across both.
 
 ## What is not settled
 
-- The mislabel rate is my judgment; ±several points depending on where the political line
-  is drawn. The 52.5% ambiguous bucket is the team's to rule on.
-- The political / institutional-criticism band is untouched by instruction.
-- The direction and size of the slice-contamination bias (Finding 3) is unmeasured.
+- The mislabel rate is my judgment as a model reading Turkish, not ground truth; ±several
+  points is plausible. The 52.5% ambiguous bucket is the team's to rule on.
+- The political / institutional-criticism band is a stated limitation, not a resolved
+  question: the source convention is adopted as given, and under a different convention
+  those rows would not be OFF.
+
+Resolved since the first draft: the slice-contamination bias has now been measured
+(Finding 3, sensitivity analysis) — it was understating the gap.
 
 ## Files
 
@@ -167,6 +225,7 @@ failures — which is all this analysis rests on — are stable across both.
 | `findings.md` | this document |
 | `fp_function_tags.json` | all 213 FP: row_id, function tag, checkpoint-specific flag |
 | `fn_tags.json` | top-60 and random-40 FN: row_id, tag, checkpoint-specific flag |
+| `slice_sensitivity.json` | the contamination robustness check, both figures side by side |
 
 Row **text** is deliberately not stored here — it is corpus content under the same
 licensing rule that keeps `dev_predictions.csv` out of git. Join on `row_id` against
