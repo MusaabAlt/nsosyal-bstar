@@ -43,9 +43,103 @@ def assert_disjoint(train_families, eval_families):
     return True
 
 
-def apply_family(*args, **kwargs):
-    raise NotImplementedError(
-        "Attack generators are stubs. The operator set for D and H is defined "
-        "when the defense step is specified -- and D/H must be fixed BEFORE any "
-        "robustness number is measured, not adjusted afterwards."
-    )
+# --------------------------------------------------------------------------
+# operators -- fixed 15 Aug 2026, BEFORE any robustness number was measured
+# --------------------------------------------------------------------------
+#
+# D = training augmentation, H = held-out evaluation. The two sets share no
+# operator: D perturbs characters WITHIN a token (delete / substitute / repeat),
+# H changes the token's segmentation or its diacritics (split / strip / swap).
+# Testing on D would measure memorisation of known operators, not robustness.
+
+import random
+import re
+
+_VOWELS = "aeıioöuü"
+_HOMOGLYPHS = {"i": "1", "ı": "1", "o": "0", "e": "3", "a": "4", "s": "5", "g": "9"}
+_DIACRITIC = {"ş": "s", "ğ": "g", "ı": "i", "ö": "o", "ü": "u", "ç": "c"}
+
+
+def _op_vowel_delete(tok, rng):
+    """D: sik -> sk. Vowel dropping, the commonest Turkish chat abbreviation."""
+    idx = [i for i, c in enumerate(tok) if c in _VOWELS]
+    if not idx:
+        return tok
+    i = rng.choice(idx)
+    return tok[:i] + tok[i + 1:]
+
+
+def _op_homoglyph(tok, rng):
+    """D: aptal -> 4ptal. Digit/letter lookalike substitution."""
+    idx = [i for i, c in enumerate(tok) if c in _HOMOGLYPHS]
+    if not idx:
+        return tok
+    i = rng.choice(idx)
+    return tok[:i] + _HOMOGLYPHS[tok[i]] + tok[i + 1:]
+
+
+def _op_repeat(tok, rng):
+    """D: aptal -> aptaal. Character doubling."""
+    i = rng.randrange(len(tok))
+    return tok[:i + 1] + tok[i] + tok[i + 1:]
+
+
+def _op_separate(tok, rng):
+    """H: aptal -> a.p.t.a.l / a p t a l. Segmentation attack."""
+    sep = rng.choice([".", " ", "-", "*"])
+    return sep.join(tok)
+
+
+def _op_deasciify(tok, rng):
+    """H: şerefsiz -> serefsiz. Diacritic stripping."""
+    return "".join(_DIACRITIC.get(c, c) for c in tok)
+
+
+def _op_transpose(tok, rng):
+    """H: aptal -> atpal. Adjacent character swap."""
+    if len(tok) < 3:
+        return tok
+    i = rng.randrange(len(tok) - 1)
+    return tok[:i] + tok[i + 1] + tok[i] + tok[i + 2:]
+
+
+OPERATORS = {
+    "D": {"vowel_delete": _op_vowel_delete, "homoglyph": _op_homoglyph, "repeat": _op_repeat},
+    "H": {"separate": _op_separate, "deasciify": _op_deasciify, "transpose": _op_transpose},
+}
+
+
+def apply_family(text, family, lex_list, rng=None, max_tokens=2):
+    """Obfuscate the profanity tokens in `text` with one operator from `family`.
+
+    Only lexicon-matched tokens are perturbed: the attack being modelled is
+    evasion of a keyword filter, not random corruption of the sentence.
+    """
+    if family not in OPERATORS:
+        raise ValueError(f"unknown attack family {family!r}; known: {sorted(OPERATORS)}")
+    rng = rng or random.Random(0)
+    from src import lexicon
+
+    targets = set()
+    for t in lexicon.tokens(text):
+        for root in lex_list:
+            if len(root) >= lexicon.MIN_ROOT_LEN and t.startswith(root):
+                targets.add(t)
+                break
+    if not targets:
+        return text, []
+
+    ops_used = []
+    remaining = max_tokens
+
+    def repl(m):
+        nonlocal remaining
+        word = m.group(0)
+        if remaining <= 0 or lexicon.tr_lower(word) not in targets:
+            return word
+        name = rng.choice(sorted(OPERATORS[family]))
+        remaining -= 1
+        ops_used.append(name)
+        return OPERATORS[family][name](word, rng)
+
+    return re.sub(r"\w+", repl, text, flags=re.UNICODE), ops_used
