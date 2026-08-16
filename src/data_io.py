@@ -19,8 +19,11 @@ Traps this module exists to prevent
 """
 
 import hashlib
+import json
 import random
+import sys
 from collections import Counter, defaultdict
+from datetime import datetime
 from pathlib import Path
 
 # --------------------------------------------------------------------------
@@ -385,6 +388,42 @@ def load_coltekin_test(run_final_test=False, path=None, gold_path=None):
             "that run's output unmodified."
         )
     import config
+
+    # Second lock: once phase 05 completes, the resource is SPENT. The record is
+    # committed to the repo, so this refusal survives a fresh clone on another
+    # machine -- "exactly once" enforced by a file rather than by memory.
+    if config.TEST_SPEND_RECORD.exists():
+        spent = json.loads(config.TEST_SPEND_RECORD.read_text(encoding="utf-8"))
+        raise PermissionError(
+            "The official Çöltekin test set has already been SPENT.\n"
+            f"  spent at   : {spent.get('spent_at')}\n"
+            f"  by         : {spent.get('run_id')} @ commit {spent.get('git_sha')}\n"
+            f"  results    : {spent.get('results_dir')}\n"
+            f"  record     : {config.TEST_SPEND_RECORD}\n\n"
+            "A second measurement on this set is no longer a held-out measurement: "
+            "every choice made after the first read was informed by it. If a rerun "
+            "is genuinely required, that is a project-lead decision -- delete the "
+            "record deliberately and record WHY in docs/RESULTS_LOG.md, so the "
+            "second touch appears in the write-up instead of disappearing."
+        )
+
+    # Append-only open log, written BEFORE the bytes are read so that a run which
+    # crashes mid-way still leaves a trace. Multiple entries are not an error;
+    # they are the honest record of how many times the set was opened.
+    try:
+        config.TEST_OPEN_LOG.parent.mkdir(parents=True, exist_ok=True)
+        log = []
+        if config.TEST_OPEN_LOG.exists():
+            log = json.loads(config.TEST_OPEN_LOG.read_text(encoding="utf-8"))
+        log.append({"opened_at": datetime.now().isoformat(timespec="seconds"),
+                    "caller": Path(sys.argv[0]).name if sys.argv else "?"})
+        config.TEST_OPEN_LOG.write_text(json.dumps(log, indent=2), encoding="utf-8")
+    except OSError:
+        # A read-only filesystem must not silently skip the accounting.
+        raise PermissionError(
+            f"Cannot write the test-set open log at {config.TEST_OPEN_LOG}. "
+            "Refusing to read the test set without recording that it was read."
+        )
 
     path = Path(path or config.COLTEKIN_TEST)
     gold_path = Path(gold_path or config.COLTEKIN_GOLD)

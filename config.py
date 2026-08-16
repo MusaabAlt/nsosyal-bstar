@@ -67,6 +67,19 @@ LEXICON_PATH = DATA_DIR / "lexicon" / "karaliste.txt"
 # regenerating one. Raw corpora move; the split must not.
 SPLITS_DIR = Path(os.getenv("NSOSYAL_SPLITS", ROOT / "data" / "splits"))
 
+# --- single-use test-set accounting (phase 05) -------------------------------
+# ROOT-relative for the same reason as SPLITS_DIR: these two files are committed
+# and must travel with the code. A fresh clone on a new machine has to inherit
+# the fact that the test set is already spent -- otherwise "touched exactly
+# once" is a promise kept only by whoever remembers making it.
+#
+#   OPENED : append-only log, one entry per load. Written BEFORE the read, so a
+#            crashed run still leaves evidence that the data was seen.
+#   SPENT  : written only on a completed run. Its existence makes
+#            load_coltekin_test refuse outright.
+TEST_OPEN_LOG = ROOT / "results" / "05_final_test" / "TEST_SET_OPENED.json"
+TEST_SPEND_RECORD = ROOT / "results" / "05_final_test" / "TEST_SET_SPENT.json"
+
 # --- experiment constants ----------------------------------------------------
 SEED = 42
 MAX_LEN = 128
