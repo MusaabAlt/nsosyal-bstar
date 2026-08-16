@@ -6,17 +6,51 @@ systems scored on that resample, because all four variants see identical dev row
 
 ---
 
-## Verdict: the defense did not work as designed
+## Verdict: the component works, the system does not
 
-**No metric improved except `lexicon_free` OFF-recall in the full variant (+0.0336), and
-that gain is accompanied by a real loss of equal size on `lexicon_hit` (−0.0423) and by 30
-additional no-profanity false positives. Overall macro-F1 did not move.** The recall gap
-narrowed from +0.3301 to +0.2542, but roughly half of that narrowing is degradation of the
-slice the model was already good at — the "within-gap trade" named as a failure mode in the
-design, now observed.
+> **Corrected 16 Aug 2026, after phase 05.** This section originally read *"the defense
+> did not work as designed"* and treated the `lexicon_free` gain as cancelled by an equal
+> and opposite loss. The official test set then measured the same intervention on data no
+> design decision had seen, and the gain replicated while the offsetting loss did not.
+> The original heading understated a real, twice-measured component effect, so it is
+> corrected here. The dev numbers below are unchanged — only their reading is. The
+> superseded wording is preserved in `docs/RESULTS_LOG.md`, which is append-only.
 
-Component 1b's stated purpose was to cut the profanity-bearing false positives. The
-`lexicon_hit` false-positive rate went **up**, 0.1815 → 0.1931.
+**The `lexicon_free` OFF-recall gain is real and has now been measured twice: +0.0336
+[+0.0052, +0.0662] on dev and +0.0358 [+0.0043, +0.0665] on the official test set, both
+CIs excluding zero.** The augmentation genuinely improves recall on offensive content that
+carries no profanity token — the exact failure the phase 02 diagnosis identified and the
+exact thing component 1a+1b was built to fix. Two independent measurements, ~3.5pp each,
+agreeing closely.
+
+**System-level macro-F1 is flat.** Dev −0.0069 [−0.0185, +0.0052]; test −0.0002
+[−0.0129, +0.0118]. The component's gain is absorbed elsewhere and nothing reaches the
+overall metric.
+
+**Where it is absorbed differs between the two measurements, and that difference is the
+substance of this correction.** On dev the `lexicon_hit` recall loss (−0.0423
+[−0.0778, −0.0109]) excluded zero, which made "a real gain paid for by an equal real
+loss" the honest reading at the time. On test the same loss is −0.0260 [−0.0593, +0.0077]
+and does **not** reach significance; the cost instead appears as a diffuse precision
+penalty (−0.0127 [−0.0397, +0.0109]). Individually neither is distinguishable from noise;
+jointly they cancel the benefit.
+
+So the accurate statement is **not** that the defense failed. It is that **the component
+does what it was designed to do, and the system it sits in does not get better.** Those
+are different claims and only the second was true of the original wording.
+
+Two costs stand unchanged and are not softened by this correction:
+
+* Component 1b's stated purpose was to cut profanity-bearing false positives. The
+  `lexicon_hit` false-positive rate went **up**, 0.1815 → 0.1931, and no-profanity false
+  positives rose by 30. 1b did not do its job.
+* Phase 04 found the defense variant badly miscalibrated (ECE 0.0786 vs raw's 0.0205,
+  T = 1.97 vs 0.99). Operationally, on test it must defer 28.9% of rows to reach the
+  error level raw reaches while deferring 20.2%.
+
+The recall gap narrowing on dev (+0.3301 → +0.2542) still owes roughly half its size to
+degradation of the slice the model was already good at — the "within-gap trade" named as
+a failure mode at design time.
 
 ---
 
