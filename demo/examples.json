@@ -1,0 +1,74 @@
+[
+  {
+    "id": "38289",
+    "text": "erkeğimin üstünde zıplamak en sevdiğim onu inletmek",
+    "gold": "OFF",
+    "slice": "lexicon_free",
+    "family": "implicit offense, no profanity token",
+    "phase02_tag": "IMPLICIT",
+    "note": "gold OFF; raw BERTurk predicted NOT -- a false negative"
+  },
+  {
+    "id": "27875",
+    "text": "@USER Çünkü o da biliyor anlattıklarının yalan olduğunu",
+    "gold": "OFF",
+    "slice": "lexicon_free",
+    "family": "implicit offense, no profanity token",
+    "phase02_tag": "IMPLICIT",
+    "note": "gold OFF; raw BERTurk predicted NOT -- a false negative"
+  },
+  {
+    "id": "36955",
+    "text": "@USER Biraz daha zorlarsa tavuk yerine  yumurtlayacak.ha gayrett",
+    "gold": "OFF",
+    "slice": "lexicon_free",
+    "family": "implicit offense, no profanity token",
+    "phase02_tag": "IMPLICIT",
+    "note": "gold OFF; raw BERTurk predicted NOT -- a false negative"
+  },
+  {
+    "id": "21842",
+    "text": "@USER Başladı ağlamaya. Şenola ver telefonu azcık da o ağlayacakmış",
+    "gold": "OFF",
+    "slice": "lexicon_free",
+    "family": "implicit offense, no profanity token",
+    "phase02_tag": "IMPLICIT",
+    "note": "gold OFF; raw BERTurk predicted NOT -- a false negative"
+  },
+  {
+    "id": "18628",
+    "text": "@USER Kız dedigin biraz manyak olacak",
+    "gold": "NOT",
+    "slice": "lexicon_hit",
+    "family": "profanity token present, no offensive act",
+    "phase02_tag": "NONDIR",
+    "note": "gold NOT; raw BERTurk predicted OFF -- a false positive"
+  },
+  {
+    "id": "41909",
+    "text": "vay anasnı burda da ihanete uğruyoruz balık olmak çok zor...",
+    "gold": "NOT",
+    "slice": "lexicon_hit",
+    "family": "profanity token present, no offensive act",
+    "phase02_tag": "FILL",
+    "note": "gold NOT; raw BERTurk predicted OFF -- a false positive"
+  },
+  {
+    "id": "33198",
+    "text": "Bir insana şerefsiz demek için 2 değil 40 defa düşünün.",
+    "gold": "NOT",
+    "slice": "lexicon_hit",
+    "family": "profanity token present, no offensive act",
+    "phase02_tag": "META",
+    "note": "gold NOT; raw BERTurk predicted OFF -- a false positive"
+  },
+  {
+    "id": "12757",
+    "text": "@USER Fark adamlıkta yüreklikte şerefsizlikte değil",
+    "gold": "NOT",
+    "slice": "lexicon_hit",
+    "family": "profanity token present, no offensive act",
+    "phase02_tag": "NEG",
+    "note": "gold NOT; raw BERTurk predicted OFF -- a false positive"
+  }
+]
