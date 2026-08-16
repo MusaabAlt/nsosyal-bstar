@@ -40,3 +40,7 @@ results/**/*predictions*.csv
 *.safetensors
 checkpoints/
 runs/
+
+# Offline demo asset bundle: 885.9 MB, rebuilt by demo/build_assets.py.
+# Checkpoints are reproducible from a seed + a results file; they do not belong in git.
+demo_assets/
