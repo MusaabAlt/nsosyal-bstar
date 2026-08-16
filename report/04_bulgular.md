@@ -13,9 +13,9 @@ sayıları aynı tablolarda, aynı bölümde raporlanır.
 
 | Sistem | `lexicon_free` `OFF`-duyarlılık (geliştirme) | (resmî test) |
 |---|---:|---:|
-| Anahtar kelime süzgeci | 0,0000 | 0,0000 |
-| BERTurk (temel) | 0,5628 [0,5210; 0,6010] | 0,5101 |
-| **BERTurk + 1a+1b+D** | **0,5965** | **0,5459** |
+| Anahtar kelime süzgeci | 0,0000 (tanım gereği) | 0,0000 (tanım gereği) |
+| BERTurk (temel) | 0,5628 [0,5210; 0,6010] | 0,5101 [0,4628; 0,5546] |
+| **BERTurk + 1a+1b+D** | **0,5965** (ayrı GA yok, aşağıya bakınız) | **0,5459 [0,5021; 0,5899]** |
 | Müdahalenin etkisi (eşleştirilmiş fark) | **+0,0336 [+0,0052; +0,0662]** | **+0,0358 [+0,0043; +0,0665]** |
 
 *Kaynak: `results/01_baseline_berturk/metrics.json`,
@@ -31,6 +31,14 @@ sayıları aynı tablolarda, aynı bölümde raporlanır.
 3. Tanıdan türetilen müdahale bu dilimde **ölçülebilir bir iyileşme** sağlar ve
    bu iyileşme, hiçbir tasarım kararının görmediği resmî test kümesinde
    **yinelenir** (+0,0336 → +0,0358). Her iki güven aralığı da sıfırı dışlar.
+
+**Güven aralıkları hakkında bir not.** Tek tek sistemlerin dilim duyarlılıkları
+için verilen aralıklar bağımsız bootstrap'lerdir. **Müdahalenin etkisi için
+bakılması gereken aralık, son satırdaki eşleştirilmiş farktır.** İki sistem aynı
+satırlar üzerinde puanlandığından, iki bağımsız aralığın örtüşmesine bakmak
+farkın belirsizliğini olduğundan büyük gösterir (§1.7). Geliştirme kümesindeki
+savunma çeşitlemesi için ayrı bir dilim aralığı kayıtta bulunmamaktadır: o
+aşamada hesaplanan ve raporlanan büyüklük, doğrudan eşleştirilmiş farktır.
 
 ## 4.2 Temel çizgi ve açığın büyüklüğü
 
@@ -52,7 +60,15 @@ sayıları aynı tablolarda, aynı bölümde raporlanır.
 ### Dilimler arası duyarlılık farkı
 
 Birincil ölçütün karşıtı, modelin sözlük eşleşmesi olan dilimdeki
-duyarlılığıdır. İkisi arasındaki fark, çalışmanın merkezî bulgusudur.
+duyarlılığıdır. İkisi arasındaki fark, çalışmanın **tanısal** bulgusudur.
+
+Burada iki ayrı büyüklük vardır ve okuyucunun birini diğerine tercih etmesi
+gerekmez; ikisi farklı işler görür. **Duyarlılık farkı, tanının kendisidir**:
+sorunun var olduğunu, büyüklüğünü ve bir dönüştürücü tarafından kapatılmadığını
+gösterir; bu, çalışmanın betimleyici katkısıdır. **`lexicon_free`
+`OFF`-duyarlılığı ise müdahalenin ön kayıtlı hedefidir** (§1.7): tanıdan türetilen
+girişimin başarısı bu ölçüt üzerinden değerlendirilir. Birincisi sorunu ölçer,
+ikincisi çözüm denemesini ölçer.
 
 | | `lexicon_hit` | `lexicon_free` | **Fark** | %95 GA | Sıfırı dışlıyor mu |
 |---|---:|---:|---:|---|---|
@@ -98,6 +114,32 @@ kılmaktadır. Duyarlılık açığıyla birleştiğinde ortaya çıkan tablo, t
 mekanizmanın iki yüzüdür: **model, saldırgan SÖZCÜK DAĞARCIĞINI algılamakta,
 saldırgan EYLEMİ değil.**
 
+### Terimsel açıklama: "küfür taşımayan yanlış pozitif" üç ayrı büyüklüktür
+
+Bu raporda, yanlış pozitiflerin küfür içerip içermediğine ilişkin **üç farklı
+ölçüm** kullanılmaktadır. Üçü de aynı 213 satır üzerinde tanımlıdır, farklı
+sayılar verir ve **birbirinin yerine kullanılamaz.** Karışıklığı önlemek için her
+biri kendi adıyla anılmaktadır.
+
+| Terim | Tanım | Temel modelde değer |
+|---|---|---:|
+| **Sözlüksüz dilimdeki yanlış pozitif** | Dondurulmuş `hit_root` eşleştiricisinin hiçbir kök bulamadığı satırlar. Dilim üyeliğidir (§1.4). | **166** |
+| **Elle sayılan, küfür belirteci taşımayan yanlış pozitif** | 213 satırın tamamının elle okunmasıyla, insan yargısına göre hiçbir küfür belirteci içermeyenler. Sözlükte bulunmayan ve gizlenmiş biçimleri de kapsar. | **118** |
+| **Otomatik ölçüt: şüpheli-kök dışı sözlük eşleşmesi bulunmayan yanlış pozitif** | Eşleşmelerinin tamamı §4.5'teki şüpheli kökler kümesinden gelen satırlar, küfür taşımıyor sayılır. Yeniden üretilebilir bir vekildir. | **185** |
+
+Üç sayı birbiriyle tutarlıdır: 213 = 47 (`lexicon_hit`) + 166 (`lexicon_free`) ve
+213 = 28 + 185; aradaki 19 satır, tek eşleşmesi şüpheli bir kök olan yanlış
+pozitiflerdir (47 − 28 = 185 − 166 = 19). Elle sayım (118) ikisinden de düşüktür,
+çünkü bir insan okuyucu sözlüğün kaçırdığı biçimleri de küfür saymaktadır: elle
+95 satırda küfür bulunurken, sözlüğün şüpheli-kök dışı eşleşmesi yalnızca 28
+satırdadır.
+
+**Hangisi nerede kullanılır.** Elle sayım (118) hata çözümlemesinin niteliksel
+bulgusudur (§4.4). Otomatik vekil (185) çalıştırmalar arası karşılaştırma için
+kullanılır (§4.6); mutlak değeri elle sayımla aynı büyüklük değildir ve öyleymiş
+gibi okunmamalıdır — **yalnızca çalıştırmalar arasındaki farkları anlamlıdır.**
+Bu sınırlılık `results/03_defense/findings.md` içinde de kayıtlıdır.
+
 ## 4.4 Hata çözümlemesi — sayım
 
 Temel modelin geliştirme kümesindeki **285 yanlış negatifinin ve 213 yanlış
@@ -121,6 +163,32 @@ Yansız örneklem **%10** vermektedir ve savunulabilir olan budur.
 Sonuç: sözlüksüz yanlış negatiflerin baskın kipi etiket gürültüsü **değildir.**
 Yansız örneklemin %35'i (14/40) açık biçimde örtük saldırıdır — mecazlı hakaret,
 alay, tehdit, gruba yönelik nefret.
+
+### En büyük öbek: kararı insan yargısına bağlı satırlar
+
+Yansız örneklemin **en kalabalık kategorisi ne gürültü ne de açık örtük saldırıdır:
+21/40 satır (%52,5) AMBIG olarak etiketlenmiştir** — yani saldırgan sayılıp
+sayılmayacağı, uygulanan işaretleme sözleşmesine bağlıdır. Bu öbek, bulgunun
+raporlanmasında atlanamaz; tek başına diğer üç kategorinin toplamına yakındır.
+
+Bu satırların büyük bölümü tek bir türdendir: **siyasetçilere ve kurumlara
+yöneltilen sert eleştiri.** Yansız 40 satırlık örneklemin yaklaşık **13'ü** bu
+banda düşmektedir. Bir siyasetçiye yöneltilen sert bir ifadenin "saldırgan" mı
+yoksa "siyasi eleştiri" mi sayılacağı, dilbilimsel bir olgu değil, bir işaretleme
+sözleşmesi kararıdır.
+
+Bu çalışmada alınan tutum açıktır ve `docs/RESULTS_LOG.md` içinde kayıtlıdır:
+**Çöltekin'in işaretleme sözleşmesi olduğu gibi benimsenmiş, hiçbir satır yeniden
+etiketlenmemiştir.** Alternatif bir sözleşme benimsenseydi bu 13 satırın altın
+etiketi değişebilir ve bununla birlikte hem temel modelin duyarlılığı hem de
+raporlanan açık bir miktar kayardı. Bu, ölçümün ortadan kaldırılmış değil,
+**belirtilmiş** bir sınırlılığıdır ve §5'te yeniden ele alınmaktadır.
+
+Bu öbeğin varlığı, §4.4'ün ilk bulgusunu da nitelendirmektedir: sözlüksüz
+yanlış negatiflerin baskın kipi etiket gürültüsü değildir, ancak "hepsi modelin
+kaçırdığı gerçek saldırılardır" da denemez. Ölçülebilir olan üç şey vardır —
+gürültü %10, açık örtük saldırı %35, sözleşmeye bağlı %52,5 — ve üçü birlikte
+raporlanmalıdır.
 
 ### Yanlış pozitifler: küfrün işlevi
 
@@ -196,7 +264,7 @@ birleşik tek bir çalıştırma etkiyi bileşenlere atfedemezdi.
 | `lexicon_hit` yanlış pozitif oranı | 0,1815 | 0,1737 | 0,1853 | 0,1931 |
 | Duyarlılık farkı | +0,3301 | +0,3670 | +0,2441 | +0,2542 |
 | Yanlış pozitif (toplam) | 213 | 182 | 232 | 245 |
-| — küfür belirteci taşımayan | 185 | 156 | 205 | 215 |
+| — şüpheli-kök dışı sözlük eşleşmesi bulunmayan (otomatik vekil, §4.3) | 185 | 156 | 205 | 215 |
 | H ailesiyle bozulmuş geliştirme, `OFF`-duyarlılık | 0,6565 | 0,6261 | 0,6652 | 0,6793 |
 
 Temel modele karşı **eşleştirilmiş** farklar (aynı satırlar; GA sıfırı dışlıyorsa
@@ -265,11 +333,12 @@ Dolayısıyla "eşit büyüklükte bir kayıpla ödenmiş kazanç" ifadesi geli�
 verisi için doğru, test verisi için kanıtlanmamıştır. Rapor bu ayrımı
 düzleştirmez.
 
-Ek bir maliyet, tasarım aşamasında öngörülmüş ve ölçülmüştür: küfür belirteci
-taşımayan yanlış pozitifler 185'ten 215'e yükselmiştir. Dört çalıştırmalı kurgu
-bunu **1a'ya değil** 1b ve D'ye atfetmektedir (1a tek başına bu sayıyı 156'ya
-*düşürmüştür*). Birleşik tek bir çalıştırma, bu artışı yanlışlıkla maskeleme
-işlecine yükleyecekti.
+Ek bir maliyet, tasarım aşamasında öngörülmüş ve ölçülmüştür: §4.3'te tanımlanan
+**otomatik vekil ölçütte** yanlış pozitifler 185'ten 215'e yükselmiştir. Dört
+çalıştırmalı kurgu bunu **1a'ya değil** 1b ve D'ye atfetmektedir (1a tek başına
+bu sayıyı 156'ya *düşürmüştür*). Birleşik tek bir çalıştırma, bu artışı
+yanlışlıkla maskeleme işlecine yükleyecekti. Vekil ölçüt olduğu için burada
+anlamlı olan **çalıştırmalar arasındaki +30'luk fark**tır, mutlak değer değil.
 
 ## 4.8 Kalibrasyon
 
@@ -388,7 +457,7 @@ seçiciliğinden değil.
 | 1 | Sözlük temelli süzgeç, saldırgan içeriğin %63,5'ini yapısal olarak kaçırır | §1.2, Gün 1 kaydı |
 | 2 | Eğitilmiş dönüştürücü açığı kapatmaz: geliştirmede +0,3301, testte +0,3970 | §4.2 |
 | 3 | Açık iki yönlüdür: `lexicon_hit` yanlış pozitif oranı 4 kat yüksektir | §4.3 |
-| 4 | Baskın hata kipi etiket gürültüsü değildir (%10), örtük saldırıdır | §4.4 |
+| 4 | Etiket gürültüsü baskın değildir (%10); açık örtük saldırı %35'tir; **en büyük tek kategori (%52,5) işaretleme sözleşmesine bağlıdır ve insan yargısı gerektirir** | §4.4 |
 | 5 | Küfür taşıyan yanlış pozitiflerin %88,4'ü saldırgan eylem içermez | §4.4 |
 | 6 | Dilim kirlenmesi farkı **küçültmektedir**; raporlanan değer muhafazakârdır | §4.5 |
 | 7 | **Müdahale birincil ölçütte gerçek ve yinelenen bir kazanç sağlar (+0,0336 / +0,0358)** | §4.1, §4.6, §4.7 |
