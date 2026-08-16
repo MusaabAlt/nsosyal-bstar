@@ -237,7 +237,11 @@ def assert_trainable_runtime(allow_cpu=False):
     sys.exit(message)
 
 
-def mirror_outputs(out_dir, mirror_dir):
+PHASE01_CONTRACT = ("metrics.json", "classification_report.txt", "dev_predictions.csv",
+                    "run_config.json", "results_log_row.md")
+
+
+def mirror_outputs(out_dir, mirror_dir, required=None, marker="metrics.json"):
     """Copy a COMPLETED run's outputs to Drive.
 
     The repo copy stays canonical and is the one that gets committed; Drive is a
@@ -248,12 +252,19 @@ def mirror_outputs(out_dir, mirror_dir):
     mirrored, and it refuses anything stamped MOCK_RUN. (The dry-run harness
     calls `evaluate_and_write` directly and never reaches main(), so mock output
     has no path here at all; this check is the second lock on that door.)
+
+    `required` is the output contract to enforce and defaults to phase 01's five
+    files. Later phases pass their own list rather than getting a second copy of
+    this function -- two mirrors would be free to drift apart on exactly the
+    checks that make this one worth having.
     """
     out_dir, mirror_dir = Path(out_dir), Path(mirror_dir)
-    metrics_file = out_dir / "metrics.json"
-    if not metrics_file.exists():
-        sys.exit(f"Refusing to mirror: {metrics_file} does not exist, so the run did not complete.")
-    if "MOCK_RUN" in json.loads(metrics_file.read_text(encoding="utf-8")):
+    required = tuple(required) if required else PHASE01_CONTRACT
+    marker_file = out_dir / marker
+    if not marker_file.exists():
+        sys.exit(f"Refusing to mirror: {marker_file} does not exist, so the run did not complete.")
+    if marker_file.suffix == ".json" and "MOCK_RUN" in json.loads(
+            marker_file.read_text(encoding="utf-8")):
         sys.exit("Refusing to mirror MOCK output. Mock numbers are not results.")
 
     # dev_predictions.csv is gitignored (corpus text) and /content is wiped when
@@ -261,8 +272,7 @@ def mirror_outputs(out_dir, mirror_dir):
     # reads it for the failure analysis and phase 4 reads its confidence column
     # for calibration; losing it means retraining to recover it. Reporting a
     # successful mirror without it would be the expensive kind of quiet failure.
-    for name in ("metrics.json", "classification_report.txt", "dev_predictions.csv",
-                 "run_config.json", "results_log_row.md"):
+    for name in required:
         f = out_dir / name
         if not f.exists() or f.stat().st_size == 0:
             state = "missing" if not f.exists() else "zero-length"

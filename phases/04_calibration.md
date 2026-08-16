@@ -116,6 +116,22 @@ of dev (87.1%, 4,150/4,764) — a deferral set that is 87% `lexicon_free` is not
 selective, it is just proportional, and the comparison is what distinguishes the
 two. **A null is a result and gets reported as one.**
 
+### C4-8 — the two operating points are defined by rule, not chosen from the curve
+
+Picking the two headline points after seeing the risk–coverage curve would be
+optimisation wearing a declaration's clothes. Both are therefore fixed by rule
+now, and whatever they land on is what gets reported:
+
+* **High-automation** — target coverage **90%**. A round number, fixed in
+  advance, no error target attached.
+* **High-precision** — the **largest** coverage on the grid
+  {0.95, 0.90, …, 0.50} whose **CAL** error rate is **≤ 5.0%**. If no coverage
+  on the grid reaches 5.0%, that is reported as "the target is unreachable on
+  this model", the 50% point is reported in its place, and the failure is stated
+  rather than the target quietly moved.
+
+Both thresholds are read off CAL and applied unchanged to EVAL (C4-4).
+
 ### C4-7 — the defense variant
 
 The same full analysis is run for `+1a+1b+D`. Phase 03 showed it did not help
