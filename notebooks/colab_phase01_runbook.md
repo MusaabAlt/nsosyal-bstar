@@ -28,7 +28,12 @@ functional evasion text. Store a **fine-grained PAT** in Colab Secrets
 (🔑 sidebar) as `GH_TOKEN`, with **Repository access: only `nsosyal-bstar`** and
 **Permissions → Repository → Contents: Read-only**. Nothing more is needed —
 the clone is read-only and results are committed from the local machine.
-Toggle **Notebook access** on for the secret, or `userdata.get` raises.
+
+**The "Notebook access" grant is per-notebook and does not travel.** A rebuilt
+notebook is a *new* notebook, so the toggle starts off even though the secret
+itself already exists and worked yesterday. Turn it on in the 🔑 sidebar before
+running cell 3, and keep the Colab tab focused while it runs — the grant is
+answered by the browser frontend, not the kernel.
 
 Do not paste the token into a cell.
 
@@ -84,7 +89,10 @@ try:
     TOKEN = userdata.get('GH_TOKEN')
 except Exception as e:
     die(f"""GH_TOKEN did not resolve ({type(e).__name__}).
-            Colab Secrets -> GH_TOKEN must exist AND have 'Notebook access' toggled on.""")
+            The 'Notebook access' grant is PER-NOTEBOOK and starts off on a rebuilt
+            notebook, even though the secret itself already exists. Toggle it in the
+            key sidebar and keep this tab focused -- the grant is answered by the
+            browser, not the kernel.""")
 if not TOKEN:
     die("GH_TOKEN resolved to an empty value.")
 print("GH_TOKEN    : resolved, length", len(TOKEN))
@@ -319,7 +327,8 @@ optimisation setup and break comparability with every frozen number.
 | Symptom | Cause | Fix |
 |---|---|---|
 | `ValueError: mount failed` | OAuth popup not clicked inside 120 s | re-run cell 2, click promptly |
-| `userdata.SecretNotFoundError` | secret exists but **Notebook access** is off | toggle it in the 🔑 sidebar |
+| `userdata.TimeoutException: Requesting secret GH_TOKEN timed out. Secrets can only be fetched when running from the Colab UI.` | the grant is **per-notebook** and starts off on a rebuilt notebook; the dialog went unanswered | toggle **Notebook access** in the 🔑 sidebar, keep the tab focused, re-run |
+| `userdata.SecretNotFoundError` | no secret by that name | create `GH_TOKEN` in the 🔑 sidebar |
 | training silently ~20x slow | `+cpu` torch wheel on a GPU-less runtime | change runtime type; do **not** pip-install torch |
 | `git pull` refuses in the clone | run outputs, untracked locally, now tracked upstream | verify byte-identical, remove, pull |
 | results dir looks empty in `git status` | `results/**` ignored inside run subdirs | fixed in `.gitignore`; keep the `!results/**/*.json` exceptions |
