@@ -1,0 +1,158 @@
+{
+  "run_id": "03_defense_1a",
+  "variant": "1a",
+  "git_sha": "00b913944d600e8b5c864b0712a19eb27902fcdd",
+  "started_at": "2026-08-15T18:51:07",
+  "finished_at": "2026-08-15T18:57:04",
+  "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4",
+  "official_test_set_touched": false,
+  "dev_augmented": false,
+  "attack_families": {
+    "train": [
+      "D"
+    ],
+    "eval": [
+      "H"
+    ],
+    "disjoint_asserted": true
+  },
+  "augmentation": {
+    "base": 26992,
+    "1a": 382,
+    "1a_upsample": 1146,
+    "1b": 0,
+    "obf_D": 0,
+    "1a_skip_reasons": {
+      "no_profanity_token": 3716,
+      "no_second_person_address": 545,
+      "multiple_profanity_tokens": 296,
+      "profanity_is_only_a_filler": 209,
+      "too_little_residual_content": 50,
+      "profanity_is_the_insult_head": 13
+    }
+  },
+  "hyperparams": {
+    "epochs": 3,
+    "batch_size": 32,
+    "lr": 2e-05,
+    "max_len": 128,
+    "seed": 42,
+    "upsample_1a": 3,
+    "n_1b": 2000,
+    "n_obf": 2000
+  },
+  "clean_dev": {
+    "macro_f1": 0.8243983668796604,
+    "macro_f1_ci": {
+      "metric": "macro_f1",
+      "ci_low": 0.8100266484096541,
+      "ci_high": 0.8378967818385344,
+      "n_boot": 1000,
+      "n_boot_used": 1000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42
+    },
+    "off_recall": 0.6619565217391304,
+    "off_recall_ci": {
+      "metric": "off_recall",
+      "ci_low": 0.6319320842643322,
+      "ci_high": 0.6913875611963154,
+      "n_boot": 1000,
+      "n_boot_used": 1000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42
+    },
+    "off_precision": 0.7699115044247787,
+    "confusion": {
+      "tn": 3662,
+      "fp": 182,
+      "fn": 311,
+      "tp": 609
+    },
+    "lexicon_free_off_recall": 0.5203539823008849,
+    "lexicon_free_off_recall_ci": {
+      "metric": "off_recall",
+      "ci_low": 0.4781084216447007,
+      "ci_high": 0.5633928785661156,
+      "n_boot": 1000,
+      "n_boot_used": 1000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42
+    },
+    "lexicon_hit_off_recall": 0.8873239436619719,
+    "lexicon_hit_off_recall_ci": {
+      "metric": "off_recall",
+      "ci_low": 0.8539879116812631,
+      "ci_high": 0.9196731378460691,
+      "n_boot": 1000,
+      "n_boot_used": 1000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42
+    },
+    "lexicon_hit_fp_rate": 0.17374517374517376,
+    "lexicon_hit_confusion": {
+      "tn": 214,
+      "fp": 45,
+      "fn": 40,
+      "tp": 315
+    },
+    "lexicon_free_confusion": {
+      "tn": 3448,
+      "fp": 137,
+      "fn": 271,
+      "tp": 294
+    },
+    "recall_gap": {
+      "delta": 0.36696996136108695,
+      "ci_low": 0.3117098322948146,
+      "ci_high": 0.42319248960036027,
+      "excludes_zero": true
+    },
+    "false_positives_total": 182,
+    "false_positives_no_profanity": 156
+  },
+  "heldout_obfuscation_H_dev": {
+    "macro_f1": 0.8078604179727448,
+    "off_recall": 0.6260869565217392,
+    "off_precision": 0.7529411764705882,
+    "confusion": {
+      "tn": 3655,
+      "fp": 189,
+      "fn": 344,
+      "tp": 576
+    },
+    "rows_perturbed": 614,
+    "note": "family H was never trained on; D/H disjointness asserted at both sites"
+  },
+  "training_history": [
+    {
+      "epoch": 1,
+      "train_loss": 0.35323216085406867,
+      "dev_macro_f1": 0.8243983668796604,
+      "seconds": 94.9
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.20602627946910532,
+      "dev_macro_f1": 0.8195756056808688,
+      "seconds": 95.2
+    },
+    {
+      "epoch": 3,
+      "train_loss": 0.12917134392244572,
+      "dev_macro_f1": 0.820334399601322,
+      "seconds": 95.1
+    }
+  ],
+  "environment": {
+    "torch": "2.11.0+cu128",
+    "cuda_available": true,
+    "device_name": "NVIDIA L4",
+    "transformers": "5.15.0",
+    "scikit_learn": "1.6.1"
+  }
+}

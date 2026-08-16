@@ -1,0 +1,135 @@
+{
+  "run_id": "03_defense_raw",
+  "variant": "raw",
+  "git_sha": "00b913944d600e8b5c864b0712a19eb27902fcdd",
+  "started_at": "2026-08-15T18:50:16",
+  "finished_at": "2026-08-15T18:51:06",
+  "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4",
+  "official_test_set_touched": false,
+  "dev_augmented": false,
+  "attack_families": {
+    "train": [
+      "D"
+    ],
+    "eval": [
+      "H"
+    ],
+    "disjoint_asserted": true
+  },
+  "augmentation": {
+    "base": 26992,
+    "1a": 0,
+    "1a_upsample": 0,
+    "1b": 0,
+    "obf_D": 0
+  },
+  "hyperparams": {
+    "epochs": 3,
+    "batch_size": 32,
+    "lr": 2e-05,
+    "max_len": 128,
+    "seed": 42,
+    "upsample_1a": 3,
+    "n_1b": 2000,
+    "n_obf": 2000
+  },
+  "clean_dev": {
+    "macro_f1": 0.8270752670616224,
+    "macro_f1_ci": {
+      "metric": "macro_f1",
+      "ci_low": 0.8138925991245577,
+      "ci_high": 0.8404931829690758,
+      "n_boot": 1000,
+      "n_boot_used": 1000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42
+    },
+    "off_recall": 0.6902173913043478,
+    "off_recall_ci": {
+      "metric": "off_recall",
+      "ci_low": 0.6603335876514874,
+      "ci_high": 0.7191433437118332,
+      "n_boot": 1000,
+      "n_boot_used": 1000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42
+    },
+    "off_precision": 0.7488207547169812,
+    "confusion": {
+      "tn": 3631,
+      "fp": 213,
+      "fn": 285,
+      "tp": 635
+    },
+    "lexicon_free_off_recall": 0.5628318584070796,
+    "lexicon_free_off_recall_ci": {
+      "metric": "off_recall",
+      "ci_low": 0.5210336958632744,
+      "ci_high": 0.600994905085022,
+      "n_boot": 1000,
+      "n_boot_used": 1000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42
+    },
+    "lexicon_hit_off_recall": 0.8929577464788733,
+    "lexicon_hit_off_recall_ci": {
+      "metric": "off_recall",
+      "ci_low": 0.8617812985609081,
+      "ci_high": 0.9247963091922006,
+      "n_boot": 1000,
+      "n_boot_used": 1000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42
+    },
+    "lexicon_hit_fp_rate": 0.18146718146718147,
+    "lexicon_hit_confusion": {
+      "tn": 212,
+      "fp": 47,
+      "fn": 38,
+      "tp": 317
+    },
+    "lexicon_free_confusion": {
+      "tn": 3419,
+      "fp": 166,
+      "fn": 247,
+      "tp": 318
+    },
+    "recall_gap": {
+      "delta": 0.33012588807179366,
+      "ci_low": 0.2771480590457781,
+      "ci_high": 0.3826950345077446,
+      "excludes_zero": true
+    },
+    "false_positives_total": 213,
+    "false_positives_no_profanity": 185
+  },
+  "heldout_obfuscation_H_dev": {
+    "macro_f1": 0.8121680224890755,
+    "off_recall": 0.6565217391304348,
+    "off_precision": 0.7339003645200486,
+    "confusion": {
+      "tn": 3625,
+      "fp": 219,
+      "fn": 316,
+      "tp": 604
+    },
+    "rows_perturbed": 614,
+    "note": "family H was never trained on; D/H disjointness asserted at both sites"
+  },
+  "training_history": [
+    {
+      "note": "loaded /content/drive/MyDrive/nsosyal-bstar/checkpoints/01_baseline_berturk/best.pt, no training"
+    }
+  ],
+  "environment": {
+    "torch": "2.11.0+cu128",
+    "cuda_available": true,
+    "device_name": "NVIDIA L4",
+    "transformers": "5.15.0",
+    "scikit_learn": "1.6.1"
+  }
+}

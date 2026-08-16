@@ -1,0 +1,38 @@
+{
+  "run_id": "03_defense_train_oof",
+  "purpose": "training-split errors for deriving 1b insertion patterns (constraint C1); dev error families are NOT used for derivation",
+  "git_sha": "5203ec5efe524d305ff14d199af68b73dbd7477a",
+  "started_at": "2026-08-15T17:35:43",
+  "finished_at": "2026-08-15T17:59:01",
+  "k_folds": 5,
+  "seed": 42,
+  "model": "dbmdz/bert-base-turkish-cased",
+  "n_train_rows": 26992,
+  "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4",
+  "dev_rows_used": 0,
+  "official_test_set_touched": false,
+  "oof_overall": {
+    "macro_f1": 0.8229987655238366,
+    "off_recall": 0.6985223565534446,
+    "off_precision": 0.728,
+    "confusion": {
+      "tn": 20421,
+      "fp": 1360,
+      "fn": 1571,
+      "tp": 3640
+    }
+  },
+  "errors": {
+    "false_positives": 1360,
+    "false_negatives": 1571,
+    "false_positives_lexicon_hit": 251,
+    "false_positives_lexicon_free": 1109
+  },
+  "environment": {
+    "torch": "2.11.0+cu128",
+    "cuda_available": true,
+    "device_name": "NVIDIA L4",
+    "transformers": "5.15.0",
+    "scikit_learn": "1.6.1"
+  }
+}

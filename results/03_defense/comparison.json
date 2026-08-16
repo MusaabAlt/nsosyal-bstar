@@ -1,0 +1,158 @@
+{
+  "runs": {
+    "raw": {
+      "macro_f1": 0.8270752670616224,
+      "off_recall": 0.6902173913043478,
+      "off_precision": 0.7488207547169812,
+      "lexicon_free_off_recall": 0.5628318584070796,
+      "lexicon_hit_off_recall": 0.8929577464788733,
+      "lexicon_hit_fp_rate": 0.18146718146718147,
+      "lexicon_hit_confusion": {
+        "tn": 212,
+        "fp": 47,
+        "fn": 38,
+        "tp": 317
+      },
+      "recall_gap": {
+        "delta": 0.33012588807179366,
+        "ci_low": 0.2771480590457781,
+        "ci_high": 0.3826950345077446,
+        "excludes_zero": true
+      },
+      "false_positives_total": 213,
+      "false_positives_no_profanity": 185
+    },
+    "1a": {
+      "macro_f1": 0.8243983668796604,
+      "off_recall": 0.6619565217391304,
+      "off_precision": 0.7699115044247787,
+      "lexicon_free_off_recall": 0.5203539823008849,
+      "lexicon_hit_off_recall": 0.8873239436619719,
+      "lexicon_hit_fp_rate": 0.17374517374517376,
+      "lexicon_hit_confusion": {
+        "tn": 214,
+        "fp": 45,
+        "fn": 40,
+        "tp": 315
+      },
+      "recall_gap": {
+        "delta": 0.36696996136108695,
+        "ci_low": 0.3117098322948146,
+        "ci_high": 0.42319248960036027,
+        "excludes_zero": true
+      },
+      "false_positives_total": 182,
+      "false_positives_no_profanity": 156
+    },
+    "1a1b": {
+      "macro_f1": 0.8172956237971718,
+      "off_recall": 0.6782608695652174,
+      "off_precision": 0.7289719626168224,
+      "lexicon_free_off_recall": 0.584070796460177,
+      "lexicon_hit_off_recall": 0.828169014084507,
+      "lexicon_hit_fp_rate": 0.18532818532818532,
+      "lexicon_hit_confusion": {
+        "tn": 211,
+        "fp": 48,
+        "fn": 61,
+        "tp": 294
+      },
+      "recall_gap": {
+        "delta": 0.24409821762433004,
+        "ci_low": 0.18729694821558732,
+        "ci_high": 0.3008612565975446,
+        "excludes_zero": true
+      },
+      "false_positives_total": 232,
+      "false_positives_no_profanity": 205
+    },
+    "1a1b_d": {
+      "macro_f1": 0.820163145136936,
+      "off_recall": 0.6945652173913044,
+      "off_precision": 0.7228506787330317,
+      "lexicon_free_off_recall": 0.5964601769911504,
+      "lexicon_hit_off_recall": 0.8507042253521127,
+      "lexicon_hit_fp_rate": 0.19305019305019305,
+      "lexicon_hit_confusion": {
+        "tn": 209,
+        "fp": 50,
+        "fn": 53,
+        "tp": 302
+      },
+      "recall_gap": {
+        "delta": 0.25424404836096226,
+        "ci_low": 0.1978049368820887,
+        "ci_high": 0.31012091356869986,
+        "excludes_zero": true
+      },
+      "false_positives_total": 245,
+      "false_positives_no_profanity": 215
+    }
+  },
+  "deltas_vs_raw": {
+    "1a": {
+      "macro_f1": {
+        "delta": -0.002676900181961983,
+        "ci_low": -0.01246915322244021,
+        "ci_high": 0.0065457471347365225,
+        "excludes_zero": false
+      },
+      "lexicon_free_off_recall": {
+        "delta": -0.04247787610619469,
+        "ci_low": -0.07220601729369132,
+        "ci_high": -0.010982622029133735,
+        "excludes_zero": true
+      },
+      "lexicon_hit_off_recall": {
+        "delta": -0.005633802816901401,
+        "ci_low": -0.03099030443282923,
+        "ci_high": 0.01939192828562638,
+        "excludes_zero": false
+      }
+    },
+    "1a1b": {
+      "macro_f1": {
+        "delta": -0.009779643264450577,
+        "ci_low": -0.020786935006238304,
+        "ci_high": 0.0006268120845404403,
+        "excludes_zero": false
+      },
+      "lexicon_free_off_recall": {
+        "delta": 0.0212389380530974,
+        "ci_low": -0.008655984015201186,
+        "ci_high": 0.05017975126311701,
+        "excludes_zero": false
+      },
+      "lexicon_hit_off_recall": {
+        "delta": -0.06478873239436622,
+        "ci_low": -0.09779128893051883,
+        "ci_high": -0.03150969585298338,
+        "excludes_zero": true
+      }
+    },
+    "1a1b_d": {
+      "macro_f1": {
+        "delta": -0.006912121924686376,
+        "ci_low": -0.01845930461090125,
+        "ci_high": 0.005174732498733941,
+        "excludes_zero": false
+      },
+      "lexicon_free_off_recall": {
+        "delta": 0.03362831858407078,
+        "ci_low": 0.005233136699419122,
+        "ci_high": 0.06617711108833776,
+        "excludes_zero": true
+      },
+      "lexicon_hit_off_recall": {
+        "delta": -0.04225352112676062,
+        "ci_low": -0.07777857829010572,
+        "ci_high": -0.010924554909219123,
+        "excludes_zero": true
+      }
+    }
+  },
+  "n_boot": 1000,
+  "seed": 42,
+  "paired": true,
+  "dev_rows": 4764
+}
