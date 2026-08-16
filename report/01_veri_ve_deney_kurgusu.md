@@ -179,6 +179,61 @@ içinde yer almaz. Dolayısıyla bu çalışma, **derlem-içi** (same-source) bi
 genelleme iddiası taşır; farklı bir derleme aktarım (cross-corpus transfer)
 iddiası taşımaz. Bu sınırlılık §"Sınırlılıklar" bölümünde yeniden ele alınmıştır.
 
+## 1.7 Birincil değerlendirme ölçütü
+
+Bu çalışmanın katkısı, genel sınıflandırma başarımını yükseltmek değil, modelin
+**sözlüksel bağımlılığını azaltmaktır.** Değerlendirme ölçütü de buna göre
+seçilmiştir.
+
+**Birincil ölçüt: `lexicon_free` diliminde `OFF`-duyarlılık.** Yani, hiçbir küfür
+belirteci taşımayan saldırgan içeriğin ne kadarının yakalandığı. Çalışmanın
+tanısı bu dilimdeki açığa ilişkindir; müdahale bu dilim için tasarlanmıştır;
+dolayısıyla başarının ölçüldüğü yer de bu dilimdir.
+
+Bu ölçütün seçimi **sonuçlar görüldükten sonra yapılmamıştır.** Müdahalenin
+hedefi, herhangi bir savunma sayısı üretilmeden önce yazılı olarak sabitlenmiştir:
+
+> "**Targets.** 1a → the lexicon-free false negatives (implicit offense, 35% of
+> the unbiased dev sample). 1b → the profanity-bearing false positives that
+> perform no offensive act."
+>
+> — `phases/03_defense_design.md`, tasarım aşamasında, ölçümden önce.
+
+Bu ayrım yöntemsel olarak belirleyicidir. Birden çok ölçüt arasından sonradan
+lehte olanı seçmek geçersiz bir uygulamadır; önceden ilan edilmiş bir hedef
+üzerinde ölçüm yapmak ise geçerli bir katkı iddiasıdır. Bu raporun iddiası
+ikincisidir ve dayanağı, tarih damgalı ön kayıttır.
+
+**İkincil ölçütler — her tabloda birincil ölçütle birlikte raporlanır:**
+
+| Ölçüt | Neden birlikte raporlanıyor |
+|---|---|
+| Genel makro-F1 | Sistem düzeyinde net etkiyi gösterir; birincil ölçütteki kazanç bunu iyileştirmiyorsa, bu açıkça yazılmalıdır |
+| `lexicon_hit` `OFF`-duyarlılık | Modelin zaten iyi olduğu dilimdeki olası bozulmayı gösterir |
+| `lexicon_hit` yanlış pozitif oranı | 1b bileşeninin kendi hedefine ulaşıp ulaşmadığını gösterir |
+| Duyarlılık farkı (`hit` − `free`) | Farkın *hangi yönden* daraldığını ayırt etmeyi sağlar |
+
+Bu birlikte raporlama zorunluluğu da tasarım aşamasında, olası bir başarısızlık
+biçimine karşı önlem olarak yazılmıştır: farkın "yanlış nedenle" daralması, yani
+`lexicon_free` yükseldiği için değil `lexicon_hit` düştüğü için daralması. Tasarım
+belgesi bunu şöyle kaydeder: *"a within-gap trade where `lexicon_hit` recall falls
+and the gap narrows for the wrong reason — which is why all four metrics are
+reported together."*
+
+Sonuç olarak bu rapor, birincil ölçütteki kazancı **ölçülmüş bir iyileşme**
+olarak sunar ve bu kazancın bedellerini — genel makro-F1'in değişmemesi ve
+`lexicon_hit` tarafındaki maliyet — aynı bölümde, aynı tablolarda ve gizlemeden
+raporlar. Kazanç da bedel de aynı ön kayıttan doğmaktadır.
+
+**İstatistiksel protokol.** Tüm ölçütler için güven aralıkları, satırlar üzerinde
+1.000 yeniden örneklemeli parametrik olmayan bootstrap ile hesaplanır. İki sistem
+aynı satırlar üzerinde karşılaştırıldığında **eşleştirilmiş** (paired) bootstrap
+kullanılır: satırlar bir kez yeniden örneklenir ve her iki sistem aynı örneklem
+üzerinde puanlanır; iki bağımsız güven aralığının karşılaştırılması farkın
+belirsizliğini olduğundan büyük gösterirdi. Ayrık dilimler karşılaştırıldığında
+(örneğin `hit` ile `free`) bağımsız yeniden örnekleme uygulanır. Farklar,
+**işaretine bakılmaksızın** güven aralıklarıyla birlikte raporlanır.
+
 ---
 
 ### Bu bölümde kullanılan kaynakların özeti
@@ -192,3 +247,4 @@ iddiası taşımaz. Bu sınırlılık §"Sınırlılıklar" bölümünde yeniden
 | `results/05_final_test/metrics.json` | test satır ve dilim sayıları, dosya özetleri |
 | `results/05_final_test/TEST_SET_{OPENED,SPENT}.json` | tek kullanım muhasebesi |
 | `phases/01_baseline_diagnosis.md` | dilimler arası karşılaştırmanın `OFF`-duyarlılıkla sınırlanması (ön kayıt) |
+| `phases/03_defense_design.md` | müdahalenin hedefinin ölçümden önce sabitlenmesi; dört ölçütün birlikte raporlanma zorunluluğu (ön kayıt) |
