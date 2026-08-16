@@ -57,6 +57,13 @@ class Tee:
 
     The write-up quotes numbers; this keeps the unedited console output next to
     them, which is what makes the quoting checkable.
+
+
+    Anything this class does not implement is delegated to the real stream.
+    Libraries interrogate sys.stdout for more than write/flush -- transformers
+    calls .isatty() while reporting checkpoint loading -- and a Tee that answers
+    only the two obvious methods turns into an AttributeError at exactly the
+    wrong moment. (It did, on the first attempt at this run.)
     """
 
     def __init__(self, stream, path):
@@ -72,8 +79,16 @@ class Tee:
         self.stream.flush()
         self.file.flush()
 
+    def isatty(self):
+        # False, not the underlying stream's answer: the tee'd copy is a file,
+        # and colour escape codes would corrupt the preserved raw output.
+        return False
+
     def close(self):
         self.file.close()
+
+    def __getattr__(self, name):
+        return getattr(self.stream, name)
 
 
 # --------------------------------------------------------------------------
