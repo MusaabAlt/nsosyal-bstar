@@ -1,0 +1,124 @@
+Frozen thresholds loaded from phase 04 (NOT re-derived here):
+  BERTurk raw    high_automation  threshold 0.6632  [CAL]  dev coverage 91.2%
+  BERTurk raw    high_precision   threshold 0.8009  [CAL]  dev coverage 81.6%
+  +1a+1b+D       high_automation  threshold 0.8656  [CAL]  dev coverage 91.4%
+  +1a+1b+D       high_precision   threshold 0.9877  [CAL]  dev coverage 71.8%
+
+Runtime gate
+  torch          : 2.11.0+cu128
+  cuda available : True
+  device         : NVIDIA L4
+  [PASS] GPU present and torch is a CUDA build.
+
+Opening the official test set (this is the one permitted read)...
+  3,528 rows  {'NOT': 2812, 'OFF': 716}
+  slices: lexicon_hit 491 / lexicon_free 3,037
+  sha256: test 9052784e13248e58  gold ae9b0837e948c3d9
+
+loading raw <- /content/drive/MyDrive/nsosyal-bstar/checkpoints/01_baseline_berturk/best.pt
+  checkpoint epoch 0, dev macro-F1 0.8270752670616224
+
+loading 1a1b_d <- /content/drive/MyDrive/nsosyal-bstar/checkpoints/03_defense/1a1b_d/best.pt
+  checkpoint epoch 2, dev macro-F1 0.820163145136936
+
+====================================================================================================
+PHASE 05 -- OFFICIAL ÇÖLTEKIN TEST SET, 3,528 rows, single pass
+====================================================================================================
+
+system              macro-F1                95% CI  OFF-recall  OFF-prec
+----------------------------------------------------------------------------------------------------
+keyword filter        0.6657      [0.6456, 0.6857]      0.3757    0.5479
+BERTurk raw           0.8095      [0.7930, 0.8261]      0.6592    0.7295
++1a+1b+D              0.8093      [0.7927, 0.8255]      0.6718    0.7168
+
+
+SLICES AND THE RECALL GAP (the phase-01 headline, on held-out data)
+----------------------------------------------------------------------------------------------------
+system               hit n  hit OFF-R  free n  free OFF-R      gap                95% CI  excl 0
+keyword filter         491     1.0000    3037      0.0000  +1.0000    [+1.0000, +1.0000]    True
+BERTurk raw            491     0.9071    3037      0.5101  +0.3970    [+0.3418, +0.4542]    True
++1a+1b+D               491     0.8810    3037      0.5459  +0.3352    [+0.2803, +0.3964]    True
+
+
+DEV -> TEST (does the headline replicate?)
+----------------------------------------------------------------------------------------------------
+system / metric                          dev      test     delta
+  keyword filter / macro-F1           0.6799    0.6657   -0.0142
+  keyword filter / OFF-recall         0.3859    0.3757   -0.0102
+  keyword filter / lexicon_hit OFF-recall         -    1.0000         -
+  keyword filter / lexicon_free OFF-recall         -    0.0000         -
+  keyword filter / RECALL GAP              -    1.0000         -
+  BERTurk raw / macro-F1              0.8271    0.8095   -0.0176
+  BERTurk raw / OFF-recall            0.6902    0.6592   -0.0310
+  BERTurk raw / lexicon_hit OFF-recall    0.8930    0.9071   +0.0141
+  BERTurk raw / lexicon_free OFF-recall    0.5628    0.5101   -0.0528
+  BERTurk raw / RECALL GAP            0.3301    0.3970   +0.0669
+  +1a+1b+D / macro-F1                      -    0.8093         -
+  +1a+1b+D / OFF-recall                    -    0.6718         -
+  +1a+1b+D / lexicon_hit OFF-recall         -    0.8810         -
+  +1a+1b+D / lexicon_free OFF-recall         -    0.5459         -
+  +1a+1b+D / RECALL GAP                    -    0.3352         -
+
+
+SELECTIVE PREDICTION AT THE FROZEN DEV THRESHOLDS
+(thresholds selected on the dev CAL half in phase 04 and applied unchanged; coverage is ACHIEVED, not targeted)
+----------------------------------------------------------------------------------------------------
+
+  [BERTurk raw / high_automation]  threshold 0.6632 (dev coverage was 91.2%)
+    At 90.2% automatic coverage the system holds 0.8485 macro-F1 / 8.52% error, deferring 9.8% to human review.
+    coverage   0.9016 [0.8926, 0.9116]
+    macro-F1   0.8485 [0.8320, 0.8653]   (dev 0.8504)
+    error rate 0.0852 [0.0752, 0.0944]   (dev 0.0792)
+    deferred error rate 0.4265   capture lift 3.59x   (35.3% of all errors in 9.8% of rows)
+    slice            rows  defer   defer%  %of defs  auto err  def err
+    lexicon_free     3037    298     9.8%     85.9%     8.32%   42.95%
+    lexicon_hit       491     49    10.0%     14.1%     9.73%   40.82%
+
+  [BERTurk raw / high_precision]  threshold 0.8009 (dev coverage was 81.6%)
+    At 79.8% automatic coverage the system holds 0.8900 macro-F1 / 5.43% error, deferring 20.2% to human review.
+    coverage   0.7982 [0.7857, 0.8112]
+    macro-F1   0.8900 [0.8741, 0.9075]   (dev 0.8756)
+    error rate 0.0543 [0.0457, 0.0628]   (dev 0.0581)
+    deferred error rate 0.3736   capture lift 3.15x   (63.5% of all errors in 20.2% of rows)
+    slice            rows  defer   defer%  %of defs  auto err  def err
+    lexicon_free     3037    616    20.3%     86.5%     5.25%   37.18%
+    lexicon_hit       491     96    19.6%     13.5%     6.58%   38.54%
+
+  [+1a+1b+D / high_automation]  threshold 0.8656 (dev coverage was 91.4%)
+    At 91.1% automatic coverage the system holds 0.8432 macro-F1 / 9.08% error, deferring 8.9% to human review.
+    coverage   0.9113 [0.9016, 0.9206]
+    macro-F1   0.8432 [0.8269, 0.8595]   (dev 0.8488)
+    error rate 0.0908 [0.0810, 0.1004]   (dev 0.0808)
+    deferred error rate 0.4249   capture lift 3.53x   (31.3% of all errors in 8.9% of rows)
+    slice            rows  defer   defer%  %of defs  auto err  def err
+    lexicon_free     3037    271     8.9%     86.6%     8.97%   41.33%
+    lexicon_hit       491     42     8.6%     13.4%     9.80%   50.00%
+
+  [+1a+1b+D / high_precision]  threshold 0.9877 (dev coverage was 71.8%)
+    At 71.1% automatic coverage the system holds 0.9108 macro-F1 / 4.55% error, deferring 28.9% to human review.
+    coverage   0.7109 [0.6961, 0.7265]
+    macro-F1   0.9108 [0.8942, 0.9271]   (dev 0.8981)
+    error rate 0.0455 [0.0372, 0.0538]   (dev 0.0474)
+    deferred error rate 0.3049   capture lift 2.53x   (73.2% of all errors in 28.9% of rows)
+    slice            rows  defer   defer%  %of defs  auto err  def err
+    lexicon_free     3037    880    29.0%     86.3%     4.40%   30.11%
+    lexicon_hit       491    140    28.5%     13.7%     5.41%   32.86%
+
+written -> /content/nsosyal-bstar/results/05_final_test/metrics.json
+written -> /content/nsosyal-bstar/results/05_final_test/test_predictions.csv
+written -> /content/nsosyal-bstar/results/05_final_test/raw_output.txt (verbatim console output)
+
+====================================================================
+MIRRORED TO DRIVE -> /content/drive/MyDrive/nsosyal-bstar/results/05_final_test
+====================================================================
+  TEST_SET_OPENED.json                  176 bytes
+  metrics.json                       20,114 bytes
+  raw_output.txt                        971 bytes
+  test_predictions.csv              620,397 bytes
+  4 file(s), verified by size after copy.
+  The repo copy remains canonical and is the one to commit; this is a mirror.
+
+====================================================================================================
+TEST SET MARKED SPENT -> /content/nsosyal-bstar/results/05_final_test/TEST_SET_SPENT.json
+Further calls to load_coltekin_test() will refuse, on this machine and on any clone of this commit.
+====================================================================================================

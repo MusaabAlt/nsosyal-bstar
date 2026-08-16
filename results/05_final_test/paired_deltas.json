@@ -1,0 +1,40 @@
+{
+  "run_id": "05_final_test",
+  "note": "Paired deltas (+1a+1b+D minus BERTurk raw) on the official test set, computed from the saved predictions of the single pass. The test set itself was not reopened.",
+  "n_rows": 3528,
+  "n_boot": 1000,
+  "seed": 42,
+  "paired": true,
+  "deltas_defense_minus_raw": {
+    "macro_f1": {
+      "delta": -0.00018828776114654389,
+      "ci_low": -0.012867950543002823,
+      "ci_high": 0.011817360328561061,
+      "excludes_zero": false
+    },
+    "off_recall": {
+      "delta": 0.012569832402234637,
+      "ci_low": -0.012556739834174777,
+      "ci_high": 0.036443924074188956,
+      "excludes_zero": false
+    },
+    "off_precision": {
+      "delta": -0.012680329020562597,
+      "ci_low": -0.03967078421600962,
+      "ci_high": 0.010935740220897699,
+      "excludes_zero": false
+    },
+    "lexicon_hit_off_recall": {
+      "delta": -0.02602230483271384,
+      "ci_low": -0.0592647666253615,
+      "ci_high": 0.007692307692307668,
+      "excludes_zero": false
+    },
+    "lexicon_free_off_recall": {
+      "delta": 0.03579418344519014,
+      "ci_low": 0.004321093698047141,
+      "ci_high": 0.06652254249815226,
+      "excludes_zero": true
+    }
+  }
+}

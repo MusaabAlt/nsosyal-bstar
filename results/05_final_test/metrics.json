@@ -1,0 +1,641 @@
+{
+  "run_id": "05_final_test",
+  "git_sha": "9af62f95288aba0d4ff773f1cd9a1dc851645cc4",
+  "started_at": "2026-08-16T11:10:34",
+  "n_test": 3528,
+  "hashes": {
+    "test_sha256": "9052784e13248e58658e34a4f86a3463ef8b2594d2feb289e4b29bba2866b437",
+    "gold_sha256": "ae9b0837e948c3d9c3a147d2a415989a4940a7756d5821b3289276574941c9e3",
+    "lexicon_sha256": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b"
+  },
+  "official_test_set_touched": true,
+  "single_pass": true,
+  "thresholds": {
+    "source": "/content/nsosyal-bstar/results/04_calibration/calibration.json",
+    "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4",
+    "points": {
+      "raw": {
+        "high_automation": {
+          "threshold": 0.663171,
+          "selected_on": "CAL",
+          "rule": "fixed at 90% coverage, declared in advance",
+          "dev_coverage": 0.9118387909319899,
+          "dev_macro_f1": 0.8504158585200146,
+          "dev_error_rate": 0.07918968692449356
+        },
+        "high_precision": {
+          "threshold": 0.80091,
+          "selected_on": "CAL",
+          "rule": "largest grid coverage whose CAL error rate <= 5.0%",
+          "dev_coverage": 0.8161209068010076,
+          "dev_macro_f1": 0.8755804766152671,
+          "dev_error_rate": 0.058127572016460904
+        }
+      },
+      "1a1b_d": {
+        "high_automation": {
+          "threshold": 0.865618,
+          "selected_on": "CAL",
+          "rule": "fixed at 90% coverage, declared in advance",
+          "dev_coverage": 0.9139378673383711,
+          "dev_macro_f1": 0.8488017855620764,
+          "dev_error_rate": 0.08084519981626091
+        },
+        "high_precision": {
+          "threshold": 0.987655,
+          "selected_on": "CAL",
+          "rule": "largest grid coverage whose CAL error rate <= 5.0%",
+          "dev_coverage": 0.7178841309823678,
+          "dev_macro_f1": 0.8980868943322009,
+          "dev_error_rate": 0.04736842105263158
+        }
+      }
+    }
+  },
+  "thresholds_re_derived_on_test": false,
+  "dev_reference": {
+    "raw": {
+      "macro_f1": 0.8270752670616224,
+      "off_recall": 0.6902173913043478,
+      "off_precision": 0.7488207547169812,
+      "lexicon_hit_off_recall": 0.8929577464788733,
+      "lexicon_free_off_recall": 0.5628318584070796,
+      "recall_gap": {
+        "delta": 0.33012588807179366,
+        "ci_low": 0.2771480590457781,
+        "ci_high": 0.3826950345077446,
+        "excludes_zero": true,
+        "method": "independent (disjoint slices), percentile CI",
+        "n_boot": 1000
+      }
+    },
+    "keyword": {
+      "macro_f1": 0.6798824672611369,
+      "off_recall": 0.3858695652173913,
+      "off_precision": 0.5781758957654723,
+      "confusion": {
+        "tn": 3585,
+        "fp": 259,
+        "fn": 565,
+        "tp": 355
+      },
+      "ci": {
+        "macro_f1": {
+          "metric": "macro_f1",
+          "ci_low": 0.6621096152425808,
+          "ci_high": 0.6969206661974825,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "off_recall": {
+          "metric": "off_recall",
+          "ci_low": 0.35387843630127414,
+          "ci_high": 0.41870350690754515,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        }
+      },
+      "note": "slice recalls are tautological (1.0 / 0.0) and deliberately not reported"
+    }
+  },
+  "systems": {
+    "keyword": {
+      "overall": {
+        "macro_f1": 0.6656773483114045,
+        "off_precision": 0.5478615071283096,
+        "off_recall": 0.3756983240223464,
+        "n": 3528,
+        "support_off": 716,
+        "confusion": {
+          "tn": 2590,
+          "fp": 222,
+          "fn": 447,
+          "tp": 269
+        }
+      },
+      "overall_ci": {
+        "macro_f1": {
+          "metric": "macro_f1",
+          "ci_low": 0.6455966137498054,
+          "ci_high": 0.6856687315266815,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "off_recall": {
+          "metric": "off_recall",
+          "ci_low": 0.34197219911008214,
+          "ci_high": 0.4127244750971234,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        }
+      },
+      "lexicon_hit": {
+        "n": 491,
+        "support_off": 269,
+        "support_not": 222,
+        "base_rate_off": 0.5478615071283096,
+        "off_recall": 1.0,
+        "off_recall_ci": {
+          "metric": "off_recall",
+          "ci_low": 1.0,
+          "ci_high": 1.0,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "confusion": {
+          "tn": 0,
+          "fp": 222,
+          "fn": 0,
+          "tp": 269
+        },
+        "macro_f1": null,
+        "macro_f1_note": "omitted by the phase-01 pre-registered constraint"
+      },
+      "lexicon_free": {
+        "n": 3037,
+        "support_off": 447,
+        "support_not": 2590,
+        "base_rate_off": 0.14718472176489958,
+        "off_recall": 0.0,
+        "off_recall_ci": {
+          "metric": "off_recall",
+          "ci_low": 0.0,
+          "ci_high": 0.0,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "confusion": {
+          "tn": 2590,
+          "fp": 0,
+          "fn": 447,
+          "tp": 0
+        },
+        "macro_f1": null,
+        "macro_f1_note": "omitted by the phase-01 pre-registered constraint"
+      },
+      "recall_gap": {
+        "delta": 1.0,
+        "ci_low": 1.0,
+        "ci_high": 1.0,
+        "excludes_zero": true
+      }
+    },
+    "raw": {
+      "overall": {
+        "macro_f1": 0.8094953592079137,
+        "off_precision": 0.7295208655332303,
+        "off_recall": 0.659217877094972,
+        "n": 3528,
+        "support_off": 716,
+        "confusion": {
+          "tn": 2637,
+          "fp": 175,
+          "fn": 244,
+          "tp": 472
+        }
+      },
+      "overall_ci": {
+        "macro_f1": {
+          "metric": "macro_f1",
+          "ci_low": 0.7930282081563444,
+          "ci_high": 0.8260747184564081,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "off_recall": {
+          "metric": "off_recall",
+          "ci_low": 0.625,
+          "ci_high": 0.6939669794892551,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        }
+      },
+      "lexicon_hit": {
+        "n": 491,
+        "support_off": 269,
+        "support_not": 222,
+        "base_rate_off": 0.5478615071283096,
+        "off_recall": 0.9070631970260223,
+        "off_recall_ci": {
+          "metric": "off_recall",
+          "ci_low": 0.8709616092235987,
+          "ci_high": 0.9386973180076629,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "confusion": {
+          "tn": 184,
+          "fp": 38,
+          "fn": 25,
+          "tp": 244
+        },
+        "macro_f1": null,
+        "macro_f1_note": "omitted by the phase-01 pre-registered constraint"
+      },
+      "lexicon_free": {
+        "n": 3037,
+        "support_off": 447,
+        "support_not": 2590,
+        "base_rate_off": 0.14718472176489958,
+        "off_recall": 0.5100671140939598,
+        "off_recall_ci": {
+          "metric": "off_recall",
+          "ci_low": 0.4627873202740519,
+          "ci_high": 0.5545582226762003,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "confusion": {
+          "tn": 2453,
+          "fp": 137,
+          "fn": 219,
+          "tp": 228
+        },
+        "macro_f1": null,
+        "macro_f1_note": "omitted by the phase-01 pre-registered constraint"
+      },
+      "recall_gap": {
+        "delta": 0.39699608293206257,
+        "ci_low": 0.3418000046134851,
+        "ci_high": 0.45420597387207523,
+        "excludes_zero": true
+      },
+      "selective": {
+        "high_automation": {
+          "threshold": 0.663171,
+          "coverage": 0.9016439909297053,
+          "n_auto": 3181,
+          "n_deferred": 347,
+          "macro_f1": 0.8485489582207839,
+          "error_rate": 0.08519333542911034,
+          "errors_auto": 271,
+          "off_recall": 0.6877133105802048,
+          "off_precision": 0.8207739307535642,
+          "deferred_error_rate": 0.4265129682997118,
+          "errors_deferred": 148,
+          "errors_total": 419,
+          "capture_lift": 3.5912595516978123,
+          "error_capture_share": 0.3532219570405728,
+          "by_slice": {
+            "lexicon_free": {
+              "n_rows": 3037,
+              "share_of_dev": 0.860827664399093,
+              "n_deferred": 298,
+              "deferral_rate": 0.09812314784326638,
+              "share_of_deferrals": 0.8587896253602305,
+              "errors_deferred": 128,
+              "errors_auto": 228,
+              "auto_error_rate": 0.0832420591456736,
+              "deferred_error_rate": 0.42953020134228187,
+              "errors_total": 356,
+              "error_capture_share": 0.3595505617977528
+            },
+            "lexicon_hit": {
+              "n_rows": 491,
+              "share_of_dev": 0.13917233560090703,
+              "n_deferred": 49,
+              "deferral_rate": 0.09979633401221996,
+              "share_of_deferrals": 0.14121037463976946,
+              "errors_deferred": 20,
+              "errors_auto": 43,
+              "auto_error_rate": 0.09728506787330317,
+              "deferred_error_rate": 0.40816326530612246,
+              "errors_total": 63,
+              "error_capture_share": 0.31746031746031744
+            }
+          },
+          "ci": {
+            "coverage": {
+              "ci_low": 0.8925736961451247,
+              "ci_high": 0.9115646258503401
+            },
+            "macro_f1": {
+              "ci_low": 0.8319970237545736,
+              "ci_high": 0.8653421645829655
+            },
+            "error_rate": {
+              "ci_low": 0.07523233983161494,
+              "ci_high": 0.09436328104603463
+            },
+            "n_boot_used": 1000
+          },
+          "threshold_provenance": "phase 04, selected on the dev CAL half"
+        },
+        "high_precision": {
+          "threshold": 0.80091,
+          "coverage": 0.7981859410430839,
+          "n_auto": 2816,
+          "n_deferred": 712,
+          "macro_f1": 0.8900293962474798,
+          "error_rate": 0.05433238636363636,
+          "errors_auto": 153,
+          "off_recall": 0.7399103139013453,
+          "off_precision": 0.8991825613079019,
+          "deferred_error_rate": 0.37359550561797755,
+          "errors_deferred": 266,
+          "errors_total": 419,
+          "capture_lift": 3.1456919900244027,
+          "error_capture_share": 0.6348448687350835,
+          "by_slice": {
+            "lexicon_free": {
+              "n_rows": 3037,
+              "share_of_dev": 0.860827664399093,
+              "n_deferred": 616,
+              "deferral_rate": 0.20283174185051037,
+              "share_of_deferrals": 0.8651685393258427,
+              "errors_deferred": 229,
+              "errors_auto": 127,
+              "auto_error_rate": 0.05245766212308963,
+              "deferred_error_rate": 0.3717532467532468,
+              "errors_total": 356,
+              "error_capture_share": 0.6432584269662921
+            },
+            "lexicon_hit": {
+              "n_rows": 491,
+              "share_of_dev": 0.13917233560090703,
+              "n_deferred": 96,
+              "deferral_rate": 0.1955193482688391,
+              "share_of_deferrals": 0.1348314606741573,
+              "errors_deferred": 37,
+              "errors_auto": 26,
+              "auto_error_rate": 0.06582278481012659,
+              "deferred_error_rate": 0.3854166666666667,
+              "errors_total": 63,
+              "error_capture_share": 0.5873015873015873
+            }
+          },
+          "ci": {
+            "coverage": {
+              "ci_low": 0.7857142857142857,
+              "ci_high": 0.8112244897959183
+            },
+            "macro_f1": {
+              "ci_low": 0.8740703188795215,
+              "ci_high": 0.9074922116303366
+            },
+            "error_rate": {
+              "ci_low": 0.04573888115741614,
+              "ci_high": 0.06276304795440299
+            },
+            "n_boot_used": 1000
+          },
+          "threshold_provenance": "phase 04, selected on the dev CAL half"
+        }
+      }
+    },
+    "1a1b_d": {
+      "overall": {
+        "macro_f1": 0.8093070714467672,
+        "off_precision": 0.7168405365126677,
+        "off_recall": 0.6717877094972067,
+        "n": 3528,
+        "support_off": 716,
+        "confusion": {
+          "tn": 2622,
+          "fp": 190,
+          "fn": 235,
+          "tp": 481
+        }
+      },
+      "overall_ci": {
+        "macro_f1": {
+          "metric": "macro_f1",
+          "ci_low": 0.7926631186735028,
+          "ci_high": 0.8255143727034392,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "off_recall": {
+          "metric": "off_recall",
+          "ci_low": 0.6382638334663474,
+          "ci_high": 0.707288862620257,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        }
+      },
+      "lexicon_hit": {
+        "n": 491,
+        "support_off": 269,
+        "support_not": 222,
+        "base_rate_off": 0.5478615071283096,
+        "off_recall": 0.8810408921933085,
+        "off_recall_ci": {
+          "metric": "off_recall",
+          "ci_low": 0.839203036053131,
+          "ci_high": 0.9169833962060061,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "confusion": {
+          "tn": 189,
+          "fp": 33,
+          "fn": 32,
+          "tp": 237
+        },
+        "macro_f1": null,
+        "macro_f1_note": "omitted by the phase-01 pre-registered constraint"
+      },
+      "lexicon_free": {
+        "n": 3037,
+        "support_off": 447,
+        "support_not": 2590,
+        "base_rate_off": 0.14718472176489958,
+        "off_recall": 0.5458612975391499,
+        "off_recall_ci": {
+          "metric": "off_recall",
+          "ci_low": 0.5020962403132899,
+          "ci_high": 0.5898607193811006,
+          "n_boot": 1000,
+          "n_boot_used": 1000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42
+        },
+        "confusion": {
+          "tn": 2433,
+          "fp": 157,
+          "fn": 203,
+          "tp": 244
+        },
+        "macro_f1": null,
+        "macro_f1_note": "omitted by the phase-01 pre-registered constraint"
+      },
+      "recall_gap": {
+        "delta": 0.3351795946541586,
+        "ci_low": 0.2802649215805608,
+        "ci_high": 0.3964343644719989,
+        "excludes_zero": true
+      },
+      "selective": {
+        "high_automation": {
+          "threshold": 0.865618,
+          "coverage": 0.911281179138322,
+          "n_auto": 3215,
+          "n_deferred": 313,
+          "macro_f1": 0.8432492903656703,
+          "error_rate": 0.09082426127527216,
+          "errors_auto": 292,
+          "off_recall": 0.7125850340136054,
+          "off_precision": 0.7730627306273062,
+          "deferred_error_rate": 0.4249201277955272,
+          "errors_deferred": 133,
+          "errors_total": 425,
+          "capture_lift": 3.5273369667355756,
+          "error_capture_share": 0.3129411764705882,
+          "by_slice": {
+            "lexicon_free": {
+              "n_rows": 3037,
+              "share_of_dev": 0.860827664399093,
+              "n_deferred": 271,
+              "deferral_rate": 0.08923279552189661,
+              "share_of_deferrals": 0.865814696485623,
+              "errors_deferred": 112,
+              "errors_auto": 248,
+              "auto_error_rate": 0.08966015907447578,
+              "deferred_error_rate": 0.4132841328413284,
+              "errors_total": 360,
+              "error_capture_share": 0.3111111111111111
+            },
+            "lexicon_hit": {
+              "n_rows": 491,
+              "share_of_dev": 0.13917233560090703,
+              "n_deferred": 42,
+              "deferral_rate": 0.0855397148676171,
+              "share_of_deferrals": 0.134185303514377,
+              "errors_deferred": 21,
+              "errors_auto": 44,
+              "auto_error_rate": 0.09799554565701558,
+              "deferred_error_rate": 0.5,
+              "errors_total": 65,
+              "error_capture_share": 0.3230769230769231
+            }
+          },
+          "ci": {
+            "coverage": {
+              "ci_low": 0.9016439909297053,
+              "ci_high": 0.920642006802721
+            },
+            "macro_f1": {
+              "ci_low": 0.8269034866052715,
+              "ci_high": 0.8595075396939905
+            },
+            "error_rate": {
+              "ci_low": 0.08099437626568559,
+              "ci_high": 0.10037478449058636
+            },
+            "n_boot_used": 1000
+          },
+          "threshold_provenance": "phase 04, selected on the dev CAL half"
+        },
+        "high_precision": {
+          "threshold": 0.987655,
+          "coverage": 0.7108843537414966,
+          "n_auto": 2508,
+          "n_deferred": 1020,
+          "macro_f1": 0.91083439782843,
+          "error_rate": 0.045454545454545456,
+          "errors_auto": 114,
+          "off_recall": 0.8179487179487179,
+          "off_precision": 0.8812154696132597,
+          "deferred_error_rate": 0.30490196078431375,
+          "errors_deferred": 311,
+          "errors_total": 425,
+          "capture_lift": 2.5310449826989623,
+          "error_capture_share": 0.731764705882353,
+          "by_slice": {
+            "lexicon_free": {
+              "n_rows": 3037,
+              "share_of_dev": 0.860827664399093,
+              "n_deferred": 880,
+              "deferral_rate": 0.2897596312150148,
+              "share_of_deferrals": 0.8627450980392157,
+              "errors_deferred": 265,
+              "errors_auto": 95,
+              "auto_error_rate": 0.0440426518312471,
+              "deferred_error_rate": 0.30113636363636365,
+              "errors_total": 360,
+              "error_capture_share": 0.7361111111111112
+            },
+            "lexicon_hit": {
+              "n_rows": 491,
+              "share_of_dev": 0.13917233560090703,
+              "n_deferred": 140,
+              "deferral_rate": 0.285132382892057,
+              "share_of_deferrals": 0.13725490196078433,
+              "errors_deferred": 46,
+              "errors_auto": 19,
+              "auto_error_rate": 0.05413105413105413,
+              "deferred_error_rate": 0.32857142857142857,
+              "errors_total": 65,
+              "error_capture_share": 0.7076923076923077
+            }
+          },
+          "ci": {
+            "coverage": {
+              "ci_low": 0.6961451247165533,
+              "ci_high": 0.7264810090702948
+            },
+            "macro_f1": {
+              "ci_low": 0.8942073169438356,
+              "ci_high": 0.9270504330232098
+            },
+            "error_rate": {
+              "ci_low": 0.03716853801236835,
+              "ci_high": 0.053768026000946836
+            },
+            "n_boot_used": 1000
+          },
+          "threshold_provenance": "phase 04, selected on the dev CAL half"
+        }
+      }
+    }
+  },
+  "environment": {
+    "torch": "2.11.0+cu128",
+    "cuda_available": true,
+    "device_name": "NVIDIA L4",
+    "transformers": "5.15.0",
+    "scikit_learn": "1.6.1"
+  },
+  "seed": 42,
+  "n_boot": 1000
+}

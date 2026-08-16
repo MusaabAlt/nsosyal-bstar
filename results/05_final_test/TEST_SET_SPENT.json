@@ -1,0 +1,19 @@
+{
+  "spent_at": "2026-08-16T11:11:44",
+  "run_id": "05_final_test",
+  "git_sha": "9af62f95288aba0d4ff773f1cd9a1dc851645cc4",
+  "results_dir": "/content/nsosyal-bstar/results/05_final_test",
+  "n_test": 3528,
+  "hashes": {
+    "test_sha256": "9052784e13248e58658e34a4f86a3463ef8b2594d2feb289e4b29bba2866b437",
+    "gold_sha256": "ae9b0837e948c3d9c3a147d2a415989a4940a7756d5821b3289276574941c9e3",
+    "lexicon_sha256": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b"
+  },
+  "systems_evaluated": [
+    "keyword",
+    "raw",
+    "1a1b_d"
+  ],
+  "thresholds_source": "/content/nsosyal-bstar/results/04_calibration/calibration.json",
+  "note": "The official \u00c7\u00f6ltekin test set has been used for its single permitted measurement. src.data_io.load_coltekin_test refuses while this file exists. Deleting it is a project-lead decision and must be recorded in docs/RESULTS_LOG.md."
+}
