@@ -54,20 +54,189 @@ Everything below reads `dev_predictions.csv`. No retraining.
    is base-rate sensitive, so it is reported for completeness rather than as the
    controlled comparison.
 
-### Pre-registered decision rule
+### Pre-registration — Stage 1
 
-- **AUC gap large, CI excludes zero** → the difference is in ranking quality, not
-  threshold placement. The central claim strengthens: the model genuinely
-  discriminates worse on profanity-free content. Report AUC alongside recall as
-  the threshold-free confirmation.
-- **AUC gap small or CI includes zero** → ranking quality is comparable and the
-  recall gap is substantially a threshold/score-shift effect. **The claim must be
-  narrowed**, and narrowed in the report, not hidden. The finding becomes: at a
-  fixed operating threshold the model's scores are systematically lower on
-  profanity-free offensive content — still operationally real, but a different and
-  weaker statement than "understands it less well."
-- **Intermediate** → report both numbers and state plainly that the two
-  contributions cannot be separated by this analysis.
+Written and committed **before any AUC number exists**. The draft this replaces
+is in git at `bcb4b70`; it named "large" and "small" without numbers, which is
+exactly the hole a post-hoc reading walks through. Everything below is fixed and
+is not to be revised after seeing a result.
+
+#### C9-1 — input and provenance
+
+`results/01_baseline_berturk/dev_predictions.csv`, 4,764 rows, BERTurk
+`best.pt` = **epoch 1** — the same dump phases 02 and 04 read.
+
+```
+sha256  a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346
+bytes   736,591
+```
+
+The score is the `confidence` column, which is **P(OFF)**, not max-class
+probability. The frozen decision rule is `pred == OFF iff confidence > 0.5`;
+this is asserted at load time, not assumed.
+
+The file is gitignored (corpus text) and its durable copy is the Drive mirror.
+Provenance is established by reproducing every recorded phase-01 figure from it
+before any new quantity is computed — overall OFF-recall 635/920 = 0.6902,
+`lexicon_hit` 317/355 = 0.8930, `lexicon_free` 318/565 = 0.5628, 285 FN, 213 FP,
+FP rates 47/259 and 166/3585, OFF-precision 0.7488. **A mismatch on any one of
+them aborts the stage.** No retraining, no forward pass, dev only, fingerprint
+`034415af3a23b388`; `load_coltekin_test()` is not called.
+
+#### C9-2 — AUC definition, including ties
+
+Within a slice, over that slice's gold-OFF and gold-NOT rows only:
+
+```
+AUC = ( #{s_off > s_not} + 0.5 · #{s_off == s_not} ) / (n_off · n_not)
+```
+
+the Mann–Whitney U form with **half credit for ties**. Declared because the
+scores carry six decimals and exact ties are possible; a tie convention chosen
+after seeing the table is a free parameter.
+
+The primary quantity is
+
+```
+G = AUC(lexicon_hit) − AUC(lexicon_free)
+```
+
+Slice membership is the **frozen** Day 1 definition (`hit_root`, `MIN_ROOT_LEN`
+= 3). Its two known defects are not repaired here; they are carried into C9-10
+as sensitivities.
+
+#### C9-3 — interval estimation
+
+Stratified nonparametric bootstrap over the four (slice × gold) cells: each cell
+is resampled with replacement **to its own original size**, so the four
+denominators 355 / 259 / 565 / 3585 are preserved in every replicate. Both AUCs
+and their difference are computed inside the replicate. **10,000 replicates,
+seed 42, percentile interval, α = 0.05.** The slices are disjoint row sets, so
+the two AUCs are independent and no pairing is available; differencing inside a
+replicate is stated only to remove ambiguity about how the interval was formed.
+
+#### C9-4 — what "large" and "small" mean, and why these numbers
+
+The thresholds are set from a design calculation that uses only the four frozen
+denominators and an *assumed* AUC — not the observed one. Hanley–McNeil standard
+errors, 95% half-widths in brackets:
+
+| assumed AUC | `lexicon_hit` (355/259) | `lexicon_free` (565/3585) | difference |
+|---|---|---|---|
+| 0.80 | 0.0174 [±0.0342] | 0.0115 [±0.0226] | 0.0209 [**±0.0410**] |
+| 0.85 | 0.0152 [±0.0297] | 0.0104 [±0.0204] | 0.0184 [**±0.0360**] |
+| 0.90 | 0.0123 [±0.0242] | 0.0088 [±0.0173] | 0.0152 [**±0.0297**] |
+
+So this dataset can resolve a difference of roughly **±0.03 to ±0.04** and no
+finer. Two thresholds follow:
+
+- **LARGE = `G ≥ 0.05`.** Above the design half-width across the whole assumed
+  range, and 10% of the 0.5-wide usable span of AUC. A gap this size is a
+  property of the model, not of the sample size.
+- **SMALL = `G < 0.02`.** Below the half-width of even the better-resolved single
+  slice. A difference under 0.02 cannot be told from noise by this design and
+  must not be quoted as a discrimination difference in either direction.
+- The band between them is **not** a third result to be spun; it is declared in
+  advance as inconclusive (C9-5, V2).
+
+#### C9-5 — the verdict rule
+
+Evaluated **in this order**, on the primary comparison only. The branches are
+mutually exclusive and exhaustive, so no result can fall between them:
+
+```
+1. ci_high < 0                    -> REVERSES
+2. ci_low <= 0 <= ci_high         -> NARROWS      (interval includes zero)
+3. ci_low > 0 and G <  0.02       -> NARROWS      (resolvable but below the floor)
+4. ci_low > 0 and 0.02 <= G < 0.05 -> INTERMEDIATE
+5. ci_low > 0 and G >= 0.05       -> CONFIRMS
+```
+
+This is implemented as a single function and unit-tested on both sides of every
+boundary before the real data is loaded.
+
+#### C9-6 — what each verdict obliges, written now
+
+- **CONFIRMS** → the recall gap is not merely threshold placement; ranking
+  quality itself differs. AUC is reported in §4 beside recall as the
+  threshold-free confirmation. Note the limit even here: it licenses "ranks
+  profanity-free offensive content worse", **not** any claim about
+  comprehension.
+- **INTERMEDIATE** → both numbers reported, and the report states plainly that
+  this analysis cannot separate the two contributions.
+- **NARROWS** → the headline is narrowed **in the report**, in §4 and §5, to:
+  *at the fixed 0.5 threshold the model's scores are systematically lower on
+  profanity-free offensive content* — operationally real, weaker than the
+  current wording. The narrowed sentences are drafted in the same commit as the
+  result, not deferred.
+- **REVERSES** → as NARROWS, and the reversal is stated as its own finding.
+
+The verdict rests on the primary comparison. **No sensitivity in C9-10 may
+overturn it**; sensitivities qualify a verdict, they do not select one.
+
+#### C9-7 — score distributions (descriptive, no verdict)
+
+Per slice and per gold class: n, mean, median, Q1, Q3, and the share below 0.5.
+Reported for both classes, not only gold-OFF, because a downward shift confined
+to the OFF class and one affecting the whole slice are different findings. No
+verdict attaches to this step; it describes whichever verdict C9-5 returns.
+
+#### C9-8 — matched operating points
+
+Thresholds are swept over the sorted distinct observed scores **within** the
+slice being moved, with the frozen convention `pred = OFF iff score > t`.
+
+Reference points, both directions reported:
+
+- **A → B, equal precision.** Take the reference slice's precision `P*` at
+  t = 0.5. In the other slice choose the **lowest** t whose precision ≥ `P*`.
+  Lowest is declared in advance because it maximises recall at the matched
+  precision — the choice most favourable to the model, so the comparison cannot
+  be accused of being rigged against it.
+- **A → B, equal flagging rate.** Choose the t minimising |flag rate − `F*`|,
+  where `F*` is the reference slice's share of rows predicted OFF at t = 0.5.
+  Ties broken toward the **lower** t, same reasoning.
+- Both directions are run: `lexicon_hit` held at 0.5 and `lexicon_free` moved,
+  and the reverse.
+- **If the target is unattainable** in the moved slice, report the best
+  attainable value and mark the match **FAILED**. No substitute target is
+  selected. A failed match is itself informative and is reported as one.
+
+CIs on matched recall use the same stratified bootstrap, **re-selecting the
+threshold inside each replicate**, so the interval carries the selection
+variance rather than pretending the threshold was known in advance.
+
+These thresholds are **diagnostic only**. They are not an operating point, are
+not compared to the phase-04 deployment thresholds, and nothing may be built on
+them (C9-11).
+
+#### C9-9 — PR-AUC
+
+Average precision, step interpolation: `AP = Σ_n (R_n − R_{n−1}) · P_n`.
+Reported per slice for completeness. It is **base-rate sensitive** — the slices
+differ 57.8% vs 13.6% — so it may **not** be used to support or to oppose the
+C9-5 verdict, in either direction. Stated here so that it cannot be recruited
+afterwards.
+
+#### C9-10 — sensitivities, all fixed in advance, all reported regardless of sign
+
+- **S1 — `MIN_ROOT_LEN` leak.** Drop from `lexicon_free` the gold-OFF rows whose
+  token set intersects the lexicon entries shorter than `MIN_ROOT_LEN`
+  (`ag, am, aq, oc, oç`; 28 rows in dev, phase 08). Recompute.
+- **S2 — suspect-root contamination.** Drop from `lexicon_hit` every row for
+  which *every* matching lexicon root is in the suspect set
+  `{allah, ana, cim, emi, göt, mal, sie}` — the exact rule already recorded in
+  `results/02_failure_analysis/slice_sensitivity.json`. Recompute.
+- **S3 — tie convention.** Recompute the primary AUCs counting ties as 0 and as
+  1, to bound how much the C9-2 convention could be worth.
+
+None of these is a repair. The lexicon and `MIN_ROOT_LEN` stay frozen.
+
+#### C9-11 — scope
+
+Measurement only. **No intervention is proposed from this stage**, no threshold
+derived here becomes an operating point, the lexicon and matcher are not
+touched, and the official test set is spent and stays spent.
 
 Whatever comes back is reported. Do not soften an unfavourable result and do not
 reach for the test set.
