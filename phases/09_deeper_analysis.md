@@ -243,6 +243,155 @@ reach for the test set.
 
 ---
 
+### Addendum, 2026-08-17 — C9-8 was defective. Recorded, not rewritten.
+
+Found after the run, by the project lead. **C9-8 above is left exactly as it was
+committed**; this addendum states what is wrong with it, in keeping with the
+append-only discipline that governs `docs/RESULTS_LOG.md`.
+
+**The defect.** Stage 1's method section calls the matched operating points "two
+different ways of removing the threshold confound". They are not. They remove the
+**threshold** confound and leave the **base-rate** confound fully intact:
+
+- precision depends on the base rate directly;
+- recall at a fixed flagging rate does too, because which rows sit in the top *q*
+  of a slice depends on that slice's OFF/NOT mixture.
+
+Since the two slices differ 57.8% vs 13.6% — the very thing this stage exists to
+control for — a matched-operating-point comparison between them cannot serve as
+evidence about ranking quality. **ROC-AUC is the only base-rate-free comparison
+in Stage 1**, which is why C9-3 made it the primary; the defect is in the framing
+of the secondary step, not in the primary result.
+
+**Consequence, binding from here.** The equal-flagging-rate figure — recall
+0.9681 in `lexicon_free` — **is not usable as evidence and does not enter the
+report**. It is not evidence that "the ranking was there all along": that reading
+is exactly the base-rate confound the figure fails to remove. It stays in
+`stage1_auc.json` and in the stage findings as a recorded computation, labelled
+as arising from a defective specification. The same applies to its three
+companions.
+
+This is a defect in the specification, **not a finding**, and it is not to be
+reported as one.
+
+---
+
+## Stage 1b — did the intervention improve ranking, or move scores?
+
+Opened 2026-08-17 by the project lead, as an addition to Stage 1. Same data, no
+training, no forward pass, dev only.
+
+### The question
+
+`+1a+1b+D` raised `lexicon_free` `OFF`-recall by **+0.0336** [+0.0052, +0.0662]
+on dev and **+0.0358** [+0.0043, +0.0665] on test. Stage 1 has just shown that a
+recall change at a fixed threshold can come from ordering or from placement.
+Which was it here?
+
+### Pre-registration — Stage 1b
+
+Written and committed **before any Stage 1b number exists**, on the same terms as
+C9-1 … C9-11.
+
+#### C9-12 — inputs, and the control that may not be substituted
+
+| role | file |
+|---|---|
+| control | `results/03_defense/run_raw/dev_predictions.csv` |
+| treatment | `results/03_defense/run_1a1b_d/dev_predictions.csv` |
+
+Both live only on the Drive mirror. Both are hashed and the hashes recorded.
+
+**The control is `run_raw`, not the phase-01 baseline dump.** The +0.0336 in
+`results/03_defense/comparison.json` was computed against `run_raw`; comparing
+against a different control would silently change the quantity being explained,
+even though the two agree on every recorded scalar. If `run_raw` turns out to be
+byte-identical to the phase-01 dump, that is reported as a fact, not assumed in
+advance.
+
+Before any new quantity is computed, each dump must reproduce its own recorded
+figures in `comparison.json` — macro-F1, `OFF`-recall, both slice recalls, the
+`lexicon_hit` false-positive rate and the total false-positive count. **A
+mismatch aborts the stage.**
+
+**If either dump cannot be obtained, Stage 1b does not run and is reported as
+blocked.** No substitute input, no partial run against the phase-01 dump.
+
+#### C9-13 — quantities
+
+Per slice, for the treatment: ROC-AUC under the C9-2 definition (ties at half
+credit).
+
+The primary quantity is the **paired** difference
+
+```
+ΔAUC(slice) = AUC(+1a+1b+D, slice) − AUC(run_raw, slice)
+```
+
+estimated by a **paired** bootstrap: within each (slice × gold) cell the rows are
+resampled **once** per replicate and **both systems are scored on the same
+resampled rows**, matching the paired protocol used for every other
+system-to-system difference in this project. 10,000 replicates, seed 42,
+percentile interval. Reported for both slices, and the two slice gaps
+`G_treatment` and `ΔG` alongside.
+
+#### C9-14 — the score-movement description
+
+For gold-`OFF` `lexicon_free` rows: mean, median and quartiles of `p_OFF` under
+both systems, the paired median shift, and the **threshold crossings in each
+direction** — how many rows moved `NOT`→`OFF` and how many `OFF`→`NOT`. A pure
+placement account predicts a net upward crossing with little reordering; an
+ordering account does not.
+
+Known in advance and stated here so it is not discovered later as if it were
+news: the defense variant is **measurably miscalibrated** (fitted temperature
+1.9732 against the baseline's 0.9948, ECE 3.8×, `results/04_calibration/`). A
+global score shift is therefore the *a priori* likely mechanism, and Stage 1b is
+testing a hypothesis that already has evidence behind it. That does not make the
+answer known — it makes the alternative the interesting outcome.
+
+#### C9-15 — the interpretation rule, fixed now
+
+On `ΔAUC(lexicon_free)`, evaluated in this order:
+
+```
+1. ci_high < 0                          -> ORDERING WORSENED
+2. ci_low <= 0 <= ci_high               -> FLAT: threshold crossing, not better ordering
+3. ci_low > 0 and ΔAUC <  0.01          -> MARGINAL: resolvable but too small to
+                                           account for a +0.0336 recall gain
+4. ci_low > 0 and ΔAUC >= 0.01          -> DISCRIMINATION IMPROVED
+```
+
+**The 0.01 floor.** AUC *is* the fraction of correctly ordered OFF/NOT pairs, so
+ΔAUC = 0.01 means 1% of the 565 × 3,585 = 2,025,525 pairs in this slice changed
+order. Below that, the ordering is materially the same arrangement and cannot be
+the account of the recall gain. Half of C9-4's floor is appropriate here because
+the paired design removes the between-system variance that made the unpaired
+Stage 1 comparison coarse.
+
+All four outcomes are real results and are reported as found. Branch 1 in
+particular — recall up while ordering degrades — is reported plainly if it
+occurs, not buried.
+
+#### C9-16 — the control slice, declared in advance
+
+The same quantities are computed for `lexicon_hit`, where the same intervention
+*lost* recall (−0.0423 [−0.0778, −0.0109]).
+
+This is a real control, not a courtesy: **if the mechanism is a global score
+shift, `lexicon_hit` AUC should also be flat while its recall falls.** A slice
+where ordering measurably worsened while another improved would rule that account
+out. The prediction is recorded before the number exists.
+
+#### C9-17 — scope
+
+Measurement only. No intervention is proposed, no threshold is derived, no model
+is retrained, the lexicon and `MIN_ROOT_LEN` stay frozen, and the official test
+set is spent and stays spent. Stage 1b's answer does not reopen the phase-03
+conclusion; it explains a mechanism behind a number already reported.
+
+---
+
 ## Stage 2 — How much of BERTurk is bag-of-words?
 
 **The question:** how much of the 0.8271 macro-F1 is recoverable by a linear model
