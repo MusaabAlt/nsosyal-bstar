@@ -61,11 +61,21 @@ recorded phase-01 figure, and did: OFF-recall 635/920 = 0.6902, `lexicon_hit`
 all 4,764 rows. Provenance is therefore established **by content**, not by
 filename or by trust in a download.
 
-**What was not done:** the Drive-side copy was not hashed. Verifying it needs a
-`drive.mount` authorisation that only the project lead can answer, and the mount
-failed unattended (`ValueError: mount failed`) on **two** attempts, 2026-08-17. The identity of the local copy
-with the mirror is inferred from the eight reproduced figures, not proven by a
-byte comparison. See §9.
+**Mirror verification — CLOSED 2026-08-17.** This section previously recorded
+that the Drive-side copy had not been hashed, after `drive.mount` failed
+unattended twice. The project lead unblocked the mount and the mirror was hashed
+during the Stage 1b run:
+
+```
+mirror  <drive>/results/01_baseline_berturk/dev_predictions.csv
+        736,591 bytes   a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346
+local   736,591 bytes   a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346
+```
+
+**Byte-identical.** The provenance of every Stage 1 number now rests on a hash of
+the only durable copy, not on the eight reproduced figures alone. Recorded in the
+same sweep: `results/03_defense/run_raw/dev_predictions.csv` carries the **same**
+sha256, so the phase-03 control and the phase-01 baseline are one file.
 
 ---
 
@@ -260,8 +270,9 @@ without profanity. It can rank it. The report must not say otherwise.
 - **The design cannot resolve its own question.** The CI spans all three
   pre-registered bands. This is a property of 355/259 and 565/3585, known in
   advance from C9-4, not a surprise.
-- **The Drive mirror was not byte-compared.** Provenance rests on eight
-  reproduced figures (§2), which is strong but is not a hash of the mirror.
+- ~~The Drive mirror was not byte-compared.~~ **Closed 2026-08-17**: the mirror
+  hashes to `a2f5bddf…538a6346`, byte-identical to the local copy (§2). This
+  limitation no longer applies to any Stage 1 number.
 - **One checkpoint.** Everything here is `best.pt` = epoch 1. Phase 02 recorded
   that epochs 1 and 3 tie on macro-F1 while disagreeing on 198/4,764 rows, so the
   AUC figures inherit that checkpoint dependence and it is unmeasured.
