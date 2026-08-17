@@ -44,20 +44,61 @@ oran dilime genellenemez. Savunulabilir olan %10'dur ve raporlanan budur.
 Örneklem büyüklüğü 40'tır; %10'luk oranın kendisi de dar bir örnekleme dayanır ve
 buna göre okunmalıdır.
 
-## 5.3 Dilim tanımındaki kirlenme — ölçülmüş ve ters yönde
+## 5.3 Dilim tanımında iki bağımsız kirlenme — ikisi de ters yönde
+
+Dondurulmuş dilim tanımında, birbirinden bağımsız **iki** kirlenme saptanmıştır.
+İkisi de zıt yönlerde işlemekte, ancak **ikisi de raporlanan farkı olduğundan
+küçük göstermektedir.** Hiçbiri sonuçlar görüldükten sonra düzeltilmemiştir;
+sözlük ve eşleştirici dondurulmuş kalmaktadır.
+
+### Birinci kirlenme: `lexicon_hit` dilimine giren yanlış eşleşmeler
 
 Kök eşleşmesi, `lexicon_hit` diliminin **614 satırından 248'ini (%40)** yanlış
 nedenle içine almaktadır (`eminim`, `malatya`, `götürür` gibi). Bu, Gün 1'de
-dondurulmuş davranıştır ve sonuçlar görüldükten sonra **değiştirilmemiştir.**
+dondurulmuş davranıştır.
 
 Etkisi ölçülmüştür: şüpheli satırlar dışarıda bırakıldığında duyarlılık farkı
 +0,3301'den **+0,3662'ye yükselmektedir** (kayma +0,0361; her iki aralık da sıfırı
-dışlar).
+dışlar). Hariç tutulan satırların %71'i `NOT` olduğundan `lexicon_hit` dilimini
+seyreltmekte, yani onu `lexicon_free` dilimine yaklaştırmaktadırlar. Bu, bir
+eleştirmenin bekleyeceğinin **tersi** yöndedir.
 
-**Kirlenme, farkı olduğundan büyük değil, küçük göstermektedir.** Hariç tutulan
-satırların %71'i `NOT` olduğundan, `lexicon_hit` dilimini seyreltmektedirler.
-Bu, bir eleştirmenin bekleyeceğinin tersi yöndedir. Raporlanan başlık sayı yine de
-dondurulmuş tanıma göre verilmiş, duyarlılık değeri onun yerine geçirilmemiştir.
+### İkinci kirlenme: `lexicon_free` dilimine sızan açık küfür
+
+`MIN_ROOT_LEN = 3` kuralı gereği, kök eşleştiricisi **üç karakterden kısa** sözlük
+girdilerini hiçbir zaman yakalayamaz. Dondurulmuş listede böyle beş girdi
+bulunmaktadır: `ag`, `am`, `aq`, `oc`, `oç`. Bunları taşıyan satırlar, açık küfür
+içermelerine rağmen `lexicon_free` diliminde yer almaktadır.
+
+Geliştirme kümesinde, **altın `OFF` etiketli 565 `lexicon_free` satırından 28'i
+(%4,96)** bu girdilerden birini taşımaktadır. Tek başına `aq` belirtecinin eğitim
+kümesindeki koşullu olasılığı **P(OFF | `aq`) = 0,9860**'tır — yani bu satırlar
+model açısından kolay satırlardır ve dilimin duyarlılığını yukarı çekmektedirler.
+
+Etkisinin büyüklüğü **bir üst sınır olarak** verilebilir. Raporlanan
+`lexicon_free` `OFF` duyarlılığı 0,5628 = 318/565'tir. Sızan 28 satırın
+**tamamının doğru sınıflandırıldığı** varsayılırsa — etkiyi en büyük yapan, yani
+üst sınırı veren varsayım — geri kalan satırlardaki duyarlılık 290/537 =
+**0,5400**'e, fark ise +0,3301'den **+0,3529**'a çıkmaktadır.
+
+**Bu bir üst sınırdır, bir ölçüm değildir.** Söz konusu 28 satırın tek tek doğru
+sınıflandırılıp sınıflandırılmadığını saptamak `dev_predictions.csv` dosyasını
+gerektirir; bu dosya derlem metni taşıdığı için depoya konmamakta ve yalnızca
+Drive yansısında bulunmaktadır. Ölçüme dönüştürülmesi mümkündür, bu raporda
+yapılmamıştır.
+
+### İkisinin ortak yönü
+
+Birinci kirlenme `lexicon_hit` dilimini kolay olmayan satırlarla seyreltmekte,
+ikincisi `lexicon_free` dilimine kolay satırlar sokmaktadır. Mekanizmaları
+birbirinden bağımsızdır, ancak **her ikisi de iki dilimi birbirine
+yaklaştırmakta**, dolayısıyla ölçülen farkı küçültmektedir. Her iki düzeltme
+altında da raporlanan **+0,3301 muhafazakâr taraftadır.**
+
+Raporlanan başlık sayı yine de dondurulmuş Gün 1 tanımına göre verilmekte;
+duyarlılık değerleri onun yerine geçirilmemektedir. Sözlük ve `MIN_ROOT_LEN`
+değiştirilmemiştir — sonuç görüldükten sonra eşleştiriciyi düzeltmek, ölçtüğümüz
+niceliği ölçüm sırasında değiştirmek olurdu.
 
 ## 5.4 Müdahalenin nedensel yorumu — en önemli sınırlılık
 
@@ -208,8 +249,9 @@ bağlayıcı çıkmamıştır. Her iki yönüyle de burada belirtilmektedir.
 
 Bu çalışma bir yarışma teslimidir, bir araştırma makalesi değildir. Yukarıdaki
 sınırlılıkların birkaçı — özellikle §5.4'teki nedensel belirsizlik, §5.6'daki
-tek tohum ve §5.9'daki tek derlem — kapatılabilir sorulardır; kapatılmaları ek
-ölçüm ve ek hesaplama süresi gerektirir.
+tek tohum, §5.9'daki tek derlem ve §5.3'teki ikinci kirlenmenin üst sınırdan
+ölçüme dönüştürülmesi — kapatılabilir sorulardır; kapatılmaları ek ölçüm ve ek
+hesaplama süresi gerektirir.
 
 Bu çalışmada tercih, **eldeki süreyi bir zayıflığı gizlemeye değil, kesin biçimde
 ölçmeye ve yazmaya ayırmak** olmuştur. Raporlanan her sınırlılığın yanında ya bir
@@ -221,7 +263,8 @@ sayı ya da o sayının neden elde edilemediğinin açık bir gerekçesi bulunma
 |---|---|---|---|
 | 1 | Etiketleme sözleşmesine bağımlılık | yansız örneklemin %52,5'i; ~13/40 siyasi eleştiri | belirtildi |
 | 2 | Etiket gürültüsü | %10 (40 satırlık örneklem) | ölçüldü, açık bir üst sınırdır |
-| 3 | Dilim kirlenmesi | 248/614; fark +0,0361 **artıyor** | ölçüldü, ters yönde |
+| 3a | Dilim kirlenmesi — `lexicon_hit` içine | 248/614; fark +0,0361 **artıyor** | ölçüldü, ters yönde |
+| 3b | Dilim kirlenmesi — `lexicon_free` içine (`MIN_ROOT_LEN`) | 28/565; fark en çok +0,0228 **artıyor** | **üst sınır**, ölçüm değil |
 | 4 | Kazancın mekanizması | ayrıştırılamıyor | **belirtildi, giderilmedi** |
 | 5 | Dayanıklılık sınaması zayıf | H bozması yalnızca 0,0149 maliyet | ölçüldü |
 | 6 | Tek tohum, tek yapılandırma | tohumlar arası oynaklık ölçülmedi | açık |

@@ -114,6 +114,10 @@ kılmaktadır. Duyarlılık açığıyla birleştiğinde ortaya çıkan tablo, t
 mekanizmanın iki yüzüdür: **model, saldırgan SÖZCÜK DAĞARCIĞINI algılamakta,
 saldırgan EYLEMİ değil.**
 
+Bu, tanının **birinci** parçasıdır ve tek başına yeterli değildir: küfür
+belirteci hiç taşımayan 118 yanlış pozitifi açıklayamaz. İkinci parça, bu
+bölümün sonundaki *İkinci yordayıcı: muhatap alma* alt başlığında verilmektedir.
+
 ### Terimsel açıklama: "küfür taşımayan yanlış pozitif" üç ayrı büyüklüktür
 
 Bu raporda, yanlış pozitiflerin küfür içerip içermediğine ilişkin **üç farklı
@@ -139,6 +143,71 @@ bulgusudur (§4.4). Otomatik vekil (185) çalıştırmalar arası karşılaştı
 kullanılır (§4.6); mutlak değeri elle sayımla aynı büyüklük değildir ve öyleymiş
 gibi okunmamalıdır — **yalnızca çalıştırmalar arasındaki farkları anlamlıdır.**
 Bu sınırlılık `results/03_defense/findings.md` içinde de kayıtlıdır.
+
+### İkinci yordayıcı: muhatap alma
+
+Yukarıdaki tanı eksiktir. Sözcük dağarcığı açıklaması, küfür belirteci hiç
+taşımayan **118 yanlış pozitifi** açıklayamaz: bu satırlarda modelin tepki
+verdiği şey, tanımı gereği küfür değildir. Bu satırların nesi model tepkisini
+tetiklediği, ayrı bir ölçümle araştırılmıştır (`results/08_lexical_analysis/`).
+
+Ölçüm **yalnızca eğitim bölmesi** üzerinde yapılmıştır: her belirtecin satır
+sıklığı, `OFF` satırlarındaki sıklığı ve koşullu olasılığı çıkarılmış, taban oran
+**P(OFF) = 0,1931** ile karşılaştırılmıştır. Sıralama, seyrek ama uç oranlı
+belirteçlerin listeyi ele geçirmemesi için sıklıkla ağırlıklandırılmıştır
+(binom `z` değeri; ayrıntı §2 ve `phases/08_lexical_analysis.md`). Eşikler ve
+yorum kuralı, **hiçbir sayı hesaplanmadan önce** yazılmış ve depoya
+işlenmiştir.
+
+En sık 200 belirteç arasında, sözlükte **bulunmayan** ancak `OFF` yönünde güçlü
+sapma gösteren 19 belirteç bulunmaktadır. Bunların **on tanesi işaret edici
+(deiktik), beş tanesi ikinci tekil/çoğul şahıs zamiridir**: `sen`, `senin`,
+`siz`, `sizin`, `sizi` — yanlarında seslenme ünlemi `lan`, ikinci şahıs emir
+kipi `bak`, kişi göndergesi `adam` ve dış grup işaretleyicileri `bunlar`,
+`onlar`. Koşullu olasılıklar taban oranın belirgin biçimde üzerindedir:
+P(`OFF` | `sizin`) = **0,4533** (375 satır), P(`OFF` | `bunlar`) = **0,4592**
+(233 satır).
+
+Bu belirteçler, 118 satırda eşleştirilmiş karşılaştırmada da yoğunlaşmaktadır.
+118 satırın **%39,8'i (47/118)** güçlü sapmalı sözlük dışı bir belirteç
+taşımakta; uzunluk ve dilim bakımından eşleştirilmiş doğru negatiflerde bu oran
+**%19,2**'dir. Fark **+0,2066 [+0,1216; +0,2960]**'dır. Denetim ölçümü, bulgunun
+uzunluk ya da üslup etkisi olmadığını göstermektedir: `NOT` yönünde güçlü sapma
+gösteren belirteçler için aynı fark **−0,0032 [−0,0500; +0,0506]**, yani sıfırdan
+ayırt edilemezdir.
+
+**Tanı bu nedenle iki parçalıdır.** Model hem saldırgan **sözcük dağarcığına**
+(§4.3, ilk kısım) hem de **muhatap alınmaya** tepki vermektedir; ikincisi
+küfürden bağımsız bir `OFF` yordayıcısıdır. Bu, dilim ölçütünün göremeyeceği bir
+örüntüdür: `lexicon_hit`/`lexicon_free` ayrımı küfür varlığı üzerinde ikili
+tanımlıdır ve başka hiçbir şeye duyarlı değildir.
+
+**Beklenen değil, ölçülen sonuç budur.** Çalışmanın başlangıcında sınanan
+varsayım, 118 satırı **siyasi, dinî veya kimliksel terimlerin** açıkladığı
+yönündeydi. Bu varsayım **çözünürlüğe bağlıdır ve önerildiği biçimde
+doğrulanmamıştır**: en sık 200 belirteç arasında bu türden yalnızca iki terim
+bulunmakta (`türk`, `oy`) ve tek başlarına ölçülebilir bir etki
+vermemektedirler — **+0,0111 [−0,0138; +0,0437]**. Aday havuzu `df ≥ 30`
+düzeyine genişletildiğinde bu türden 26 terim ortaya çıkmakta (`akp`, `chp`,
+`hdp`, `pkk`, `fetö`, `atatürk`, `islam`, `israil`, `kürt`, `müslüman`,
+`tayyip`, `vatan` …) ve etki görünür hale gelmektedir: 118 satırın 23'ünde,
+**+0,1494 [+0,0825; +0,2224]**. Aynı genişletilmiş çözünürlükte işaret edici
+küme yine daha büyüktür: 118 satırın 40'ında, **+0,2106 [+0,1263; +0,2982]**.
+İki kümenin belirteçleri ayrık olmakla birlikte satırları ayrık değildir — 9
+satır her ikisini birden taşır — dolayısıyla sayılar toplanmaz. Açıklama her iki
+okumada da **kısmidir: 118 satırın 47'si (%39,8) sınanan hiçbir sözcük
+dağarcığı düzeyinde güçlü sapmalı belirteç taşımamakta ve açıklanmadan
+kalmaktadır.**
+
+> **Bu bulgunun kanıt gücü.** Ölçülen şey **birlikte görülmedir**. Eğitimde
+> sapma gösteren bir belirtecin bir hata satırında bulunması, o işaretin modelin
+> öğrendiği veride **mevcut** olduğunu gösterir; modelin onu **kullandığını**
+> göstermez. Kullanımın gösterilmesi öznitelik atfı (attribution) ya da çıkarma
+> (ablation) çözümlemesi gerektirir; **bu çalışmada ikisi de yapılmamıştır.**
+> Ayrıca belirteçlerin "işaret edici" ve "siyasi" kümelere ayrılması, sıralı
+> liste görüldükten **sonra** yapılmış bir yorumdur; önceden yazılmış olan
+> nicelik, 19 belirteçlik kümenin bütünüdür. Bölüm 5'teki sınırlılıklar bu
+> ayrımı korumaktadır.
 
 ## 4.4 Hata çözümlemesi — sayım
 
@@ -457,6 +526,7 @@ seçiciliğinden değil.
 | 1 | Sözlük temelli süzgeç, saldırgan içeriğin %63,5'ini yapısal olarak kaçırır | §1.2, Gün 1 kaydı |
 | 2 | Eğitilmiş dönüştürücü açığı kapatmaz: geliştirmede +0,3301, testte +0,3970 | §4.2 |
 | 3 | Açık iki yönlüdür: `lexicon_hit` yanlış pozitif oranı 4 kat yüksektir | §4.3 |
+| 3b | **Tanı iki parçalıdır: model hem saldırgan sözcük dağarcığına hem de muhatap alınmaya tepki verir.** Sözlük dışı güçlü sapmalı 19 belirtecin 10'u işaret edici, 5'i ikinci şahıs zamiridir; 118 satırda +0,2066 [+0,1216; +0,2960], `NOT` yönlü denetimde sıfır. Siyasi terim varsayımı çözünürlüğe bağlıdır (`df ≥ 30`'da +0,1494); 47/118 açıklanmadan kalır. Birlikte görülme, işaretin **mevcut** olduğunu gösterir, **kullanıldığını** değil | §4.3, `results/08_lexical_analysis/` |
 | 4 | Etiket gürültüsü baskın değildir (%10); açık örtük saldırı %35'tir; **en büyük tek kategori (%52,5) işaretleme sözleşmesine bağlıdır ve insan yargısı gerektirir** | §4.4 |
 | 5 | Küfür taşıyan yanlış pozitiflerin %88,4'ü saldırgan eylem içermez | §4.4 |
 | 6 | Dilim kirlenmesi farkı **küçültmektedir**; raporlanan değer muhafazakârdır | §4.5 |

@@ -20,17 +20,40 @@ disproportionately in the 118 no-profanity false positives: 39.8 % of them carry
 one, against 19.2 % of length-and-slice-matched true negatives — a difference of
 **+0.2066 [+0.1216, +0.2960]**, which is the pre-registered SUPPORT outcome.
 
-But the tokens driving it are not what the hypothesis predicted. The top-200
-list contains **two** political or identity terms (`türk`, `oy`) and they carry
-no signal on their own (+0.0111 [−0.0138, +0.0437], the pre-registered NO
-SUPPORT outcome). What dominates is **second-person address and person deixis** —
-`sizin, sen, siz, senin, sizi, bak, lan, adam, bunlar, onlar`. The model appears
-to have learned that *being addressed* predicts OFF, independently of any
-profanity.
+### The substantive result: second-person address is an independent OFF predictor
 
-This is a partial account, not a complete one. Even at the widest vocabulary
-tested, **47 of the 118 (39.8 %) carry no strongly-OFF-skewed token at all** and
-remain unexplained.
+The tokens driving that difference are not the ones the hypothesis predicted.
+**Ten of the nineteen high-skew non-lexicon tokens are deictic, and five of them
+are second-person pronouns** — `sen`, `senin`, `siz`, `sizin`, `sizi` — joined by
+the address particle `lan`, the second-person imperative `bak`, the person
+reference `adam`, and the out-group demonstratives `bunlar` and `onlar`. On this
+corpus, **being addressed predicts OFF independently of any profanity**:
+P(OFF | `sizin`) = 0.4533 and P(OFF | `bunlar`) = 0.4592 against a 0.1931 base
+rate, on 375 and 233 training rows respectively.
+
+The predicted hypothesis — that political, religious or identity terms drive the
+118 — is **resolution-dependent and does not hold as posed.** At the top-200
+frequency band only two such tokens exist (`türk`, `oy`) and they carry no
+detectable signal: **+0.0111 [−0.0138, +0.0437]**, the pre-registered NO SUPPORT
+outcome. Widen the candidate pool to df ≥ 30 and 26 such tokens appear (`akp`,
+`chp`, `hdp`, `pkk`, `fetö`, `atatürk`, `islam`, `israil`, `kürt`, `müslüman`,
+`tayyip`, `vatan`, …), and they do then show an effect: **+0.1494 [+0.0825,
++0.2224]** across 23 of the 118. At that same wider resolution the deictic subset
+remains the larger of the two, **+0.2106 [+0.1263, +0.2982]** across 40 of the
+118. And the account stays partial in both readings: **47 of the 118 (39.8 %)
+contain no strongly-OFF-skewed token at any vocabulary tested and remain
+unexplained** — they are not accounted for by either hypothesis, and this phase
+does not say what drives them.
+
+**What this does and does not establish.** Co-occurrence between a
+training-skewed token and a dev error shows the signal was **available** in the
+data the model was fit on. It does **not** show the model used it. Establishing
+use requires attribution or ablation — **neither was run**, and neither is in
+scope here (C8-11). "The model keys on second-person address" is therefore a
+hypothesis with a measured association behind it, not a demonstrated mechanism.
+The semantic grouping into deictic and political sets is additionally **post-hoc**
+(§6): the pre-registered quantity is group 2 as a whole, and the subsets were
+assigned after the ranked list was seen.
 
 ---
 
@@ -181,8 +204,8 @@ count of 6.
 | comparison | tokens | rate in A | rate in B (matched) | difference | verdict |
 |---|---:|---:|---:|---|---|
 | **group 2 (pre-registered)** | 19 | 0.3983 (47/118) | 0.1917 | **+0.2066 [+0.1216, +0.2960]** | **SUPPORT** |
-| wider pool, df ≥ 30 | 104 | 0.6017 (71/118) | 0.3000 | +0.3017 [+0.2187, +0.3784] | SUPPORT |
-| **group 3 control (strong-NOT)** | 5 | 0.0847 (10/118) | 0.0879 | **−0.0032 [−0.0454, +0.0429]** | **null** |
+| wider pool, df ≥ 30 | 104 | 0.6017 (71/118) | 0.3000 | +0.3017 [+0.2155, +0.3872] | SUPPORT |
+| **group 3 control (strong-NOT)** | 5 | 0.0847 (10/118) | 0.0879 | **−0.0032 [−0.0500, +0.0506]** | **null** |
 
 The control is the load-bearing row. If the 118 were merely longer, odder, or
 more emotionally charged than average, they would show elevated rates of *both*
@@ -201,13 +224,20 @@ no profanity.
 
 ---
 
-## 6. Composition — exploratory, not confirmatory
+## 6. Composition — the substantive result, with its status on the label
 
-Everything in this section was decided **after** seeing the ranked list. The
-subsets are the assistant's semantic judgment of Turkish tokens, not a
-measurement. No verdict is claimed from them; they are reported because the
-composition turned out to be the substantive answer and describing it with the
-caveat attached is better than omitting it.
+This section carries the phase's main finding (§1), and its epistemic status
+travels with it rather than being quietly dropped. The **grouping** below was
+decided **after** seeing the ranked list; the subsets are the assistant's
+semantic judgment of Turkish tokens, not a measurement. The pre-registered
+quantity is group 2 as a whole (§5). No confirmatory verdict is claimed from the
+subset rows, and `token_stats.json` deliberately emits no `verdict` field for
+them.
+
+What is *not* post-hoc: the token statistics themselves, the thresholds that
+selected group 2, the matched comparison, and the bootstrap — all fixed in
+advance. What is post-hoc is only the decision to sort the resulting nineteen
+tokens into "deictic" and "political/identity" piles.
 
 | pool | subset | tokens | A | B | matched difference |
 |---|---|---:|---:|---:|---|
@@ -226,6 +256,11 @@ Read carefully:
   wrong, it was tested at the wrong resolution.
 * Even there, person deixis is the larger contributor: 40 rows against 23, and a
   difference of +0.2106 against +0.1494.
+* **The counts do not add.** The two token sets are disjoint, but the rows are
+  not: at df ≥ 30, 9 of the 118 contain both a deictic and a political token, so
+  the two subsets jointly cover 54 rows (40 + 23 − 9), not 63. The full wider
+  pool covers 71. These are two comparisons against the same matched baseline,
+  not a decomposition of anything.
 
 The political finding also sits directly on the annotation-convention question
 already flagged in report §4.4 and §5: if criticism of a party is annotated OFF
