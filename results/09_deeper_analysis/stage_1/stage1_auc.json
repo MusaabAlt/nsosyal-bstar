@@ -1,0 +1,220 @@
+{
+  "run_id": "09_deeper_analysis/stage_1",
+  "created_at": "2026-08-17T15:31:41",
+  "git_sha": "12afa74",
+  "preregistration": "phases/09_deeper_analysis.md C9-1..C9-11, commit 12afa74",
+  "scope": "measurement only; no training, no forward pass, no intervention (C9-11)",
+  "inputs": {
+    "predictions": "results/01_baseline_berturk/dev_predictions.csv",
+    "sha256": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+    "bytes": 736591,
+    "checkpoint": "BERTurk best.pt = epoch 1 (phase 01)",
+    "dev_fingerprint": "034415af3a23b388",
+    "provenance_check": "all recorded phase-01 figures reproduced (C9-1)",
+    "test_set_touched": false
+  },
+  "thresholds_fixed_in_advance": {
+    "LARGE": 0.05,
+    "SMALL": 0.02,
+    "source": "Hanley-McNeil design calculation, frozen denominators + assumed AUC"
+  },
+  "primary": {
+    "auc_lexicon_hit": 0.930611,
+    "auc_lexicon_hit_ci": {
+      "ci_low": 0.910239,
+      "ci_high": 0.949459
+    },
+    "auc_lexicon_free": 0.89615,
+    "auc_lexicon_free_ci": {
+      "ci_low": 0.882069,
+      "ci_high": 0.909484
+    },
+    "gap": 0.034461,
+    "gap_ci": {
+      "ci_low": 0.010261,
+      "ci_high": 0.058517
+    },
+    "verdict": "INTERMEDIATE",
+    "n": {
+      "hit_off": 355,
+      "hit_not": 259,
+      "free_off": 565,
+      "free_not": 3585
+    },
+    "base_rate": {
+      "lexicon_hit": 0.578176,
+      "lexicon_free": 0.136145
+    },
+    "bootstrap": {
+      "n_boot": 10000,
+      "seed": 42,
+      "alpha": 0.05,
+      "method": "stratified over the four slice x gold cells, percentile interval"
+    }
+  },
+  "score_distributions": {
+    "lexicon_hit": {
+      "gold_OFF": {
+        "n": 355,
+        "mean": 0.85243,
+        "q1": 0.843863,
+        "median": 0.96504,
+        "q3": 0.987183,
+        "share_below_0.5": 0.107042
+      },
+      "gold_NOT": {
+        "n": 259,
+        "mean": 0.243809,
+        "q1": 0.028684,
+        "median": 0.105739,
+        "q3": 0.360836,
+        "share_below_0.5": 0.818533
+      }
+    },
+    "lexicon_free": {
+      "gold_OFF": {
+        "n": 565,
+        "mean": 0.528521,
+        "q1": 0.216247,
+        "median": 0.586072,
+        "q3": 0.819269,
+        "share_below_0.5": 0.437168
+      },
+      "gold_NOT": {
+        "n": 3585,
+        "mean": 0.09991,
+        "q1": 0.013113,
+        "median": 0.031292,
+        "q3": 0.098043,
+        "share_below_0.5": 0.953696
+      }
+    }
+  },
+  "matched_operating_points": {
+    "reference_lexicon_hit_at_0.5": {
+      "threshold": 0.5,
+      "precision": 0.8708791208791209,
+      "recall": 0.8929577464788733,
+      "flag_rate": 0.5928338762214984
+    },
+    "reference_lexicon_free_at_0.5": {
+      "threshold": 0.5,
+      "precision": 0.6570247933884298,
+      "recall": 0.5628318584070796,
+      "flag_rate": 0.11662650602409638
+    },
+    "free_matched_to_hit_precision": {
+      "failed": false,
+      "threshold": 0.851583,
+      "precision": 0.8740740740740741,
+      "recall": 0.2088495575221239,
+      "recall_ci": {
+        "ci_low": 0.077876,
+        "ci_high": 0.284956
+      }
+    },
+    "free_matched_to_hit_flag_rate": {
+      "failed": false,
+      "threshold": 0.02751,
+      "flag_rate": 0.5927710843373494,
+      "precision": 0.22235772357723577,
+      "recall": 0.968141592920354,
+      "recall_ci": {
+        "ci_low": 0.950442,
+        "ci_high": 0.982301
+      }
+    },
+    "hit_matched_to_free_precision": {
+      "failed": false,
+      "threshold": 0.039315,
+      "precision": 0.6579439252336449,
+      "recall": 0.9915492957746479,
+      "recall_ci": {
+        "ci_low": 0.980282,
+        "ci_high": 1.0
+      }
+    },
+    "hit_matched_to_free_flag_rate": {
+      "failed": false,
+      "threshold": 0.988724,
+      "flag_rate": 0.11726384364820847,
+      "precision": 0.9861111111111112,
+      "recall": 0.2,
+      "recall_ci": {
+        "ci_low": 0.183099,
+        "ci_high": 0.214085
+      }
+    }
+  },
+  "average_precision": {
+    "lexicon_hit": 0.947725,
+    "lexicon_free": 0.647942,
+    "note": "C9-9: base-rate sensitive, reported for completeness, may not argue the verdict"
+  },
+  "sensitivities": {
+    "S1_min_root_len_leak_removed": {
+      "rule": "registered form: drop gold-OFF lexicon_free rows carrying a lexicon entry shorter than MIN_ROOT_LEN",
+      "short_entries": [
+        "ag",
+        "am",
+        "aq",
+        "oc",
+        "oç"
+      ],
+      "n_dropped": 28,
+      "reproduces_phase08_count": true,
+      "auc_hit": 0.930611,
+      "auc_free": 0.890749,
+      "gap": 0.039861,
+      "shift_vs_primary": 0.0054
+    },
+    "S1b_symmetric_NOT_PREREGISTERED": {
+      "warning": "NOT pre-registered. Reported because the registered S1 drops positives only; this is its symmetric counterpart.",
+      "n_dropped": 28,
+      "n_dropped_gold_not": 0,
+      "auc_hit": 0.930611,
+      "auc_free": 0.890749,
+      "gap": 0.039862
+    },
+    "S2_suspect_roots_excluded": {
+      "rule": "drop a lexicon_hit row when EVERY matching lexicon root is suspect (results/02_failure_analysis/slice_sensitivity.json)",
+      "suspect_roots": [
+        "allah",
+        "ana",
+        "cim",
+        "emi",
+        "göt",
+        "mal",
+        "sie"
+      ],
+      "n_excluded": 248,
+      "excluded_gold": {
+        "NOT": 175,
+        "OFF": 73
+      },
+      "reproduces_phase02_counts": true,
+      "auc_hit": 0.902313,
+      "auc_free": 0.89615,
+      "gap": 0.006164,
+      "shift_vs_primary": -0.028297
+    },
+    "S3_tie_convention": {
+      "ties_count_zero": {
+        "auc_hit": 0.930611,
+        "auc_free": 0.896149,
+        "gap": 0.034461
+      },
+      "ties_count_one": {
+        "auc_hit": 0.930611,
+        "auc_free": 0.89615,
+        "gap": 0.034461
+      }
+    }
+  },
+  "recall_gap_for_reference": {
+    "lexicon_hit_off_recall": 0.8929577464788733,
+    "lexicon_free_off_recall": 0.5628318584070796,
+    "gap": 0.33012588807179366,
+    "source": "results/02_failure_analysis/slice_sensitivity.json"
+  }
+}
