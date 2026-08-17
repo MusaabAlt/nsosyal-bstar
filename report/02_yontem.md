@@ -235,7 +235,8 @@ damgalı olarak sürüm denetimine işlenmiştir. Uygulanan ön kayıtlar:
 | `phases/03_defense_design.md` | müdahalenin hedefi (§1.7); türetme kaynağının ayrılması (C1); veri gürültüsüne karşı yapısal süzgeç (C2); D/H ayrıklığı (C3); dört ölçütün birlikte raporlanması |
 | `phases/04_calibration.md` | kalibrasyon bölünmesi ve ECE tanımı; eşiğin seçildiği ve ölçüldüğü kümelerin ayrılması; iki çalışma noktasının kuralla belirlenmesi; sıcaklık ölçeklemenin risk–kapsam eğrisini değiştiremeyeceği öngörüsü |
 | `phases/08_lexical_analysis.md` | belirteç istatistiklerinin **yalnızca eğitim bölmesinden** çıkarılması (C8-1); sıralama ölçütü ve eşiği (C8-4, C8-5); sözlük üyeliğinin `hit_root` ile tanımlanması (C8-6); adım 3'ün yorum kuralının önceden sabitlenmesi (C8-7); müdahale yasağı (C8-11) |
-| `phases/09_deeper_analysis.md` | dilim içi ROC-AUC'nin tanımı ve beraberlik kuralı (C9-2); bootstrap kurgusu (C9-3); "büyük" ve "küçük" farkın **sayısal** eşikleri, tasarım hesabından (C9-4); beş dallı, sıralı ve tüketici karar kuralı (C9-5); her kararın raporda neyi zorunlu kıldığı (C9-6); PR-AUC'nin karara kanıt olarak kullanılamayacağı (C9-9); duyarlılık denetimlerinin kararı **devirememesi** (C9-10) |
+| `phases/09_deeper_analysis.md` (Aşama 1) | dilim içi ROC-AUC'nin tanımı ve beraberlik kuralı (C9-2); bootstrap kurgusu (C9-3); "büyük" ve "küçük" farkın **sayısal** eşikleri, tasarım hesabından (C9-4); beş dallı, sıralı ve tüketici karar kuralı (C9-5); her kararın raporda neyi zorunlu kıldığı (C9-6); PR-AUC'nin karara kanıt olarak kullanılamayacağı (C9-9); duyarlılık denetimlerinin kararı **devirememesi** (C9-10) |
+| `phases/09_deeper_analysis.md` (Aşama 1b) | denetimin `run_raw` olması ve **yerine başka bir dosya konulamaması** (C9-12); eşleştirilmiş bootstrap kurgusu (C9-13); dört dallı yorum kuralı ve 0,01 tabanı (C9-15); **denetim diliminin öngörüsünün ölçümden önce yazılması** — mekanizma küresel bir puan kayması ise `lexicon_hit` AUC'sinin de düz kalması gerektiği (C9-16) |
 
 Ön kayıtların işlevi, sonuçlar görüldükten sonra karar kuralının
 değiştirilmesini engellemektir. Örneğin kalibrasyon ön kaydı, sıcaklık
@@ -317,7 +318,7 @@ girdi dosyalarının SHA-256 özetlerini, geliştirme parmak izini ve tam
 hiperparametre kümesini bir `run_config.json` dosyasına yazar. Sonuçlar
 `docs/RESULTS_LOG.md` içine kronolojik olarak eklenir; bu günlük yalnızca
 eklemelidir — sonraki bir sonuç öncekiyle çeliştiğinde eski kayıt düzeltilmez,
-yeni bir düzeltme kaydı eklenir. Günlükte şu anda **üç** düzeltme kaydı vardır.
+yeni bir düzeltme kaydı eklenir. Günlükte şu anda **dört** düzeltme kaydı vardır.
 
 Kod tabanı 166 birim testiyle denetlenmektedir; bunlar bölünme ve ölçüt
 değişmezlerini, veri üretme kurallarını, kalibrasyon özelliklerini, test kümesi

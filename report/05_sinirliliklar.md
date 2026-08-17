@@ -153,8 +153,52 @@ denetim kümesi yoktur. Böyle bir küme kurmak, şablonlardan farklı sözdizim
 düzenlerde doğal küfür kullanımları toplamayı gerektirir; bu bir derlem toplama
 işidir ve bu çalışmanın süresi dışındadır.
 
+### Mekanizmanın bir bölümü artık adlandırılabilmektedir
+
+Bu bölüm daha önce kazancın mekanizmasına ilişkin **hiçbir** iddiada bulunmuyordu.
+Sonradan yapılan eşikten bağımsız bir ölçüm, olasılık uzayını daraltmıştır —
+kapatmadan.
+
+**Kazanç bir eşik geçişi etkisidir.** `lexicon_free` diliminde, iki sistem aynı
+satırlar üzerinde karşılaştırıldığında sıralama niteliği ölçülebilir biçimde
+değişmemiştir: ΔAUC = **−0,0056 [−0,0134; +0,0024]**, ön kayıtlı `FLAT` kararı.
+Aralığın üst ucu **+0,0024**'tür, yani kazancı açıklayabilecek büyüklükte bir
+sıralama iyileşmesi **kanıtlanmamış değil, dışlanmıştır** (ön kayıtlı taban
+0,01). Ölçülen kazancın tamamı, **19 altın `OFF` satırının** 0,5 eşiğini
+geçmesidir (§4.6).
+
+**Ancak bu, tekdüze bir yeniden ölçekleme değildir**, ve bunu gösteren şey önceden
+yazılmış bir denetimdir. C9-16, mekanizma küresel bir puan kayması ise
+`lexicon_hit` diliminde AUC'nin de düz kalması gerektiğini **ölçümden önce**
+öngörmüştü. Kalmamıştır: o dilimde sıralama ölçülebilir biçimde **kötüleşmiştir**
+(ΔAUC = **−0,0254 [−0,0429; −0,0086]**, GA sıfırı dışlıyor). Müdahale, yardım
+etmek üzere tasarlandığı dilimde sıralamayı dar bir sınır içinde değiştirmezken,
+**küfrün bulunduğu dilimde sıralamayı bozmuştur.**
+
+**Puan dağılımı da kaymamış, kutuplaşmıştır.** `lexicon_free`'nin altın `OFF`
+satırlarında medyan 0,5861 → 0,7818 yükselirken **birinci çeyrek düşmektedir**
+(0,2162 → 0,0776) ve üçüncü çeyrek 0,8193 → 0,9921'e çıkmaktadır. Puanlar birlikte
+yukarı kaymamakta, iki uca doğru itilmektedir. Bu örüntü, bu çeşitleme için zaten
+kayıtlı olan **aşırı güvenle tutarlıdır** (uyarlanan sıcaklık **1,9732**, temel
+modelde 0,9948; ECE 3,8 kat — §4.8). **Tutarlıdır; gösterilmiş değildir** — bu bir
+birlikte-görülmedir, nedensellik değil.
+
+**Üç sınır, iddianın kendisiyle birlikte taşınmalıdır:**
+
+1. **Mekanizma bir birliktelik olarak kayıtlıdır, neden olarak değil.** Aşırı
+   güvenin puanları ittiğini göstermek bir çıkarma (ablation) çözümlemesi
+   gerektirir; **yapılmamıştır.**
+2. **Bileşen ataması bilinmemektedir.** Karşılaştırılan yalnızca birleşik
+   `+1a+1b+D` çalıştırmasıdır; 1a, 1b ve D'nin payları bu ölçümle
+   **ayrıştırılamaz.**
+3. **Resmî test kümesindeki +0,0358'lik kazanç bu çözümlemeyle ölçülmemiştir.**
+   Ölçüm yalnızca geliştirme kümesi üzerindedir; aynı mekanizmanın testte de
+   işleyip işlemediği **açık bir sorudur** ve test kümesi harcanmıştır (§5.9).
+
 **Bu sınırlılık belirtilmiştir, giderilmemiştir.** Rapor, kazancı ölçülmüş bir
-iyileşme olarak sunar; kazancın mekanizmasına ilişkin bir iddiada bulunmaz.
+iyileşme olarak sunmaya devam etmektedir — gerçektir ve yinelenmiştir — ancak
+kazancın **ne gösterdiği** dardır: modelin küfür olmadan saldırganlığı ayırt
+etmeyi öğrendiği iddiası desteklenmemektedir.
 
 ## 5.5 Dayanıklılık sınamasının zayıflığı
 
@@ -366,7 +410,8 @@ sayı ya da o sayının neden elde edilemediğinin açık bir gerekçesi bulunma
 | 3a | Dilim kirlenmesi — `lexicon_hit` içine | 248/614; fark +0,0361 **artıyor** | ölçüldü, ters yönde |
 | 3b | Dilim kirlenmesi — `lexicon_free` içine (`MIN_ROOT_LEN`) | 28/565; fark en çok +0,0228 **artıyor** | **üst sınır**, ölçüm değil |
 | 3c | Aynı düzeltme iki ölçütte zıt yönde | duyarlılık +0,0361 **artıyor**, ROC-AUC −0,0283 **azalıyor** | ölçüldü, **çözülmedi** |
-| 4 | Kazancın mekanizması | ayrıştırılamıyor | **belirtildi, giderilmedi** |
+| 4 | Kazancın mekanizması — modelin ne öğrendiği | ayrıştırılamıyor (ezber mi, sığ dağılımsal ipucu mu) | **belirtildi, giderilmedi** |
+| 4b | Kazancın mekanizması — **eşik geçişi olduğu ölçüldü** | ΔAUC `lexicon_free` −0,0056 [−0,0134; +0,0024], `FLAT`; 19 satır eşiği geçti; denetim dilimi −0,0254 [−0,0429; −0,0086] | **ölçüldü**; neden değil **birliktelik**; bileşen ataması ve test kümesi mekanizması **açık** |
 | 5 | Dayanıklılık sınaması zayıf | H bozması yalnızca 0,0149 maliyet | ölçüldü |
 | 6 | Tek tohum, tek yapılandırma | tohumlar arası oynaklık ölçülmedi | açık |
 | 7 | Denetim noktası oynaklığı | 198/4.764 satır; ≤43/285 YN | ölçüldü, çözümleme etkilenmiyor |

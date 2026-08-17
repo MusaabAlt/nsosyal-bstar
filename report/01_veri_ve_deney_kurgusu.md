@@ -233,6 +233,13 @@ olarak sunar ve bu kazancın bedellerini — genel makro-F1'in değişmemesi ve
 `lexicon_hit` tarafındaki maliyet — aynı bölümde, aynı tablolarda ve gizlemeden
 raporlar. Kazanç da bedel de aynı ön kayıttan doğmaktadır.
 
+**Kazancın *ne gösterdiği* ayrı bir sorudur ve ayrıca ölçülmüştür.** Geliştirme
+kümesinde mekanizma bir **eşik geçişidir**: sıralama niteliği ölçülebilir biçimde
+değişmemiş, kazancı açıklayabilecek büyüklükte bir sıralama iyileşmesi
+**dışlanmıştır** (§4.6). Yukarıdaki uyarının — farkın yanlış nedenle daralması —
+gerçekleştiği de aynı ölçümle görünür hale gelmiştir (§4.7). Bu rapor, müdahalenin
+modele küfürsüz saldırganlığı **ayırt etmeyi öğrettiği** iddiasını taşımaz (§5.4).
+
 **İstatistiksel protokol.** Tüm ölçütler için güven aralıkları, satırlar üzerinde
 1.000 yeniden örneklemeli parametrik olmayan bootstrap ile hesaplanır. İki sistem
 aynı satırlar üzerinde karşılaştırıldığında **eşleştirilmiş** (paired) bootstrap

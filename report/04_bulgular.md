@@ -33,6 +33,8 @@ sayıları aynı tablolarda, aynı bölümde raporlanır.
 3. Tanıdan türetilen müdahale bu dilimde **ölçülebilir bir iyileşme** sağlar ve
    bu iyileşme, hiçbir tasarım kararının görmediği resmî test kümesinde
    **yinelenir** (+0,0336 → +0,0358). Her iki güven aralığı da sıfırı dışlar.
+   Kazanç gerçektir; **neyi gösterdiği ise dardır** — geliştirme kümesinde ölçülen
+   mekanizma bir **eşik geçişidir**, sıralama iyileşmesi değil (§4.6, §5.4).
 
 **Güven aralıkları hakkında bir not.** Tek tek sistemlerin dilim duyarlılıkları
 için verilen aralıklar bağımsız bootstrap'lerdir. **Müdahalenin etkisi için
@@ -457,6 +459,42 @@ zayıf olduğunu gösterir (§Sınırlılıklar).
 **Tam çeşitlemede birincil ölçüt gerçek bir kazanç göstermektedir**: +0,0336, GA
 sıfırı dışlıyor.
 
+### Kazancın mekanizması — eşik geçişi, sıralama iyileşmesi değil
+
+Kazanç gerçektir; **ne gösterdiği ise dar bir sorudur ve ayrıca ölçülmüştür.**
+Aynı satırlar üzerinde, eşleştirilmiş bir karşılaştırmayla, iki sistemin dilim
+içi ROC-AUC değerleri karşılaştırılmıştır (`run_raw` denetim, `+1a+1b+D` işlem;
+10.000 eşleştirilmiş bootstrap yinelemesi, tohum 42). Yorum kuralı ve "küçük"
+sayılacak eşik, **sayı üretilmeden önce** işlenmiştir
+(`phases/09_deeper_analysis.md` C9-12…C9-17, işleme `910d21e`).
+
+| Dilim | ROC-AUC `run_raw` | ROC-AUC `+1a+1b+D` | **ΔAUC** | %95 GA | Ön kayıtlı karar |
+|---|---:|---:|---:|---|---|
+| `lexicon_free` (birincil) | 0,8962 | 0,8906 | **−0,0056** | [−0,0134; **+0,0024**] | **`FLAT`** |
+| `lexicon_hit` (denetim) | 0,9306 | 0,9052 | **−0,0254** | [−0,0429; −0,0086] | **`ORDERING WORSENED`** |
+
+*Kaynak: `results/09_deeper_analysis/stage_1b/stage1b_defense_auc.json`.*
+
+**Desteklenen ifade şudur: müdahale, `lexicon_free` diliminde 19 altın `OFF`
+satırını 0,5 eşiğinin üzerine taşımıştır.** Eşik geçişleri doğrudan sayılmıştır:
+`lexicon_free`'de +52 / −33 = **net +19** (19/565 = **+0,0336283**),
+`lexicon_hit`'te +13 / −28 = **net −15** (−15/355 = **−0,0422535**). Bu iki oran,
+kayıtlı duyarlılık farklarını **on ondalık basamağa kadar birebir yeniden
+üretmektedir**. Altın `NOT` tarafındaki net geçişler (+29 ve +3) ise kayıtlı
+yanlış pozitif artışını (213 → 245) tamamlamaktadır.
+
+**Dışlanan ifade — yalnızca kanıtlanmamış değil, ölçümle dışlanmış:** kazancı
+açıklayabilecek büyüklükte bir *sıralama* iyileşmesi. `lexicon_free` için ΔAUC
+güven aralığının **üst ucu +0,0024**'tür; ön kayıtta "küçük"ün tabanı olarak
+sabitlenen **0,01**'in bir mertebe altındadır. Bu tabanın gerekçesi AUC'nin kendi
+ölçeğidir: 0,01, bu dilimdeki 565 × 3.585 = 2.025.525 `OFF`/`NOT` çiftinin
+%1'inin sıra değiştirmesi demektir.
+
+**Bu nedenle, modelin küfür olmadan saldırganlığı *ayırt etmeyi öğrendiği*
+biçimindeki hiçbir ifade desteklenmemektedir.** Sıralama, ölçülebilir biçimde
+değişmemiştir; değişen, puanların eşiğe göre nerede durduğudur. Mekanizmanın
+ayrıntısı ve üç ayrı sınırı §5.4'tedir.
+
 ## 4.7 Sistem düzeyindeki etki ve bedeller
 
 Aynı müdahalenin resmî test kümesindeki eşleştirilmiş farkları:
@@ -476,7 +514,9 @@ Bu tablo, iki ölçekli bir sonucu birlikte göstermektedir ve ikisi de raporlan
 
 **Bileşen düzeyinde: kazanç gerçektir ve yinelenmiştir.** Ön kayıtta hedef olarak
 ilan edilen ölçüt, iki bağımsız ölçümde de yaklaşık 3,5 puan yükselmiştir ve her
-iki güven aralığı da sıfırı dışlamaktadır.
+iki güven aralığı da sıfırı dışlamaktadır. **Kazancın geliştirme kümesindeki
+mekanizması bir eşik geçişidir** (§4.6); testteki kazancın mekanizması ise bu
+çözümlemeyle **ölçülmemiştir** (§5.4).
 
 **Sistem düzeyinde: net etki yoktur.** Genel makro-F1 −0,0002'dir; bir sonucun
 düz olabileceği kadar düzdür. Kazanç, kesinlik tarafındaki (−0,0127) ve
@@ -490,6 +530,31 @@ Geliştirmede `lexicon_hit` kaybı da sıfırı dışlıyordu (−0,0423
 Dolayısıyla "eşit büyüklükte bir kayıpla ödenmiş kazanç" ifadesi geliştirme
 verisi için doğru, test verisi için kanıtlanmamıştır. Rapor bu ayrımı
 düzleştirmez.
+
+### Ön kayıtta uyarılan takas gerçekleşmiştir
+
+§1.7, ölçüm yapılmadan önce belirli bir başarısızlık biçimine karşı uyarı
+koymuştu: farkın **yanlış nedenle** daralması, yani `lexicon_free` yükseldiği
+için değil `lexicon_hit` düştüğü için daralması. *"a within-gap trade where
+`lexicon_hit` recall falls and the gap narrows for the wrong reason."*
+
+**Bu takas gerçekleşmiştir ve artık eşik yerleşiminden bağımsız bir ölçütte de
+görünmektedir.** Duyarlılık tarafında zaten görülüyordu (fark +0,3301 → +0,2542,
+`lexicon_hit` duyarlılığı 0,8930 → 0,8507). Aynı örüntü ROC-AUC'de de vardır:
+
+| | `lexicon_hit` | `lexicon_free` | Dilim farkı |
+|---|---:|---:|---:|
+| `run_raw` | 0,9306 | 0,8962 | **+0,0345** |
+| `+1a+1b+D` | 0,9052 | 0,8906 | **+0,0146** |
+
+Dilim farkı **+0,0345'ten +0,0146'ya** inmiştir; ancak bunu sağlayan şey
+`lexicon_free`'nin yükselmesi **değildir** — o dilim de hafifçe düşmüştür
+(0,8962 → 0,8906) — `lexicon_hit`'in düşmesidir (0,9306 → 0,9052, GA sıfırı
+dışlıyor). Duyarlılıkta bu itiraz "eşik nereye düşüyor" diye savuşturulabilirdi;
+ROC-AUC'de savuşturulamaz, çünkü bu ölçüt eşiğe bağlı değildir.
+
+**Dolayısıyla farkın daralması, bir iyileşme kanıtı olarak okunamaz.** Ön kayıtlı
+uyarı, tam da bu okumayı engellemek için yazılmıştı.
 
 Ek bir maliyet, tasarım aşamasında öngörülmüş ve ölçülmüştür: §4.3'te tanımlanan
 **otomatik vekil ölçütte** yanlış pozitifler 185'ten 215'e yükselmiştir. Dört
@@ -621,6 +686,7 @@ seçiciliğinden değil.
 | 5 | Küfür taşıyan yanlış pozitiflerin %88,4'ü saldırgan eylem içermez | §4.4 |
 | 6 | Dilim kirlenmesi farkı **küçültmektedir**; raporlanan değer muhafazakârdır | §4.5 |
 | 7 | **Müdahale birincil ölçütte gerçek ve yinelenen bir kazanç sağlar (+0,0336 / +0,0358)** | §4.1, §4.6, §4.7 |
+| 7b | **Kazancın mekanizması eşik geçişidir, sıralama iyileşmesi değil.** Geliştirmede ΔAUC `lexicon_free` −0,0056 [−0,0134; **+0,0024**] (`FLAT`); kazancın tamamı **19 satırın** eşiği geçmesidir. Denetim dilimi düz kalmamış, **kötüleşmiştir** (−0,0254 [−0,0429; −0,0086]), dolayısıyla tekdüze bir yeniden ölçekleme de değildir. §1.7'de uyarılan **takas gerçekleşmiştir**: dilim AUC farkı +0,0345 → +0,0146, `lexicon_hit` düştüğü için. Mekanizma **birliktelik olarak** kayıtlıdır, bileşen ataması **bilinmemekte**, testteki kazanç **ölçülmemektedir** | §4.6, §4.7, §5.4, `results/09_deeper_analysis/stage_1b/` |
 | 8 | Sistem düzeyinde net etki yoktur (makro-F1 −0,0002) ve maliyetler raporlanır | §4.7 |
 | 9 | Temel modelin kalibrasyona ihtiyacı yoktur; savunma çeşitlemesi kalibrasyonsuzdur | §4.8 |
 | 10 | İnceleme katmanı hataları 3,59 kat yoğunlaştırır; ancak dilim körüdür | §4.9 |
