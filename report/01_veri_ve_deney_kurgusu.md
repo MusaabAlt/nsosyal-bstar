@@ -124,6 +124,14 @@ duyarlıdır; iki dilim arasında karşılaştırılmaları yanıltıcı olurdu.
 `phases/01_baseline_diagnosis.md` içinde ön kayıt olarak yer alır ve sonraki
 bütün aşamalarda bağlayıcıdır.
 
+**Bu kısıt gerekliydi, ancak yeterli değildir ve rapor bunu sonradan ölçmüştür.**
+`OFF`-duyarlılık taban orandan bağımsızdır, fakat **sabit bir eşiğe bağlıdır**:
+iyi kalibre edilmiş bir model, seyrek sınıfın bulunduğu dilimde daha düşük
+olasılıklar üretir ve 0,5 eşiğinde duyarlılık, içerik daha kötü çözümlendiği için
+değil, eşiğin nereye düştüğü yüzünden düşebilir. Bu itiraz §4.2'de hem eşikten
+hem taban orandan bağımsız bir ölçütle (dilim içi ROC-AUC) ayrıca ele alınmakta,
+sonucu ve **ayrıştırılamayan** yanı §5.12'de raporlanmaktadır.
+
 ## 1.5 Resmî test kümesi ve tek kullanım muhasebesi
 
 Resmî Çöltekin test kümesi, projenin tamamında **tek bir kez** ölçüm için

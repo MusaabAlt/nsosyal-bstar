@@ -100,6 +100,36 @@ duyarlılık değerleri onun yerine geçirilmemektedir. Sözlük ve `MIN_ROOT_LE
 değiştirilmemiştir — sonuç görüldükten sonra eşleştiriciyi düzeltmek, ölçtüğümüz
 niceliği ölçüm sırasında değiştirmek olurdu.
 
+### Aynı düzeltme, iki ölçütte zıt yön — çözülmemiş bir gerilim
+
+Birinci kirlenmenin düzeltmesi (248 satırın dışarıda bırakılması) §4.2'deki
+eşikten bağımsız ölçüte de uygulanmıştır. Sonuç, duyarlılıkta olanın **tersidir**:
+
+| | Duyarlılık farkı | ROC-AUC farkı |
+|---|---:|---:|
+| Dondurulmuş tanım (raporlanan) | +0,3301 | +0,0345 |
+| 248 şüpheli satır hariç | **+0,3662** | **+0,0062** |
+| Kayma | **+0,0361** | **−0,0283** |
+
+*Kaynak: `results/02_failure_analysis/slice_sensitivity.json`,
+`results/09_deeper_analysis/stage_1/stage1_auc.json` (S2).*
+
+**Tek bir dilim düzeltmesi, iki ölçütü zıt yönlerde hareket ettirmektedir.**
+Temizlenmiş tanım altında iki dilim, duyarlılıkta daha da ayrışmakta; sıralama
+niteliğinde ise neredeyse ayırt edilemez hale gelmektedir — AUC farkı, ön kayıtta
+"küçük" için belirlenmiş 0,02 eşiğinin de altına inmektedir.
+
+Bunun akla gelen bir açıklaması vardır — hariç tutulan satırların %71'i `NOT`'tur
+ve `allah razı olsun` türünden **kolay** olumsuz örneklerdir; bunlar çıkarıldığında
+kalan dilimi sıralamak zorlaşırken duyarlılığı yükselmektedir — **ancak bu bir
+açıklama denemesidir, ölçülmüş değildir** ve burada bir bulgu olarak
+sunulmamaktadır.
+
+Gerilim **çözülmemektedir.** Hangi ölçütün "doğru" düzeltilmiş değer olduğu bu
+çözümlemeyle kararlaştırılamaz; her iki düzeltilmiş sayı da raporlanmakta,
+başlık değer ise dondurulmuş tanımda kalmaktadır. Bu, §5.12'deki daha genel
+ayrıştırılamazlığın bir görünümüdür.
+
 ## 5.4 Müdahalenin nedensel yorumu — en önemli sınırlılık
 
 §4.6 ve §4.7'de raporlanan `lexicon_free` kazancı gerçektir ve yinelenmiştir.
@@ -245,7 +275,72 @@ belirtilmişti.
 **sıfırdır.** Sınırlılık gerçek bir risk olarak önceden yazılmış, ölçüldüğünde
 bağlayıcı çıkmamıştır. Her iki yönüyle de burada belirtilmektedir.
 
-## 5.12 Kapsam notu
+## 5.12 Duyarlılık açığının kaynağı ayrıştırılamamaktadır
+
+Bu, §5.4 ile birlikte raporun **iki temel ayrıştırılamazlığından** biridir ve
+çalışmanın merkezî iddiasını doğrudan ilgilendirdiği için burada ayrı bir başlık
+almaktadır.
+
+`lexicon_free` dilimindeki duyarlılık düşüklüğü iki farklı nedenden gelebilir:
+
+1. modelin bu içeriği **daha kötü sıralaması** (gerçek bir ayırt etme
+   zayıflığı);
+2. modelin bu dilimde **sistematik olarak daha düşük puanlar üretmesi**, öyle ki
+   sıralama korunsa bile sabit 0,5 eşiği aşılamaz.
+
+İkincisi, %13,6'lık taban oranı olan bir dilimde iyi kalibre edilmiş bir modelden
+**beklenen** davranıştır. Yani ikinci neden, tek başına bir kusur bile
+olmayabilir.
+
+**Ölçüm, birinciyi büyük ölçüde dışlamaktadır ama ikisini ayıramamaktadır.**
+Eşikten bağımsız ROC-AUC farkı yalnızca **+0,0345 [+0,0103; +0,0585]**'tir
+(§4.2); güven aralığı sıfırı dışlamakta, dolayısıyla sıralama niteliğinde gerçek
+bir fark bulunmaktadır, ancak aralık ön kayıttaki **üç bandın tamamına**
+yayılmaktadır. Ön kayıtlı karar bu nedenle `INTERMEDIATE`, yani **sonuçsuzdur**.
+
+Bunun bir tasarım sınırı olduğu ölçümden **önce** biliniyordu: 355/259 ve
+565/3.585 paydalarıyla bu karşılaştırmanın çözünürlüğü, Hanley–McNeil tasarım
+hesabıyla ±0,03–0,04 olarak öngörülmüş ve eşikler bu hesaba göre, sayı ortaya
+çıkmadan sabitlenmiştir (`phases/09_deeper_analysis.md` C9-4, işleme `12afa74`).
+Gözlenen aralığın genişliği (0,048) öngörülenle uyumludur. **Bu soruyu daha büyük
+bir değerlendirme kümesi ayrıştırabilir; eldeki kümeyle ayrıştırılamaz.**
+
+Raporun bu nedenle **yapmadığı** iki şey vardır. Aşağı kaymanın hangi payının
+kalibrasyondan, hangi payının gerçek güvensizlikten geldiğine ilişkin bir sayı
+verilmemektedir. Ve modelin küfür olmadan saldırganlığı *ayırt edemediği*
+söylenmemektedir — `lexicon_free` ROC-AUC değeri **0,8962**'dir ve bu ifadeyi
+desteklemez (§4.2, §4.3).
+
+### Ölçüm tasarımında düzeltilen bir kusur — bulgu değil, tanım hatası
+
+Bu aşamanın ön kaydı (C9-8), duyarlılığın "eşleştirilmiş çalışma noktalarında"
+karşılaştırılmasını da öngörüyor ve bunu *"eşik karışıklığını gidermenin iki ayrı
+yolu"* olarak tanımlıyordu. **Bu tanım hatalıdır** ve hata, sonuç görüldükten
+sonra ön kayıtta saptanmıştır:
+
+* kesinlik doğrudan taban orana bağlıdır;
+* sabit bir *işaretleme oranındaki* duyarlılık da taban orana bağlıdır, çünkü bir
+  dilimin en yüksek puanlı %*q*'sinde hangi satırların bulunduğu, o dilimin
+  `OFF`/`NOT` karışımına bağlıdır.
+
+Bu iki yol **eşik** karışıklığını gidermekte, **taban oranı** karışıklığını ise
+olduğu gibi bırakmaktadır. Taban oranları %57,8 ile %13,6 olan iki dilim
+arasında, yani bu aşamanın denetlemek için var olduğu değişkenin kendisinde, bu
+karşılaştırma sıralama niteliği hakkında kanıt olarak kullanılamaz.
+
+Sonuç olarak: **eşleştirilmiş çalışma noktası sayıları bu rapora girmemektedir**
+ve özellikle eşit işaretleme oranındaki duyarlılık değeri, "sıralama zaten
+yerindeydi" biçiminde bir kanıt olarak **kullanılamaz** — bu okuma, tam olarak
+sayının gideremediği karışıklığın kendisidir. Hesaplanan değerler
+`results/09_deeper_analysis/stage_1/stage1_auc.json` içinde, hatalı bir tanımdan
+geldikleri etiketiyle durmaktadır. Ön kaydın kendisi **düzeltilmemiş**, hatası
+tarih damgalı bir ek notla kayda geçirilmiştir.
+
+Bu bir **şartname kusurudur, bir bulgu değildir** ve öyle raporlanmamaktadır.
+Aynı aşamada eşikten ve taban oranından gerçekten bağımsız olan tek karşılaştırma
+ROC-AUC'dur; ön kayıt da birincil ölçüt olarak onu belirlemiştir.
+
+## 5.13 Kapsam notu
 
 Bu çalışma bir yarışma teslimidir, bir araştırma makalesi değildir. Yukarıdaki
 sınırlılıkların birkaçı — özellikle §5.4'teki nedensel belirsizlik, §5.6'daki
@@ -253,11 +348,16 @@ tek tohum, §5.9'daki tek derlem ve §5.3'teki ikinci kirlenmenin üst sınırda
 ölçüme dönüştürülmesi — kapatılabilir sorulardır; kapatılmaları ek ölçüm ve ek
 hesaplama süresi gerektirir.
 
+**§5.12 bunların arasında değildir.** Eşik yerleşimi ile sıralama niteliğinin
+ayrıştırılması ek hesaplama süresiyle değil, **daha büyük bir değerlendirme
+kümesiyle** kapanır; eldeki geliştirme kümesi bu ayrımı taşıyacak çözünürlükte
+değildir ve bu, ölçüm yapılmadan önce biliniyordu.
+
 Bu çalışmada tercih, **eldeki süreyi bir zayıflığı gizlemeye değil, kesin biçimde
 ölçmeye ve yazmaya ayırmak** olmuştur. Raporlanan her sınırlılığın yanında ya bir
 sayı ya da o sayının neden elde edilemediğinin açık bir gerekçesi bulunmaktadır.
 
-## 5.13 Özet
+## 5.14 Özet
 
 | # | Sınırlılık | Ölçülen büyüklük | Durum |
 |---|---|---|---|
@@ -265,6 +365,7 @@ sayı ya da o sayının neden elde edilemediğinin açık bir gerekçesi bulunma
 | 2 | Etiket gürültüsü | %10 (40 satırlık örneklem) | ölçüldü, açık bir üst sınırdır |
 | 3a | Dilim kirlenmesi — `lexicon_hit` içine | 248/614; fark +0,0361 **artıyor** | ölçüldü, ters yönde |
 | 3b | Dilim kirlenmesi — `lexicon_free` içine (`MIN_ROOT_LEN`) | 28/565; fark en çok +0,0228 **artıyor** | **üst sınır**, ölçüm değil |
+| 3c | Aynı düzeltme iki ölçütte zıt yönde | duyarlılık +0,0361 **artıyor**, ROC-AUC −0,0283 **azalıyor** | ölçüldü, **çözülmedi** |
 | 4 | Kazancın mekanizması | ayrıştırılamıyor | **belirtildi, giderilmedi** |
 | 5 | Dayanıklılık sınaması zayıf | H bozması yalnızca 0,0149 maliyet | ölçüldü |
 | 6 | Tek tohum, tek yapılandırma | tohumlar arası oynaklık ölçülmedi | açık |
@@ -277,3 +378,5 @@ sayı ya da o sayının neden elde edilemediğinin açık bir gerekçesi bulunma
 | 13 | Tek kalibrasyon yöntemi | ölçüm yok | kapsam dışı |
 | 14 | Eşiğin genellemesi | %5,00 → %5,81 → %5,43 | ölçüldü |
 | 15 | 6 basamak yuvarlama | 0 doymuş satır | öngörüldü, bağlayıcı çıkmadı |
+| 16 | **Duyarlılık açığının kaynağı: eşik yerleşimi mi, sıralama niteliği mi** | ROC-AUC farkı yalnızca +0,0345 [+0,0103; +0,0585]; aralık üç bandın tamamına yayılıyor | **ölçüldü, ayrıştırılamadı** (ön kayıtlı karar: sonuçsuz) |
+| 17 | Eşleştirilmiş çalışma noktası tanımı taban oranı karışıklığını gidermiyor | — | **şartname kusuru**, bulgu değil; sayılar rapora alınmadı |

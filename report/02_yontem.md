@@ -234,6 +234,8 @@ damgalı olarak sürüm denetimine işlenmiştir. Uygulanan ön kayıtlar:
 | `phases/01_baseline_diagnosis.md` | üç yönlü karar kuralı (güven aralığı sıfırı dışlıyorsa / içeriyorsa / sonuçsuzsa ne yapılacağı) ve bunun güç temeli; dilimler arası karşılaştırmanın yalnızca `OFF`-duyarlılıkla yapılması |
 | `phases/03_defense_design.md` | müdahalenin hedefi (§1.7); türetme kaynağının ayrılması (C1); veri gürültüsüne karşı yapısal süzgeç (C2); D/H ayrıklığı (C3); dört ölçütün birlikte raporlanması |
 | `phases/04_calibration.md` | kalibrasyon bölünmesi ve ECE tanımı; eşiğin seçildiği ve ölçüldüğü kümelerin ayrılması; iki çalışma noktasının kuralla belirlenmesi; sıcaklık ölçeklemenin risk–kapsam eğrisini değiştiremeyeceği öngörüsü |
+| `phases/08_lexical_analysis.md` | belirteç istatistiklerinin **yalnızca eğitim bölmesinden** çıkarılması (C8-1); sıralama ölçütü ve eşiği (C8-4, C8-5); sözlük üyeliğinin `hit_root` ile tanımlanması (C8-6); adım 3'ün yorum kuralının önceden sabitlenmesi (C8-7); müdahale yasağı (C8-11) |
+| `phases/09_deeper_analysis.md` | dilim içi ROC-AUC'nin tanımı ve beraberlik kuralı (C9-2); bootstrap kurgusu (C9-3); "büyük" ve "küçük" farkın **sayısal** eşikleri, tasarım hesabından (C9-4); beş dallı, sıralı ve tüketici karar kuralı (C9-5); her kararın raporda neyi zorunlu kıldığı (C9-6); PR-AUC'nin karara kanıt olarak kullanılamayacağı (C9-9); duyarlılık denetimlerinin kararı **devirememesi** (C9-10) |
 
 Ön kayıtların işlevi, sonuçlar görüldükten sonra karar kuralının
 değiştirilmesini engellemektir. Örneğin kalibrasyon ön kaydı, sıcaklık
@@ -279,6 +281,28 @@ Dilim başına makro-F1 ise bilinçli olarak **raporlanmaz**: taban oranlar
 farklıdır (§1.4) ve dilimler arası karşılaştırılması yanıltıcı olurdu. Sonuç
 dosyalarında bu alan boş bırakılır ve gerekçesi alanın yanına yazılır.
 
+**Dilim içi ROC-AUC.** Duyarlılık karşılaştırması sabit 0,5 eşiğine bağlı
+olduğundan (§1.4), dilimler ayrıca **eşikten bağımsız** bir ölçütle
+karşılaştırılmıştır (§4.2). Tanım, Mann–Whitney U biçimidir: aynı dilim içinden
+rastgele bir altın `OFF` satırının rastgele bir altın `NOT` satırından yüksek
+puan alma olasılığı; **beraberlikler yarım puanla** sayılır. Puan olarak modelin
+`P(OFF)` değeri kullanılır.
+
+Bu ölçütün dilimler arasında karşılaştırılabilir olmasının nedeni, makro-F1'den
+farklı olarak **taban orandan bağımsız** olmasıdır: bir dilimin `NOT`
+satırlarının çoğaltılması AUC'yi değiştirmez. Bu değişmezlik, iddia edilmekle
+kalmayıp birim testinde gösterilmiştir (`tests/test_stage1_auc.py`).
+
+**Ortalama kesinlik (PR-AUC) aynı ayrıcalığa sahip değildir** ve taban orana
+duyarlıdır; bu nedenle ön kayıtta, dilimler arası karara **kanıt olarak
+kullanılması yasaklanmıştır** (C9-9). Rapora bu gerekçeyle girmemektedir.
+
+Güven aralıkları, dört (dilim × altın sınıf) hücresinin her biri **kendi
+büyüklüğüne** yeniden örneklenerek, 10.000 yinelemeli tabakalı bootstrap ve
+yüzdelik aralıkla hesaplanır (tohum 42). Karar eşikleri — hangi farkın "büyük",
+hangisinin "küçük" sayılacağı — sayı üretilmeden önce, yalnızca paydalara ve
+varsayılan bir AUC değerine dayanan bir tasarım hesabından sabitlenmiştir.
+
 **Güven aralıkları ve farklar.** Protokol §1.7'de tanımlanmıştır: satırlar
 üzerinde 1.000 yeniden örneklemeli bootstrap; aynı satırlar üzerindeki iki sistem
 için eşleştirilmiş yordam; ayrık dilimler için bağımsız yeniden örnekleme;
@@ -293,11 +317,14 @@ girdi dosyalarının SHA-256 özetlerini, geliştirme parmak izini ve tam
 hiperparametre kümesini bir `run_config.json` dosyasına yazar. Sonuçlar
 `docs/RESULTS_LOG.md` içine kronolojik olarak eklenir; bu günlük yalnızca
 eklemelidir — sonraki bir sonuç öncekiyle çeliştiğinde eski kayıt düzeltilmez,
-yeni bir düzeltme kaydı eklenir. Günlükte şu anda iki düzeltme kaydı vardır.
+yeni bir düzeltme kaydı eklenir. Günlükte şu anda **üç** düzeltme kaydı vardır.
 
-Kod tabanı 110 birim testiyle denetlenmektedir; bunlar bölünme ve ölçüt
+Kod tabanı 166 birim testiyle denetlenmektedir; bunlar bölünme ve ölçüt
 değişmezlerini, veri üretme kurallarını, kalibrasyon özelliklerini, test kümesi
-muhasebesini ve gösterim uygulamasının girdi işlemesini kapsar. Ayrıca, ağır
+muhasebesini, gösterim uygulamasının girdi işlemesini ve eşikten bağımsız ölçütün
+taban orandan bağımsızlığını kapsar — bu sonuncusu, §4.2'deki karşılaştırmanın
+neden geçerli olduğunun kendisidir ve bu nedenle iddia edilmekle bırakılmayıp
+sınanmaktadır. Ayrıca, ağır
 çalıştırmaların rapor ve kayıt yolları, gerçek çalıştırmadan önce yapay verilerle
 kuru olarak sınanır; amaç, saatler süren bir hesaplamadan sonra biçimsel bir
 hatanın keşfedilmesini önlemektir.

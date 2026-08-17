@@ -26,8 +26,10 @@ sayıları aynı tablolarda, aynı bölümde raporlanır.
 
 1. Anahtar kelime süzgeci bu dilimde **tanım gereği sıfırdır**; sözlüksüz içerik,
    sözlük temelli bir süzgeç için erişilemezdir.
-2. Eğitilmiş bir dönüştürücü bu açığı kapatmaz: sözlüksüz saldırgan içeriğin
-   ancak yarısını yakalar.
+2. Eğitilmiş bir dönüştürücü bu açığı kapatmaz: **sabit 0,5 eşiğinde** sözlüksüz
+   saldırgan içeriğin ancak yarısını işaretler. Bu bir *işaretleme*
+   başarısızlığıdır; modelin bu içeriği sıralayamadığı anlamına gelmez (§4.2,
+   eşikten bağımsız ölçüm).
 3. Tanıdan türetilen müdahale bu dilimde **ölçülebilir bir iyileşme** sağlar ve
    bu iyileşme, hiçbir tasarım kararının görmediği resmî test kümesinde
    **yinelenir** (+0,0336 → +0,0358). Her iki güven aralığı da sıfırı dışlar.
@@ -96,6 +98,73 @@ dilimler arasında **eşit dağılmamıştır** — `lexicon_hit` duyarlılığ�
 *yükselmiş*, `lexicon_free` duyarlılığı 5,3 puan *düşmüştür*. Model, zaten iyi
 olduğu dilimde iyileşmiş, zaten kötü olduğu dilimde kötüleşmiştir.
 
+### Eşikten bağımsız karşılaştırma — dilim içi ROC-AUC
+
+Yukarıdaki bütün duyarlılık sayıları **sabit 0,5 eşiğinde** ölçülmüştür ve bu,
+karşılaştırmaya yöneltilebilecek en güçlü itirazın kaynağıdır. İki dilimin taban
+oranları belirgin biçimde farklıdır (%57,8'e karşı %13,6; §1.4). İyi kalibre
+edilmiş bir model, seyrek sınıfın bulunduğu dilimde daha düşük olasılıklar üretir;
+bu durumda sabit bir eşikte duyarlılık, model içeriği daha kötü *çözümlediği için*
+değil, **eşiğin nereye düştüğü yüzünden** düşer. Duyarlılık farkının ne kadarı
+eşik yerleşiminden, ne kadarı sıralama niteliğinden gelmektedir?
+
+ROC-AUC bu soruyu yanıtlayabilir, çünkü **eşikten de taban oranından da
+bağımsızdır**: aynı dilim içinden rastgele seçilen bir altın `OFF` satırının,
+rastgele seçilen bir altın `NOT` satırından daha yüksek puan alma olasılığıdır.
+Ölçüm, ölçüm yapılmadan **önce** işlenmiş eşiklerle yürütülmüştür
+(`phases/09_deeper_analysis.md`, C9-1…C9-11, işleme `12afa74`): "büyük" fark
+`≥ 0,05`, "küçük" fark `< 0,02`; aradaki bant önceden **sonuçsuz** ilan
+edilmiştir.
+
+| Dilim (geliştirme) | Taban oran | **ROC-AUC** | %95 GA | `OFF`-duyarlılık (0,5) |
+|---|---:|---:|---|---:|
+| `lexicon_hit` | %57,8 | **0,9306** | [0,9102; 0,9495] | 0,8930 |
+| `lexicon_free` | %13,6 | **0,8962** | [0,8821; 0,9095] | 0,5628 |
+| **Fark** | | **+0,0345** | **[+0,0103; +0,0585]** | **+0,3301** |
+
+*Kaynak: `results/09_deeper_analysis/stage_1/stage1_auc.json`; 10.000 tabakalı
+bootstrap yinelemesi, tohum 42.*
+
+**Ön kayıtlı karar: `INTERMEDIATE` (sonuçsuz).** Güven aralığı sıfırı
+dışlamaktadır — yani sıralama niteliğinde gerçek bir fark vardır — ancak nokta
+kestirimi, önceden sonuçsuz ilan edilmiş banda düşmektedir. Dahası aralık, **üç
+bandın tamamına yayılmaktadır**: alt ucu 0,02'nin altında, üst ucu 0,05'in
+üstündedir. Bu, 355/259 ve 565/3.585 paydalarının çözünürlük sınırıdır ve ön
+kayıttaki tasarım hesabında (Hanley–McNeil) ±0,03–0,04 olarak **önceden**
+öngörülmüştür. Daha büyük bir geliştirme kümesi bu soruyu ayrıştırabilir; bu
+çözümleme ayrıştıramaz.
+
+**Yine de kesinleşen bir şey vardır: duyarlılık farkı, ağırlıklı olarak bir
+sıralama niteliği farkı değildir.** +0,3301'lik duyarlılık farkı, +0,0345'lik bir
+AUC farkının üzerinde durmaktadır. Model, küfür taşımayan saldırgan içeriği,
+küfür taşımayan zararsız içeriğin **üzerinde sıralamaktadır** ve bunu, küfür
+taşıyan dilimdekine yakın bir başarımla yapmaktadır (0,8962'ye karşı 0,9306).
+Yapmadığı şey, bu içeriği 0,5 eşiğinin ötesine taşımaktır.
+
+Farkın nerede olduğu, puan dağılımlarında doğrudan görünmektedir:
+
+| Dilim | Sınıf | n | Ortalama | Medyan | ≤ 0,5 payı |
+|---|---|---:|---:|---:|---:|
+| `lexicon_hit` | altın `OFF` | 355 | 0,8524 | **0,9650** | **%10,7** |
+| `lexicon_free` | altın `OFF` | 565 | 0,5285 | **0,5861** | **%43,7** |
+| `lexicon_hit` | altın `NOT` | 259 | 0,2438 | 0,1057 | %81,9 |
+| `lexicon_free` | altın `NOT` | 3.585 | 0,0999 | 0,0313 | %95,4 |
+
+*Kaynak: aynı dosya.*
+
+Küfür taşıyan saldırgan bir satırın medyan puanı 0,9650; küfür taşımayanınki
+0,5861'dir — ikisi de eşiğin üzerindedir, ancak ikincisi karar sınırının hemen
+üzerinde durmaktadır. **Küfürsüz saldırgan içeriğin %43,7'si eşiğin altında ya da
+tam üzerinde (`p ≤ 0,5`) kalmakta, dolayısıyla işaretlenmemektedir; küfür taşıyan
+içerikte bu oran %10,7'dir.** Dilimin
+tamamı aşağı kaymıştır: zararsız satırlar güvenli bölgeye, saldırgan satırlar ise
+karar sınırının içine.
+
+**Ayrıştırılamayan nokta açıkça belirtilmelidir.** Bu aşağı kaymanın %13,6'lık
+taban orana **doğru kalibrasyondan** mı yoksa modelin bu içerikteki **gerçek
+güvensizliğinden** mi kaynaklandığı, bu çözümlemeyle **ayrılamamaktadır.** İki
+katkının payları ölçülmemiştir ve bu rapor bir pay iddia etmemektedir (§5.12).
+
 ## 4.3 Açık iki yönlüdür
 
 Bulgu yalnızca düşük duyarlılık değildir. Aynı kısayol, ters yönde de
@@ -111,8 +180,19 @@ demektedir.
 
 Küfür belirtecinin varlığı `OFF` kararını yaklaşık dört kat daha olası
 kılmaktadır. Duyarlılık açığıyla birleştiğinde ortaya çıkan tablo, tek bir
-mekanizmanın iki yüzüdür: **model, saldırgan SÖZCÜK DAĞARCIĞINI algılamakta,
-saldırgan EYLEMİ değil.**
+mekanizmanın iki yüzüdür: **modelin KARARINI belirleyen şey, ağırlıklı olarak
+saldırgan sözcük dağarcığının varlığıdır — saldırgan eylemin kendisi değil.**
+
+**Bu cümlenin sınırı, §4.2'deki eşikten bağımsız ölçümle çizilmiştir ve
+çizilmelidir.** Buradaki bulgu, modelin küfür olmadan saldırganlığı
+*ayırt edemediği* anlamına **gelmez**: `lexicon_free` diliminde ROC-AUC
+**0,8962**'dir, yani model bu dilim içinde saldırgan içeriği zararsız içeriğin
+üzerinde sıralamaktadır. Desteklenen iddia daha dardır ve şudur: **küfür
+bulunmadığında puanlar sistematik olarak bastırılmakta** (altın `OFF` medyanı
+0,5861'e karşı 0,9650), dolayısıyla **sabit eşikte model bu içeriği
+işaretlememektedir** (%43,7'ye karşı %10,7). İşaretleme başarısızlığı gerçektir
+ve işletme açısından bağlayıcıdır; sıralama yetersizliği iddiası ise
+desteklenmemektedir.
 
 Bu, tanının **birinci** parçasıdır ve tek başına yeterli değildir: küfür
 belirteci hiç taşımayan 118 yanlış pozitifi açıklayamaz. İkinci parça, bu
@@ -285,8 +365,11 @@ değildir.
 Kullanım–anma ayrımının dar tanımı (üstdil + olumsuzlanmış + alıntı) 213 satırın
 20'sini kapsar; geri kalan küfür taşıyan yanlış pozitifler hedefsizlik, dolgu
 işlevi ve anlam çakışmasından gelmektedir. Küfür taşımayan 118 yanlış pozitif ise
-ayrı bir olgudur (konu ve üslup etkisi: din, siyaset) ve bu savunmanın konusu
-değildir.
+ayrı bir olgudur ve bu savunmanın konusu değildir; ne olduğu §4.3'teki *İkinci
+yordayıcı: muhatap alma* alt başlığında ölçülmüştür. Bu satırların hata
+çözümlemesi sırasında "din ve siyaset konusu" olarak nitelenmesi, sonradan
+yapılan ölçümle **yalnızca kısmen** desteklenmiştir: siyasi/dinî terim varsayımı
+çözünürlüğe bağlıdır ve tek başına baskın değildir (§4.3).
 
 ### Denetim noktası kararlılığı
 
@@ -318,6 +401,12 @@ seyreltmektedir. Yani raporlanan +0,3301, temizlenmiş tanıma göre **muhafazak
 bir değerdir. Bu, bir eleştirmenin bekleyeceğinin tam tersi yöndedir ve
 tartışılarak değil ölçülerek gösterilmiştir. Raporlanan başlık sayı yine de
 dondurulmuş tanıma göre verilmektedir; duyarlılık değeri onun yerine geçmez.
+
+**Ancak aynı düzeltme, §4.2'deki eşikten bağımsız ölçütü ters yöne
+taşımaktadır**: 248 satır dışarıda bırakıldığında ROC-AUC farkı +0,0345'ten
+**+0,0062**'ye, yani ön kayıtlı "küçük" eşiğinin de altına inmektedir. Tek bir
+düzeltme, iki ölçütü zıt yönlerde hareket ettirmektedir. Bu, §5.3'te bir
+sınırlılık olarak ele alınmakta ve **çözülmemektedir.**
 
 ## 4.6 Müdahalenin bileşen düzeyindeki etkisi
 
@@ -524,7 +613,8 @@ seçiciliğinden değil.
 | # | Bulgu | Kanıt |
 |---|---|---|
 | 1 | Sözlük temelli süzgeç, saldırgan içeriğin %63,5'ini yapısal olarak kaçırır | §1.2, Gün 1 kaydı |
-| 2 | Eğitilmiş dönüştürücü açığı kapatmaz: geliştirmede +0,3301, testte +0,3970 | §4.2 |
+| 2 | Eğitilmiş dönüştürücü açığı **sabit eşikte** kapatmaz: geliştirmede +0,3301, testte +0,3970 | §4.2 |
+| 2b | **Bu bir işaretleme başarısızlığıdır, sıralama başarısızlığı değildir.** Eşikten bağımsız ölçümde dilim içi ROC-AUC 0,9306'ya karşı **0,8962**; fark yalnızca **+0,0345 [+0,0103; +0,0585]** ve ön kayıtlı karara göre **sonuçsuz** banttadır. Puanlar küfürsüz dilimde sistematik olarak bastırılmıştır (altın `OFF` medyanı 0,5861'e karşı 0,9650; ≤0,5 payı %43,7'ye karşı %10,7). Eşik yerleşimi ile gerçek güvensizlik **ayrıştırılamamaktadır** | §4.2, §5.12, `results/09_deeper_analysis/stage_1/` |
 | 3 | Açık iki yönlüdür: `lexicon_hit` yanlış pozitif oranı 4 kat yüksektir | §4.3 |
 | 3b | **Tanı iki parçalıdır: model hem saldırgan sözcük dağarcığına hem de muhatap alınmaya tepki verir.** Sözlük dışı güçlü sapmalı 19 belirtecin 10'u işaret edici, 5'i ikinci şahıs zamiridir; 118 satırda +0,2066 [+0,1216; +0,2960], `NOT` yönlü denetimde sıfır. Siyasi terim varsayımı çözünürlüğe bağlıdır (`df ≥ 30`'da +0,1494); 47/118 açıklanmadan kalır. Birlikte görülme, işaretin **mevcut** olduğunu gösterir, **kullanıldığını** değil | §4.3, `results/08_lexical_analysis/` |
 | 4 | Etiket gürültüsü baskın değildir (%10); açık örtük saldırı %35'tir; **en büyük tek kategori (%52,5) işaretleme sözleşmesine bağlıdır ve insan yargısı gerektirir** | §4.4 |

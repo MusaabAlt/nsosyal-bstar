@@ -3,7 +3,7 @@
 Pre-registration: `phases/09_deeper_analysis.md`, C9-1 … C9-11, committed at
 **12afa74** before any number below existed. Machine-readable record:
 `stage1_auc.json`. Driver: `phase09_stage1_auc.py`. Tests:
-`tests/test_stage1_auc.py` (24, all passing; 150 in the suite).
+`tests/test_stage1_auc.py` (24, all passing; 166 in the suite).
 
 Read-only. No training, no forward pass, dev split `034415af3a23b388` only.
 The official test set was not touched. Measurement only — no intervention is
@@ -38,8 +38,8 @@ profanity-free benign content, and it does so nearly as well as it ranks the
 profanity-carrying slice (0.896 against 0.931). What it does not do is push that
 content past 0.5.
 
-That is a weaker claim than the report currently makes, and it is the claim the
-evidence supports.
+That is a weaker claim than the report made, and it is the claim the evidence
+supports. **The report was changed to match on 2026-08-17** — see §8.
 
 ---
 
@@ -63,7 +63,7 @@ filename or by trust in a download.
 
 **What was not done:** the Drive-side copy was not hashed. Verifying it needs a
 `drive.mount` authorisation that only the project lead can answer, and the mount
-failed unattended (`ValueError: mount failed`). The identity of the local copy
+failed unattended (`ValueError: mount failed`) on **two** attempts, 2026-08-17. The identity of the local copy
 with the mirror is inferred from the eight reproduced figures, not proven by a
 byte comparison. See §9.
 
@@ -109,7 +109,16 @@ the missed offense **and** the 4× false-positive rate inside `lexicon_hit`.
 
 ---
 
-## 5. Matched operating points (C9-8) — and why they do not settle it
+## 5. Matched operating points (C9-8) — computed under a **defective specification**
+
+> **Status, added 2026-08-17 after review by the project lead.** C9-8 is a
+> **spec defect, not a finding.** The numbers below remain here as a record of
+> what was computed; **none of them is usable as evidence and none enters the
+> report.** The reason is spelled out below and is now recorded as a dated
+> addendum in `phases/09_deeper_analysis.md`. In particular the equal-flagging-rate figure
+> (`lexicon_free` recall 0.9681) may **not** be read as "the ranking was there
+> all along" — that reading is exactly the base-rate confound the figure fails
+> to remove.
 
 Reference points at the frozen threshold:
 
@@ -130,25 +139,25 @@ Moving one slice's threshold to match the other's operating point:
 No match failed. CIs re-select the threshold inside every bootstrap replicate,
 so they carry the selection variance.
 
-**The two matchings point in opposite directions, and that is the result.**
-Hold the flagging rate equal and `lexicon_free` recall rises from 0.5628 to
-0.9681 — the ranking was there all along and the threshold was the whole
-problem. Hold precision equal and the same slice's recall *falls* to 0.2088 —
-the operating trade-off in `lexicon_free` is far worse. Both are true; they
-answer different questions.
-
-**Neither removes the base-rate confound**, and the spec's framing of step 3 as
-"two different ways of removing the threshold confound" is right about the
-threshold and not about the base rate. Precision depends on the base rate
+**Why the specification is defective.** C9-8 called these "two different ways of
+removing the threshold confound". They remove the **threshold** confound and
+leave the **base-rate** confound fully intact. Precision depends on the base rate
 directly. Recall at a fixed flagging rate depends on it too, because which rows
-sit in the top *q* of a slice depends on the slice's OFF/NOT mixture. **ROC-AUC
-is the only genuinely base-rate-free comparison in this stage** — which is why
-C9-3 made it the primary and everything else descriptive.
+sit in the top *q* of a slice depends on that slice's OFF/NOT mixture. Between
+two slices that differ 57.8% vs 13.6% — the exact variable this stage exists to
+control for — neither comparison can be evidence about ranking quality.
 
-One number deserves flagging so it cannot be misread later: the 0.9681 recall is
-bought at **precision 0.2224**, flagging 59% of a slice that is 13.6% offensive.
-It is a diagnostic quantity. It is not an achievable operating point, is not
-compared with the phase-04 thresholds, and nothing is built on it (C9-11).
+**ROC-AUC is the only genuinely base-rate-free comparison in this stage.** C9-3
+made it the primary, and that is the part of the design that survives.
+
+The original draft of this section read the two matchings as pointing in opposite
+directions and treated that as a result. **It is not a result.** The
+equal-flagging-rate figure buys recall 0.9681 at **precision 0.2224**, flagging
+59% of a slice that is 13.6% offensive; it is neither an achievable operating
+point nor evidence that "the threshold was the whole problem". The
+equal-precision figure inherits the same defect from the other side. Both are
+withdrawn as evidence, and the withdrawal is recorded rather than the text
+quietly rewritten.
 
 ---
 
@@ -205,24 +214,34 @@ frozen slice definition.
 
 ---
 
-## 8. What this obliges (C9-6), and what it does not
+## 8. What this obliges (C9-6) — **applied 2026-08-17**
 
 C9-6 was written before the run. For `INTERMEDIATE` it obliges: **both numbers
 reported, and the report stating plainly that this analysis cannot separate the
-two contributions.** Concretely, §4 and §5 need:
+two contributions.** All four requirements are now in the report:
 
-1. The AUC pair and the gap with its CI, beside the recall gap.
-2. An explicit sentence that the recall gap is **not** mostly a ranking-quality
-   gap, and that the model ranks profanity-free offensive content well
-   (AUC 0.896) but scores it near the threshold.
-3. An explicit sentence that whether the downward score shift is *correct
-   calibration to a 13.6% base rate* or *genuine under-confidence* is **not
-   separable by this analysis**.
-4. The S2 qualification, since it points the other way from S2's effect on
-   recall.
+| # | requirement | where |
+|---|---|---|
+| 1 | the AUC pair and the gap with its CI, beside the recall gap | §4.2, new subsection *Eşikten bağımsız karşılaştırma* |
+| 2 | the recall gap is **not** mostly a ranking-quality gap; the model ranks this content well (0.8962) but scores it near the threshold | §4.2, §4.3, §4.10 row 2b |
+| 3 | calibration-to-base-rate vs genuine under-confidence is **not separable** | §4.2 closing paragraph, §5.12 |
+| 4 | the S2 qualification, pointing the other way from its effect on recall | §4.5, §5.3 *Aynı düzeltme, iki ölçütte zıt yön*, §5.13 row 3c |
+
+Beyond the four, the claim itself was audited and rewritten. §4.3's diagnosis
+sentence read *"the model detects offensive VOCABULARY, not the offensive ACT"*;
+it now reads that vocabulary presence is what drives the **decision**, with an
+explicit paragraph stating that this does **not** mean the model cannot
+discriminate offense without profanity — AUC 0.8962 says otherwise. §4.1's
+summary bullet and §4.4's "topic effect: religion, politics" aside were corrected
+on the same grounds. §1.4 now says that recall, though base-rate-free, is
+**threshold**-dependent, and points forward; §2.7 gives the ROC-AUC definition,
+its tie convention, and why it is admissible across slices where macro-F1 is not.
 
 **Not obliged, and not done:** the wholesale narrowing that C9-6 attaches to a
 `NARROWS` verdict. That branch did not fire.
+
+**Withdrawn:** the matched-operating-point numbers, on the spec defect in §5.
+They do not appear in the report in any form.
 
 **What survives untouched.** The operational finding is unaffected: at the
 deployed threshold, 43.7% of profanity-free offensive content is scored at or
