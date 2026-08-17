@@ -1,4 +1,4 @@
-# Phase 06 — word-level lexical dependence
+# Phase 08 — word-level lexical dependence
 
 Opened 17 Aug 2026, on an academic advisor's suggestion. **Measurement only.**
 No training, no GPU, no forward pass, no intervention proposed. Everything is
@@ -20,7 +20,7 @@ or identity terms) supply that something.
 
 This phase measures whether those tokens exist and whether they are
 disproportionately present in those 118 rows. It does **not** measure whether
-the model used them — see C6-10(b).
+the model used them — see C8-10(b).
 
 ## Inputs
 
@@ -41,7 +41,7 @@ byte-identical to every slice definition in the project.
 Written and committed **before any token count exists**. Not to be revised after
 seeing results.
 
-### C6-1 — data roles
+### C8-1 — data roles
 
 Token–label statistics are computed on the **training split only** (26,992
 rows). Dev is used for exactly two things: to locate rows already tagged in
@@ -52,7 +52,7 @@ official test set stays SPENT; `load_coltekin_test()` is not called.
 This direction of travel is what makes step 3 interpretable: the token set is
 fixed by data the model trained on, then applied to held-out errors.
 
-### C6-2 — unit of counting
+### C8-2 — unit of counting
 
 **Document frequency.** `df(t)` = number of training rows containing `t` at
 least once; `off_df(t)` = number of those rows labelled OFF;
@@ -60,11 +60,11 @@ least once; `off_df(t)` = number of those rows labelled OFF;
 but are not used for ranking or for any probability: a row that repeats a token
 still carries one label.
 
-### C6-3 — candidate pool
+### C8-3 — candidate pool
 
 The **top 200 tokens by `df`**, as instructed.
 
-### C6-4 — ranking statistic
+### C8-4 — ranking statistic
 
 Raw frequency is uninformative — function words dominate it — so the pool is
 ranked by deviation from the base rate, weighted by frequency. Two weightings
@@ -84,7 +84,7 @@ Tables are ordered by `z` descending (OFF direction) or ascending (NOT
 direction), with `E` and the lift `p̂/p₀` as columns. Function words sit near
 `p₀` and fall to the middle of both orderings, which is the intended behaviour.
 
-### C6-5 — what "skews strongly" means
+### C8-5 — what "skews strongly" means
 
 Declared numerically, in advance, because "strongly" is otherwise decided after
 seeing the list.
@@ -96,7 +96,7 @@ high-frequency tokens with a trivial skew, so an effect floor is required too:
 * **strong-OFF:** `z ≥ +3.66` **and** `p̂ ≥ 1.5 p₀`
 * **strong-NOT:** `z ≤ −3.66` **and** `p̂ ≤ p₀/1.5`
 
-### C6-6 — lexicon membership of a token
+### C8-6 — lexicon membership of a token
 
 A token is **in-lexicon** iff `lexicon.hit_root(t, lex)` — the adopted matcher,
 any lexicon root of length ≥ 3 prefixing the token.
@@ -114,10 +114,10 @@ demonstrated false-match roots such as `allah`, `ana`, `mal`) are reported
 separately, because that set is exactly where a lexical-hit label is least
 trustworthy.
 
-### C6-7 — the step-3 test, declared before computing
+### C8-7 — the step-3 test, declared before computing
 
 Row indicator `X(r) = 1` iff `r` contains at least one token from **group 2**
-(the strong-OFF, non-lexicon set from C6-5/C6-6).
+(the strong-OFF, non-lexicon set from C8-5/C8-6).
 
 * **A** = the 118 dev false positives tagged `NOPROF` in phase 02.
 * **B** = correctly-classified dev NOT rows (true negatives), derived as
@@ -142,7 +142,7 @@ bootstrap CI, 10,000 resamples, seed 42, resampling A and B independently
 A no-support result is a result. It closes the question of whether non-lexicon
 topic vocabulary accounts for the 118, and it gets written up as such.
 
-### C6-8 — sensitivities, planned rather than discovered
+### C8-8 — sensitivities, planned rather than discovered
 
 Run and reported whatever they show:
 
@@ -156,13 +156,13 @@ Run and reported whatever they show:
    118 show elevated rates of *both* directions, the effect is about row length
    or register, not about OFF-skewed vocabulary.
 
-### C6-9 — class balance
+### C8-9 — class balance
 
 Report the OFF/NOT ratio overall and within each slice, on train and dev
 separately, and state plainly whether the 19.3 % base rate could itself produce
 what phases 01–03 attribute to lexical dependence.
 
-### C6-10 — limitations known before the run
+### C8-10 — limitations known before the run
 
 Recorded now so they are not presented later as discoveries.
 
@@ -178,7 +178,7 @@ Recorded now so they are not presented later as discoveries.
 * **(d)** `P(OFF|t)` is a corpus property. It reflects the annotation
   convention (Çöltekin's, adopted as given) as much as it reflects language.
 
-### C6-11 — no intervention
+### C8-11 — no intervention
 
 Measurement only. Nothing produced here may enter training, alter the frozen
 lexicon, or define a new slice used in a headline number. The ranked table is
@@ -188,6 +188,6 @@ evidence, not a feature list.
 
 ## Outputs
 
-`results/06_lexical_analysis/` — `token_stats.json` (ranked table, aggregates
+`results/08_lexical_analysis/` — `token_stats.json` (ranked table, aggregates
 only), `findings.md`, and an appended row in `docs/RESULTS_LOG.md`. Row text
 stays out of git as always; tokens and counts are aggregates and are committed.
