@@ -387,3 +387,27 @@ testing, and that is all.
 `results/11_prior_correction/` — `metrics.json`, `findings.md`, and one
 `RESULTS_LOG.md` row. Aggregate statistics may be committed; **row text stays out
 of git**, as always.
+
+---
+
+### Addendum, 2026-08-18 — C11-2 is defective in one clause. Recorded, not rewritten.
+
+Found by Claude Code during the commit session, before any Phase 11 number
+existed. **C11-2 above is left exactly as it was committed**, in keeping with the
+append-only discipline that governs `docs/RESULTS_LOG.md` and with the C9-8
+precedent in `phases/09_deeper_analysis.md`.
+
+**The defect.** C11-2 requires `cal_eval_split.json` to hold "its own sha256".
+A file cannot contain its own digest; the requirement is unsatisfiable as
+written.
+
+**What stands in its place.** The digest is recorded outside the file, in three
+places, all produced in the commit session of 2026-08-18: sha256 6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899
+git blob 108599c280162ab3ad17a283d0e59a464e665031
+commit d589dbad65f071b7a98f1124717f97d27fa5940c
+
+The file carries a `self_sha256` field stating the impossibility and pointing
+here. This is a drafting defect in the specification, **not a finding**, and it
+touches no measurement: all four C11-2 reproduction checks passed on the
+committed artifact, and the Phase 11 Run A provenance gate re-verified the
+digest independently at run time.
