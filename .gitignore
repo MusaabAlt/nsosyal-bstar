@@ -17,6 +17,12 @@ data/**
 # across every row of the comparison matrix. Committing it makes that auditable
 # instead of merely reproducible.
 !data/splits/*.json
+# Exception: the Phase 15 address flag. It holds seven Turkish pronouns and two
+# pre-registered sensitivity sets -- a definition, not corpus data, so no
+# licensing issue -- and Stage 4 requires the exact set to be committed BEFORE
+# the flag is used. Committing it is the whole point; force-adding it under the
+# ignore rule would leave later edits invisible to `git status`.
+!data/deixis/*.json
 
 # --- results: summary JSON/CSV are committed evidence, everything else is not ---
 results/**

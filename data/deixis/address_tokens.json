@@ -1,0 +1,37 @@
+{
+  "_what": "The frozen second-person address flag for Phase 15. Committed BEFORE any Phase 15 count, band, or statistic exists. This file is a definition, not a measurement: it produces no number and licenses no claim.",
+  "run_id": "15_deixis",
+  "frozen_on": "2026-08-18",
+
+  "primary_set": ["sen", "siz", "sizin", "senin", "sizi", "sana", "size"],
+  "primary_set_size": 7,
+
+  "matching_rule": "exact match against src.lexicon.tokens() output; NOT hit_root, NOT prefix matching",
+  "matching_rule_detail": "address_flag(text, token_set) tokenises with src.lexicon.tokens (Turkish-aware tr_lower, then \\w+ with the SKIP placeholders removed) and returns True iff any resulting token is IN token_set by string equality. Prefix matching is deliberately excluded: `sen` as a prefix would take `sene`, `senaryo`, `senato`, `sendika`, and `siz` would take `sizofren`. That is the MIN_ROOT_LEN failure mode already recorded for the lexicon slice in phase 02 and phase 08, and it is not repeated here.",
+  "casing_note": "Turkish casing runs through src.lexicon.tr_lower (I -> ı, İ -> i, then lower()). So `SİZİN` -> `sizin` and flags, while `SIZIN` -> `sızın` and does NOT flag -- `SIZIN` is the uppercase of `sızın`, not of `sizin`. Python's str.lower() would get this wrong and manufacture a false hit. Asserted in tests/test_phase15_address.py.",
+
+  "provenance": "phases/09_deeper_analysis.md Stage 4, committed before Phase 15",
+  "provenance_detail": "Stage 4 enumerates the second-person deictic set as `sen`, `siz`, `sizin`, `senin`, `sizi`, `sana`, `size` and requires that the exact set be committed before running. This file is that commitment. The set is transcribed from Stage 4 and is not extended, reordered, or tuned.",
+
+  "extended_set": [
+    "sen", "siz", "sizin", "senin", "sizi", "sana", "size",
+    "seni", "sende", "senden", "seninle", "sence",
+    "sizde", "sizden", "sizinle", "sizce",
+    "sizler", "sizleri", "sizlere", "sizlerin"
+  ],
+  "extended_set_size": 20,
+  "extended_set_additional": [
+    "seni", "sende", "senden", "seninle", "sence",
+    "sizde", "sizden", "sizinle", "sizce",
+    "sizler", "sizleri", "sizlere", "sizlerin"
+  ],
+  "extended_set_role": "pre-registered SENSITIVITY, not primary. It is the primary seven plus thirteen further inflected second-person forms. It exists so that the primary set's exactness can be checked against a wider net without the wider net being chosen after seeing a result.",
+
+  "third_person_deictic_set": ["lan", "bak", "adam", "bunlar", "onlar"],
+  "third_person_deictic_set_size": 5,
+  "third_person_deictic_set_role": "pre-registered SENSITIVITY, phase 08 composition. Not primary and not a second-person set.",
+  "third_person_deictic_set_provenance": "All five are members of `group2_tokens` in results/08_lexical_analysis/token_stats.json -- the OFF-skewed non-lexical group -- and they are the non-second-person members of it. group2_tokens as recorded there is [adam, aq, bak, belli, bunlar, kendi, lan, nasil, niye, onlar, oy, para, sen, senin, siz, sizi, sizin, turk, ye] (Turkish spellings as in the file). Recording this here so the set's origin is checkable rather than asserted.",
+
+  "not_this_file": "No band, no threshold, no verdict, no calibration quantity and no performance metric is defined here. Phase 15 step 1 is counts only.",
+  "scope": "dev split only, fingerprint 034415af3a23b388. The official test set is spent and stays spent."
+}
