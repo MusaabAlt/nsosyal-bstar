@@ -98,14 +98,14 @@ def _reference_signed_gap_p_off(y_true, p_off, n_bins=10):
     return total
 
 
-try:  # once Phase 11 has an implementation, these tests bind to it instead
-    from phase11_prior_correction import (  # type: ignore  # noqa: F401
-        signed_gap_p_off, verdict)
-    IMPLEMENTATION = "phase11_prior_correction"
-except ImportError:
-    verdict = _reference_verdict
-    signed_gap_p_off = _reference_signed_gap_p_off
-    IMPLEMENTATION = "reference frozen in tests/test_phase11_verdict.py"
+# Phase 11 has an implementation now, so these tests bind to it and to nothing
+# else. There is deliberately no fallback: a missing or broken import must ERROR
+# the suite rather than quietly substitute the transcribed reference, which would
+# let Phase 11 ship code that never faced a single one of these tests.
+from src.phase11_prior_correction import (  # noqa: F401
+    signed_gap_p_off, verdict)
+
+IMPLEMENTATION = "src.phase11_prior_correction"
 
 
 def _gold(bits):

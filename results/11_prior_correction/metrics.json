@@ -1,0 +1,1058 @@
+{
+  "run_id": "11_prior_correction",
+  "stage": "Run A -- primary, control, descriptive calibration",
+  "dev_only": true,
+  "dev_only_note": "Every number in this file is measured on the frozen dev split (fingerprint 034415af3a23b388) and is dev-only. The official test set is spent and was not read; load_coltekin_test was not called.",
+  "preregistration": {
+    "path": "phases/11_prior_correction.md",
+    "commit": "d589dbad",
+    "clauses": "C11-1..C11-14"
+  },
+  "not_run_in_this_stage": {
+    "C11-10": "Saerens EM prior correction, per-slice Platt scaling, per-slice isotonic regression -- Run B, not this stage.",
+    "C11-11": "S2 (MIN_ROOT_LEN leak) and S3 (suspect-root contamination) sensitivities are not run in this stage. S1 (bin count) IS reported, per slice, under `sensitivity_S1_bin_count`."
+  },
+  "provenance": {
+    "gate_checks": [
+      {
+        "check": "dev_predictions.csv sha256",
+        "expected": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "observed": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "pass": true
+      },
+      {
+        "check": "dev_predictions.csv bytes",
+        "expected": 736591,
+        "observed": 736591,
+        "pass": true
+      },
+      {
+        "check": "karaliste.txt sha256",
+        "expected": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+        "observed": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+        "pass": true
+      },
+      {
+        "check": "karaliste.txt bytes",
+        "expected": 5988,
+        "observed": 5988,
+        "pass": true
+      },
+      {
+        "check": "cal_eval_split.json sha256",
+        "expected": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+        "observed": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+        "pass": true
+      },
+      {
+        "check": "split-recorded dev_predictions sha256",
+        "expected": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "observed": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "pass": true,
+        "note": "the split file must name the dump that is actually on disk"
+      },
+      {
+        "check": "dev fingerprint",
+        "expected": "034415af3a23b388",
+        "observed": "034415af3a23b388",
+        "pass": true
+      },
+      {
+        "check": "split seed",
+        "expected": 42,
+        "observed": 42,
+        "pass": true
+      },
+      {
+        "check": "split n_cal",
+        "expected": 2382,
+        "observed": 2382,
+        "pass": true
+      },
+      {
+        "check": "split n_eval",
+        "expected": 2382,
+        "observed": 2382,
+        "pass": true
+      },
+      {
+        "check": "split dev fingerprint",
+        "expected": "034415af3a23b388",
+        "observed": "034415af3a23b388",
+        "pass": true
+      },
+      {
+        "check": "rows violating `pred == OFF iff confidence > 0.5`",
+        "expected": 0,
+        "observed": 0,
+        "pass": true
+      },
+      {
+        "check": "rows with confidence == 0.5 exactly",
+        "expected": 0,
+        "observed": 0,
+        "pass": true,
+        "note": "reported, not assumed away: at 0.5 exactly the rule `> 0.5` and phase-04's `>= 0.5` would disagree, and such a row would be excluded from the C11-4 band by the literal `p_OFF < 0.5` definition"
+      },
+      {
+        "check": "dev rows",
+        "expected": 4764,
+        "observed": 4764,
+        "pass": true
+      },
+      {
+        "check": "dev gold OFF",
+        "expected": 920,
+        "observed": 920,
+        "pass": true
+      },
+      {
+        "check": "lexicon_hit rows",
+        "expected": 614,
+        "observed": 614,
+        "pass": true
+      },
+      {
+        "check": "lexicon_hit gold OFF",
+        "expected": 355,
+        "observed": 355,
+        "pass": true
+      },
+      {
+        "check": "lexicon_free rows",
+        "expected": 4150,
+        "observed": 4150,
+        "pass": true
+      },
+      {
+        "check": "lexicon_free gold OFF",
+        "expected": 565,
+        "observed": 565,
+        "pass": true
+      },
+      {
+        "check": "overall OFF-recall (tp, support)",
+        "expected": [
+          635,
+          920
+        ],
+        "observed": [
+          635,
+          920
+        ],
+        "pass": true
+      },
+      {
+        "check": "lexicon_hit OFF-recall (tp, support)",
+        "expected": [
+          317,
+          355
+        ],
+        "observed": [
+          317,
+          355
+        ],
+        "pass": true
+      },
+      {
+        "check": "lexicon_free OFF-recall (tp, support)",
+        "expected": [
+          318,
+          565
+        ],
+        "observed": [
+          318,
+          565
+        ],
+        "pass": true
+      },
+      {
+        "check": "false negatives",
+        "expected": 285,
+        "observed": 285,
+        "pass": true
+      },
+      {
+        "check": "false positives",
+        "expected": 213,
+        "observed": 213,
+        "pass": true
+      },
+      {
+        "check": "rows where hit_root disagrees with the dumped `slice`",
+        "expected": 0,
+        "observed": 0,
+        "pass": true,
+        "note": "MIN_ROOT_LEN=3, 695 frozen roots, recomputed in 2.6s"
+      }
+    ],
+    "dev_predictions_csv": "results/01_baseline_berturk/dev_predictions.csv",
+    "dev_predictions_sha256": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+    "lexicon": "data/lexicon/karaliste.txt",
+    "lexicon_sha256": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+    "split_file": "results/04_calibration/cal_eval_split.json",
+    "split_sha256": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+    "dev_fingerprint": "034415af3a23b388",
+    "score_column": "confidence",
+    "score_meaning": "P(OFF), not max-class probability",
+    "frozen_decision_rule": "pred == OFF iff confidence > 0.5 (asserted, not assumed)"
+  },
+  "definitions": {
+    "binning": "10 equal-width bins on [0, 1], binned on P(OFF) (C11-3); empty bins contribute 0 and are retained in the table with n=0",
+    "signed_gap": "sum_b (n_b/N) * (off_rate_b - mean_p_b)",
+    "ece": "sum_b (n_b/N) * |off_rate_b - mean_p_b|",
+    "sign_convention": "SignedGap > 0 means the model UNDER-states P(OFF) -- under-confidence in the OFF direction.",
+    "not_the_phase04_statistic": "This is the PROBABILISTIC form, binned on P(OFF). Phase 04's statistic bins on decision confidence max(p, 1-p) over both classes and returned a global signed gap of -0.0091 with direction `overconfident` and ECE(15) = 0.0205. The two are different quantities conditioned on different things and may not be compared or summed (C11-3)."
+  },
+  "eval_cells": [
+    {
+      "cell": "lexicon_hit x OFF",
+      "expected": 182,
+      "observed": 182,
+      "pass": true
+    },
+    {
+      "cell": "lexicon_hit x NOT",
+      "expected": 127,
+      "observed": 127,
+      "pass": true
+    },
+    {
+      "cell": "lexicon_free x OFF",
+      "expected": 278,
+      "observed": 278,
+      "pass": true
+    },
+    {
+      "cell": "lexicon_free x NOT",
+      "expected": 1795,
+      "observed": 1795,
+      "pass": true
+    }
+  ],
+  "primary": {
+    "statistic": "SG_free_low",
+    "slice": "lexicon_free",
+    "dev_only": true,
+    "band": "p_OFF < 0.5, strictly (the frozen decision rule; C11-4)",
+    "n_band_realized": 1846,
+    "n_band_design": 1831,
+    "n_slice": 2073,
+    "rows_at_p_off_exactly_0.5": 0,
+    "rows_at_p_off_exactly_0.5_note": "excluded from the band by the literal C11-4 definition `p_OFF < 0.5`. The exclusion is reported, not decided.",
+    "gold_off_in_band": 134,
+    "off_rate_in_band": 0.07258938244853738,
+    "mean_p_in_band": 0.07715633423618634,
+    "signed_gap": -0.004566951787648971,
+    "ece": 0.013283245395449634,
+    "ci_low": -0.01280704635421828,
+    "ci_high": 0.0035463379479318186,
+    "ci_half_width_realized": 0.00817669215107505,
+    "ci_half_width_design": 0.0115,
+    "boot_mean": -0.004622114124213292,
+    "n_boot": 10000,
+    "n_boot_used": 10000,
+    "n_boot_undefined": 0,
+    "branch": 2,
+    "verdict": "BASE-RATE-CORRECT",
+    "reliability_10": [
+      {
+        "bin": 0,
+        "lo": 0.0,
+        "hi": 0.1,
+        "n": 1426,
+        "off": 37,
+        "mean_p": 0.028721857643758755,
+        "off_rate": 0.025946704067321177,
+        "gap": -0.002775153576437577,
+        "weight": 0.7724810400866738
+      },
+      {
+        "bin": 1,
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 188,
+        "off": 35,
+        "mean_p": 0.14337692021276588,
+        "off_rate": 0.18617021276595744,
+        "gap": 0.04279329255319156,
+        "weight": 0.10184182015167931
+      },
+      {
+        "bin": 2,
+        "lo": 0.2,
+        "hi": 0.30000000000000004,
+        "n": 105,
+        "off": 22,
+        "mean_p": 0.24147105714285724,
+        "off_rate": 0.20952380952380953,
+        "gap": -0.031947247619047714,
+        "weight": 0.056879739978331526
+      },
+      {
+        "bin": 3,
+        "lo": 0.30000000000000004,
+        "hi": 0.4,
+        "n": 74,
+        "off": 25,
+        "mean_p": 0.3457455405405407,
+        "off_rate": 0.33783783783783783,
+        "gap": -0.007907702702702857,
+        "weight": 0.04008667388949079
+      },
+      {
+        "bin": 4,
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 53,
+        "off": 15,
+        "mean_p": 0.4448817358490567,
+        "off_rate": 0.2830188679245283,
+        "gap": -0.16186286792452842,
+        "weight": 0.028710725893824486
+      },
+      {
+        "bin": 5,
+        "lo": 0.5,
+        "hi": 0.6000000000000001,
+        "n": 0,
+        "off": 0,
+        "mean_p": null,
+        "off_rate": null,
+        "gap": null,
+        "weight": 0.0
+      },
+      {
+        "bin": 6,
+        "lo": 0.6000000000000001,
+        "hi": 0.7000000000000001,
+        "n": 0,
+        "off": 0,
+        "mean_p": null,
+        "off_rate": null,
+        "gap": null,
+        "weight": 0.0
+      },
+      {
+        "bin": 7,
+        "lo": 0.7000000000000001,
+        "hi": 0.8,
+        "n": 0,
+        "off": 0,
+        "mean_p": null,
+        "off_rate": null,
+        "gap": null,
+        "weight": 0.0
+      },
+      {
+        "bin": 8,
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 0,
+        "off": 0,
+        "mean_p": null,
+        "off_rate": null,
+        "gap": null,
+        "weight": 0.0
+      },
+      {
+        "bin": 9,
+        "lo": 0.9,
+        "hi": 1.0,
+        "n": 0,
+        "off": 0,
+        "mean_p": null,
+        "off_rate": null,
+        "gap": null,
+        "weight": 0.0
+      }
+    ],
+    "identity_check": {
+      "closed_form": -0.00456695178764896,
+      "tolerance": 1e-12,
+      "by_bins": {
+        "10": {
+          "binned": -0.004566951787648971,
+          "abs_diff": 1.1275702593849246e-17,
+          "holds": true
+        },
+        "15": {
+          "binned": -0.004566951787648953,
+          "abs_diff": 6.938893903907228e-18,
+          "holds": true
+        },
+        "20": {
+          "binned": -0.004566951787648955,
+          "abs_diff": 4.336808689942018e-18,
+          "holds": true
+        }
+      },
+      "holds": true
+    },
+    "role": "PRIMARY (C11-4)"
+  },
+  "control": {
+    "statistic": "SG_hit_low",
+    "slice": "lexicon_hit",
+    "dev_only": true,
+    "band": "p_OFF < 0.5, strictly (the frozen decision rule; C11-4)",
+    "n_band_realized": 134,
+    "n_band_design": 126,
+    "n_slice": 309,
+    "rows_at_p_off_exactly_0.5": 0,
+    "rows_at_p_off_exactly_0.5_note": "excluded from the band by the literal C11-4 definition `p_OFF < 0.5`. The exclusion is reported, not decided.",
+    "gold_off_in_band": 24,
+    "off_rate_in_band": 0.1791044776119403,
+    "mean_p_in_band": 0.13956398507462686,
+    "signed_gap": 0.03954049253731342,
+    "ece": 0.03954049253731342,
+    "ci_low": -0.014396843291377309,
+    "ci_high": 0.08993778541842995,
+    "ci_half_width_realized": 0.05216731435490363,
+    "ci_half_width_design": 0.0625,
+    "boot_mean": 0.038570884170484716,
+    "n_boot": 10000,
+    "n_boot_used": 10000,
+    "n_boot_undefined": 0,
+    "branch": 0,
+    "verdict": "INSUFFICIENT",
+    "reliability_10": [
+      {
+        "bin": 0,
+        "lo": 0.0,
+        "hi": 0.1,
+        "n": 70,
+        "off": 3,
+        "mean_p": 0.039553514285714304,
+        "off_rate": 0.04285714285714286,
+        "gap": 0.003303628571428553,
+        "weight": 0.5223880597014925
+      },
+      {
+        "bin": 1,
+        "lo": 0.1,
+        "hi": 0.2,
+        "n": 24,
+        "off": 7,
+        "mean_p": 0.1456022916666667,
+        "off_rate": 0.2916666666666667,
+        "gap": 0.146064375,
+        "weight": 0.1791044776119403
+      },
+      {
+        "bin": 2,
+        "lo": 0.2,
+        "hi": 0.30000000000000004,
+        "n": 21,
+        "off": 6,
+        "mean_p": 0.2389462857142857,
+        "off_rate": 0.2857142857142857,
+        "gap": 0.046768000000000004,
+        "weight": 0.15671641791044777
+      },
+      {
+        "bin": 3,
+        "lo": 0.30000000000000004,
+        "hi": 0.4,
+        "n": 11,
+        "off": 4,
+        "mean_p": 0.34261136363636363,
+        "off_rate": 0.36363636363636365,
+        "gap": 0.021025000000000016,
+        "weight": 0.08208955223880597
+      },
+      {
+        "bin": 4,
+        "lo": 0.4,
+        "hi": 0.5,
+        "n": 8,
+        "off": 4,
+        "mean_p": 0.45647200000000004,
+        "off_rate": 0.5,
+        "gap": 0.043527999999999956,
+        "weight": 0.05970149253731343
+      },
+      {
+        "bin": 5,
+        "lo": 0.5,
+        "hi": 0.6000000000000001,
+        "n": 0,
+        "off": 0,
+        "mean_p": null,
+        "off_rate": null,
+        "gap": null,
+        "weight": 0.0
+      },
+      {
+        "bin": 6,
+        "lo": 0.6000000000000001,
+        "hi": 0.7000000000000001,
+        "n": 0,
+        "off": 0,
+        "mean_p": null,
+        "off_rate": null,
+        "gap": null,
+        "weight": 0.0
+      },
+      {
+        "bin": 7,
+        "lo": 0.7000000000000001,
+        "hi": 0.8,
+        "n": 0,
+        "off": 0,
+        "mean_p": null,
+        "off_rate": null,
+        "gap": null,
+        "weight": 0.0
+      },
+      {
+        "bin": 8,
+        "lo": 0.8,
+        "hi": 0.9,
+        "n": 0,
+        "off": 0,
+        "mean_p": null,
+        "off_rate": null,
+        "gap": null,
+        "weight": 0.0
+      },
+      {
+        "bin": 9,
+        "lo": 0.9,
+        "hi": 1.0,
+        "n": 0,
+        "off": 0,
+        "mean_p": null,
+        "off_rate": null,
+        "gap": null,
+        "weight": 0.0
+      }
+    ],
+    "identity_check": {
+      "closed_form": 0.039540492537313426,
+      "tolerance": 1e-12,
+      "by_bins": {
+        "10": {
+          "binned": 0.03954049253731342,
+          "abs_diff": 6.938893903907228e-18,
+          "holds": true
+        },
+        "15": {
+          "binned": 0.039540492537313426,
+          "abs_diff": 0.0,
+          "holds": true
+        },
+        "20": {
+          "binned": 0.039540492537313426,
+          "abs_diff": 0.0,
+          "holds": true
+        }
+      },
+      "holds": true
+    },
+    "role": "CONTROL (C11-9)",
+    "control_note": "C11-9: if under-scoring in the sub-threshold band were a global property of the model rather than a slice-specific one, both slices would show it at comparable magnitude. A lexicon_free effect accompanied by a lexicon_hit effect of similar size does not support a slice-specific account. Design half-width +-0.063, five times coarser than the primary: this control can refute a large effect and cannot resolve a small one."
+  },
+  "descriptive": {
+    "lexicon_free": {
+      "slice": "lexicon_free",
+      "dev_only": true,
+      "n": 2073,
+      "gold_off": 278,
+      "gold_not": 1795,
+      "base_rate_off": 0.13410516160154365,
+      "mean_p_off": 0.14934360154365656,
+      "confusion": {
+        "tn": 1712,
+        "fp": 83,
+        "fn": 134,
+        "tp": 144
+      },
+      "confusion_note": "raw counts only; per-slice macro-F1 and per-slice accuracy are NOT reported (phase-01 pre-registered constraint, base rates 57.8% vs 13.6%)",
+      "ece_10": 0.023000272069464558,
+      "signed_gap_10": -0.015238439942112882,
+      "saturated_rows_6dp": 0,
+      "reliability_10": [
+        {
+          "bin": 0,
+          "lo": 0.0,
+          "hi": 0.1,
+          "n": 1426,
+          "off": 37,
+          "mean_p": 0.028721857643758755,
+          "off_rate": 0.025946704067321177,
+          "gap": -0.002775153576437577,
+          "weight": 0.6878919440424506
+        },
+        {
+          "bin": 1,
+          "lo": 0.1,
+          "hi": 0.2,
+          "n": 188,
+          "off": 35,
+          "mean_p": 0.14337692021276588,
+          "off_rate": 0.18617021276595744,
+          "gap": 0.04279329255319156,
+          "weight": 0.09068982151471297
+        },
+        {
+          "bin": 2,
+          "lo": 0.2,
+          "hi": 0.30000000000000004,
+          "n": 105,
+          "off": 22,
+          "mean_p": 0.24147105714285724,
+          "off_rate": 0.20952380952380953,
+          "gap": -0.031947247619047714,
+          "weight": 0.05065123010130246
+        },
+        {
+          "bin": 3,
+          "lo": 0.30000000000000004,
+          "hi": 0.4,
+          "n": 74,
+          "off": 25,
+          "mean_p": 0.3457455405405407,
+          "off_rate": 0.33783783783783783,
+          "gap": -0.007907702702702857,
+          "weight": 0.03569705740472745
+        },
+        {
+          "bin": 4,
+          "lo": 0.4,
+          "hi": 0.5,
+          "n": 53,
+          "off": 15,
+          "mean_p": 0.4448817358490567,
+          "off_rate": 0.2830188679245283,
+          "gap": -0.16186286792452842,
+          "weight": 0.025566811384466957
+        },
+        {
+          "bin": 5,
+          "lo": 0.5,
+          "hi": 0.6000000000000001,
+          "n": 53,
+          "off": 22,
+          "mean_p": 0.5513338867924529,
+          "off_rate": 0.41509433962264153,
+          "gap": -0.13623954716981135,
+          "weight": 0.025566811384466957
+        },
+        {
+          "bin": 6,
+          "lo": 0.6000000000000001,
+          "hi": 0.7000000000000001,
+          "n": 48,
+          "off": 30,
+          "mean_p": 0.6390488958333332,
+          "off_rate": 0.625,
+          "gap": -0.014048895833333241,
+          "weight": 0.023154848046309694
+        },
+        {
+          "bin": 7,
+          "lo": 0.7000000000000001,
+          "hi": 0.8,
+          "n": 39,
+          "off": 28,
+          "mean_p": 0.7513981025641026,
+          "off_rate": 0.717948717948718,
+          "gap": -0.0334493846153846,
+          "weight": 0.01881331403762663
+        },
+        {
+          "bin": 8,
+          "lo": 0.8,
+          "hi": 0.9,
+          "n": 48,
+          "off": 32,
+          "mean_p": 0.8457802291666668,
+          "off_rate": 0.6666666666666666,
+          "gap": -0.1791135625000002,
+          "weight": 0.023154848046309694
+        },
+        {
+          "bin": 9,
+          "lo": 0.9,
+          "hi": 1.0,
+          "n": 39,
+          "off": 32,
+          "mean_p": 0.9579916153846153,
+          "off_rate": 0.8205128205128205,
+          "gap": -0.13747879487179482,
+          "weight": 0.01881331403762663
+        }
+      ],
+      "identity_check": {
+        "closed_form": -0.015238439942112908,
+        "tolerance": 1e-12,
+        "by_bins": {
+          "10": {
+            "binned": -0.015238439942112882,
+            "abs_diff": 2.6020852139652106e-17,
+            "holds": true
+          },
+          "15": {
+            "binned": -0.015238439942112863,
+            "abs_diff": 4.5102810375396984e-17,
+            "holds": true
+          },
+          "20": {
+            "binned": -0.015238439942112866,
+            "abs_diff": 4.163336342344337e-17,
+            "holds": true
+          }
+        },
+        "holds": true
+      },
+      "whole_slice_caveat": "C11-4: SignedGap telescopes to (slice OFF rate - slice mean p_OFF), and with lexicon_free at 87.1% of dev and global calibration good, 0.871*SG_free + 0.129*SG_hit ~ SG_global ~ 0, so SG_free is pinned near zero by arithmetic almost regardless of what the model does. This figure is a SECONDARY. Its smallness is not a finding.",
+      "sensitivity_S1_bin_count": {
+        "10": {
+          "ece": 0.023000272069464558,
+          "signed_gap": -0.015238439942112882
+        },
+        "15": {
+          "ece": 0.028408120598166886,
+          "signed_gap": -0.015238439942112863
+        },
+        "20": {
+          "ece": 0.02895144524843221,
+          "signed_gap": -0.015238439942112866
+        }
+      },
+      "whole_slice_signed_gap_ci": {
+        "ci_low": -0.023582891775205037,
+        "ci_high": -0.007042311444766023,
+        "boot_mean": -0.015233390792088755
+      },
+      "ece_10_ci": {
+        "ci_low": 0.018105836107091187,
+        "ci_high": 0.036966623552822,
+        "boot_mean": 0.02711350657327544,
+        "caveat": "Binned ECE is positively biased in small samples (the absolute value cannot cancel noise), so this percentile interval is not centred on `ece_10` and `boot_mean` is not the estimate. Reported as pre-registered in C11-5."
+      }
+    },
+    "lexicon_hit": {
+      "slice": "lexicon_hit",
+      "dev_only": true,
+      "n": 309,
+      "gold_off": 182,
+      "gold_not": 127,
+      "base_rate_off": 0.5889967637540453,
+      "mean_p_off": 0.5769836375404531,
+      "confusion": {
+        "tn": 110,
+        "fp": 17,
+        "fn": 24,
+        "tp": 158
+      },
+      "confusion_note": "raw counts only; per-slice macro-F1 and per-slice accuracy are NOT reported (phase-01 pre-registered constraint, base rates 57.8% vs 13.6%)",
+      "ece_10": 0.0313912168284789,
+      "signed_gap_10": 0.012013126213592287,
+      "saturated_rows_6dp": 0,
+      "reliability_10": [
+        {
+          "bin": 0,
+          "lo": 0.0,
+          "hi": 0.1,
+          "n": 70,
+          "off": 3,
+          "mean_p": 0.039553514285714304,
+          "off_rate": 0.04285714285714286,
+          "gap": 0.003303628571428553,
+          "weight": 0.22653721682847897
+        },
+        {
+          "bin": 1,
+          "lo": 0.1,
+          "hi": 0.2,
+          "n": 24,
+          "off": 7,
+          "mean_p": 0.1456022916666667,
+          "off_rate": 0.2916666666666667,
+          "gap": 0.146064375,
+          "weight": 0.07766990291262135
+        },
+        {
+          "bin": 2,
+          "lo": 0.2,
+          "hi": 0.30000000000000004,
+          "n": 21,
+          "off": 6,
+          "mean_p": 0.2389462857142857,
+          "off_rate": 0.2857142857142857,
+          "gap": 0.046768000000000004,
+          "weight": 0.06796116504854369
+        },
+        {
+          "bin": 3,
+          "lo": 0.30000000000000004,
+          "hi": 0.4,
+          "n": 11,
+          "off": 4,
+          "mean_p": 0.34261136363636363,
+          "off_rate": 0.36363636363636365,
+          "gap": 0.021025000000000016,
+          "weight": 0.03559870550161812
+        },
+        {
+          "bin": 4,
+          "lo": 0.4,
+          "hi": 0.5,
+          "n": 8,
+          "off": 4,
+          "mean_p": 0.45647200000000004,
+          "off_rate": 0.5,
+          "gap": 0.043527999999999956,
+          "weight": 0.025889967637540454
+        },
+        {
+          "bin": 5,
+          "lo": 0.5,
+          "hi": 0.6000000000000001,
+          "n": 9,
+          "off": 4,
+          "mean_p": 0.5475836666666667,
+          "off_rate": 0.4444444444444444,
+          "gap": -0.10313922222222227,
+          "weight": 0.02912621359223301
+        },
+        {
+          "bin": 6,
+          "lo": 0.6000000000000001,
+          "hi": 0.7000000000000001,
+          "n": 7,
+          "off": 5,
+          "mean_p": 0.6630691428571428,
+          "off_rate": 0.7142857142857143,
+          "gap": 0.0512165714285715,
+          "weight": 0.022653721682847898
+        },
+        {
+          "bin": 7,
+          "lo": 0.7000000000000001,
+          "hi": 0.8,
+          "n": 8,
+          "off": 7,
+          "mean_p": 0.743871375,
+          "off_rate": 0.875,
+          "gap": 0.131128625,
+          "weight": 0.025889967637540454
+        },
+        {
+          "bin": 8,
+          "lo": 0.8,
+          "hi": 0.9,
+          "n": 25,
+          "off": 21,
+          "mean_p": 0.8533318,
+          "off_rate": 0.84,
+          "gap": -0.013331800000000005,
+          "weight": 0.08090614886731391
+        },
+        {
+          "bin": 9,
+          "lo": 0.9,
+          "hi": 1.0,
+          "n": 126,
+          "off": 121,
+          "mean_p": 0.9740664047619046,
+          "off_rate": 0.9603174603174603,
+          "gap": -0.0137489444444443,
+          "weight": 0.4077669902912621
+        }
+      ],
+      "identity_check": {
+        "closed_form": 0.012013126213592185,
+        "tolerance": 1e-12,
+        "by_bins": {
+          "10": {
+            "binned": 0.012013126213592287,
+            "abs_diff": 1.0234868508263162e-16,
+            "holds": true
+          },
+          "15": {
+            "binned": 0.012013126213592289,
+            "abs_diff": 1.0408340855860843e-16,
+            "holds": true
+          },
+          "20": {
+            "binned": 0.012013126213592351,
+            "abs_diff": 1.6653345369377348e-16,
+            "holds": true
+          }
+        },
+        "holds": true
+      },
+      "whole_slice_caveat": "C11-4: SignedGap telescopes to (slice OFF rate - slice mean p_OFF), and with lexicon_free at 87.1% of dev and global calibration good, 0.871*SG_free + 0.129*SG_hit ~ SG_global ~ 0, so SG_free is pinned near zero by arithmetic almost regardless of what the model does. This figure is a SECONDARY. Its smallness is not a finding.",
+      "sensitivity_S1_bin_count": {
+        "10": {
+          "ece": 0.0313912168284789,
+          "signed_gap": 0.012013126213592287
+        },
+        "15": {
+          "ece": 0.0571636310679611,
+          "signed_gap": 0.012013126213592289
+        },
+        "20": {
+          "ece": 0.05850205825242707,
+          "signed_gap": 0.012013126213592351
+        }
+      },
+      "whole_slice_signed_gap_ci": {
+        "ci_low": -0.01589947661812312,
+        "ci_high": 0.04004270647249203,
+        "boot_mean": 0.011920834652750813
+      },
+      "ece_10_ci": {
+        "ci_low": 0.02960177661812301,
+        "ci_high": 0.07863721262135934,
+        "boot_mean": 0.05221356836084142,
+        "caveat": "Binned ECE is positively biased in small samples (the absolute value cannot cancel noise), so this percentile interval is not centred on `ece_10` and `boot_mean` is not the estimate. Reported as pre-registered in C11-5."
+      }
+    }
+  },
+  "calibration_fairness_gap": {
+    "statistic": "ECE_hit - ECE_free (10 bins, EVAL, binned on P(OFF))",
+    "dev_only": true,
+    "ece_lexicon_hit": 0.0313912168284789,
+    "ece_lexicon_free": 0.023000272069464558,
+    "gap": 0.008390944759014345,
+    "ci_low": -0.00016516026711894084,
+    "ci_high": 0.05287089302556213,
+    "boot_mean": 0.025100061787565985,
+    "comparable_to": "Surana arXiv:2605.14074 subgroup calibration gaps, +0.029..+0.134",
+    "percentile_ci_is_not_centred_on_the_point_estimate": "Binned ECE is a plug-in statistic with a positive small-sample bias: with few rows per bin, |off_rate_b - mean_p_b| picks up sampling noise that cannot cancel because it is inside an absolute value. Resampling therefore drifts UPWARD, and the bootstrap mean of this gap sits well above the observed gap. The percentile interval pre-registered in C11-5 is reported as pre-registered and is an interval over the bootstrap distribution -- it is NOT centred on the observed value, and the bootstrap mean is NOT the estimate. The estimate is `gap`. The same caveat applies to `ece_10_ci` on each slice, and it bites harder on lexicon_hit (n=309) than on lexicon_free (n=2073). SignedGap is not affected: it has no absolute value, so its bootstrap mean tracks the point estimate.",
+    "polarity_warning": "C11-1 preamble: Surana's subgroups are OVER-confident (false positives on identity-mentioning content); our hypothesis concerns UNDER-scoring (false negatives on profanity-free content). The shapes of evidence are analogous; the directions are opposite. Any sentence that treats them as the same finding is wrong. Note also that this gap is an unsigned-ECE difference and carries no direction of its own -- the direction is in SignedGap."
+  },
+  "bootstrap": {
+    "n_boot": 10000,
+    "seed": 42,
+    "alpha": 0.05,
+    "method": "nonparametric, stratified over the four (slice x gold) EVAL cells 182/127/278/1795, each resampled with replacement to its own original size; band membership recomputed inside each replicate; percentile interval",
+    "raw": {
+      "SG_free_low": {
+        "ci_low": -0.01280704635421828,
+        "ci_high": 0.0035463379479318186,
+        "boot_mean": -0.004622114124213292,
+        "n_boot": 10000,
+        "n_boot_used": 10000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      },
+      "SG_hit_low": {
+        "ci_low": -0.014396843291377309,
+        "ci_high": 0.08993778541842995,
+        "boot_mean": 0.038570884170484716,
+        "n_boot": 10000,
+        "n_boot_used": 10000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      },
+      "SG_free": {
+        "ci_low": -0.023582891775205037,
+        "ci_high": -0.007042311444766023,
+        "boot_mean": -0.015233390792088755,
+        "n_boot": 10000,
+        "n_boot_used": 10000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      },
+      "SG_hit": {
+        "ci_low": -0.01589947661812312,
+        "ci_high": 0.04004270647249203,
+        "boot_mean": 0.011920834652750813,
+        "n_boot": 10000,
+        "n_boot_used": 10000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      },
+      "ECE_free": {
+        "ci_low": 0.018105836107091187,
+        "ci_high": 0.036966623552822,
+        "boot_mean": 0.02711350657327544,
+        "n_boot": 10000,
+        "n_boot_used": 10000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      },
+      "ECE_hit": {
+        "ci_low": 0.02960177661812301,
+        "ci_high": 0.07863721262135934,
+        "boot_mean": 0.05221356836084142,
+        "n_boot": 10000,
+        "n_boot_used": 10000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      },
+      "ECE_gap_hit_minus_free": {
+        "ci_low": -0.00016516026711894084,
+        "ci_high": 0.05287089302556213,
+        "boot_mean": 0.025100061787565985,
+        "n_boot": 10000,
+        "n_boot_used": 10000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42
+      },
+      "n_free_low": {
+        "ci_low": 1822.0,
+        "ci_high": 1870.0,
+        "boot_mean": 1845.945,
+        "n_boot": 10000,
+        "n_boot_used": 10000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42,
+        "boot_min": 1802,
+        "boot_max": 1891
+      },
+      "n_hit_low": {
+        "ci_low": 122.0,
+        "ci_high": 146.0,
+        "boot_mean": 133.9611,
+        "n_boot": 10000,
+        "n_boot_used": 10000,
+        "n_boot_undefined": 0,
+        "alpha": 0.05,
+        "seed": 42,
+        "boot_min": 111,
+        "boot_max": 157
+      }
+    }
+  },
+  "prediction_C11_12": {
+    "recorded_before_the_number": "SG_free_low will be positive but below 0.05 -- branch 4, INTERMEDIATE -- and the substantive content will be in the shape of the reliability curve rather than in the mean.",
+    "observed_verdict": "BASE-RATE-CORRECT",
+    "observed_branch": 2,
+    "prediction_held": false
+  },
+  "not_reported": [
+    "per-slice macro-F1 (phase-01 pre-registered constraint)",
+    "per-slice accuracy (phase-01 pre-registered constraint)",
+    "recall at any threshold other than the frozen 0.5",
+    "any threshold derived from anything measured here -- nothing here is an operating point (C11-14)"
+  ],
+  "ceilings_C11_14": [
+    "dev-only",
+    "one seed",
+    "one checkpoint (best.pt = epoch 1)",
+    "same-corpus",
+    "the two known slice-definition defects unrepaired, both of which push the headline in the conservative direction",
+    "measurement only: no intervention proposed, no model retrained, no forward pass, lexicon and MIN_ROOT_LEN frozen, official test set spent and unread",
+    "Phase 11's answer does not license Phase 12; it changes what Phase 12 would be testing, and that is all."
+  ],
+  "environment": {
+    "python_version": "3.14.0",
+    "numpy_version": "2.5.2",
+    "git_head": "d589dbad65f071b7a98f1124717f97d27fa5940c",
+    "generated_at": "2026-08-18T13:42:42+00:00"
+  }
+}
