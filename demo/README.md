@@ -23,7 +23,7 @@ demo_assets/                              885.9 MB total
 │   ├── tokenizer.json                      0.8 MB   fast-tokenizer vocabulary
 │   ├── tokenizer_config.json              ~1 KB
 │   └── config.json                        ~1 KB     BertConfig, num_labels=2
-├── lexicon/karaliste.txt                  ~9 KB     the frozen 695-entry lexicon
+├── lexicon/karaliste.txt                  5,988 bytes     the frozen 695-entry lexicon
 ├── operating_point.json                   ~1 KB     the phase-04 threshold, 0.6632
 └── manifest.json                          ~2 KB     sha256 of every file above
 ```
@@ -39,6 +39,24 @@ MyDrive/nsosyal-bstar/checkpoints/03_defense/1a1b_d/best.pt
 
 `--assets` can point anywhere; the default is `<repo>/demo_assets`.
 
+## Requirements
+
+Two third-party packages, and nothing else outside the standard library:
+
+* `torch>=2.2`
+* `transformers>=4.40`
+
+Verified 2026-08-20 on Python 3.14 with stable PyPI wheels — torch
+2.13.0+cpu, transformers 5.15.1, no source build. `build_assets.py`
+needs only `transformers`; it never imports torch and never loads a
+model, so building the bundle needs no GPU and no compute — it is a
+file copy plus one metadata fetch.
+
+Both heavy imports in `demo/app.py` are deferred inside functions rather
+than at module level. That is deliberate: `huggingface_hub` reads
+`HF_HUB_OFFLINE` at import time, so a module-level `import transformers`
+would latch the value before lines 29-33 set it.
+
 ## Building the bundle (once, with network)
 
 The tokenizer vocabulary and model config come from the HF Hub. That fetch is
@@ -53,6 +71,12 @@ python demo/build_assets.py \
 
 Then copy the whole `demo_assets/` directory to the demo machine. After that the
 machine can stay offline forever.
+
+**The build is not transactional.** It creates the output directories and
+performs the HF Hub fetch before it stats either checkpoint, so a wrong or
+missing `--raw_ckpt` leaves a half-built `demo_assets/` containing a
+tokenizer, no checkpoints and no manifest. If the build fails partway,
+delete `demo_assets/` entirely rather than re-running over it.
 
 ## Why not Gradio or Streamlit
 
@@ -127,3 +151,7 @@ on two consecutive cold starts, for both the selftest and the live server:
 * **No batching, no persistence.** One request at a time, nothing is stored.
 * **Not a product.** Legibility only — no styling work, no auth, binds to
   `127.0.0.1` by design.
+* **`manifest.json` is written but never verified.** `build_assets.py`
+  writes a sha256 per file, but `app.py`'s startup check tests only for
+  the presence of five paths and never reads the manifest. A corrupted or
+  substituted checkpoint would load without complaint.

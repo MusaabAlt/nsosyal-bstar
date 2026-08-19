@@ -4,12 +4,26 @@
 # The floors below are what the code needs; the runbook pins transformers
 # exactly and asserts torch/scikit-learn, so a later phase cannot silently
 # land on a different major without it showing up in the log.
+
+# --- Offline demo runtime (demo/app.py, demo/build_assets.py) ---
+# These two are the entire third-party dependency set for the demo path,
+# confirmed by AST walk of demo/app.py, demo/build_assets.py and
+# src/lexicon.py. Everything else below is training/analysis only.
+# Verified working 2026-08-20 on Python 3.14 (.venv) with stable PyPI
+# wheels: torch 2.13.0+cpu, transformers 5.15.1. No source build required.
+# NOTE: this is NOT the phase-01 environment recorded above. The demo
+# loads a frozen state_dict and runs forward passes only.
 transformers>=4.40
-datasets>=2.19
 torch>=2.2
+
+# --- Training and analysis only; not needed to run the demo ---
+datasets>=2.19
 scikit-learn>=1.4
 numpy>=1.26
 pandas>=2.2
-gradio>=4.30
 python-dotenv>=1.0
 pytest>=8.0
+
+# gradio was removed 2026-08-20: demo/README.md argues against Gradio and
+# Streamlit by name because both fetch web fonts and telemetry from CDNs,
+# which breaks the offline guarantee. Pinning it contradicted that.
