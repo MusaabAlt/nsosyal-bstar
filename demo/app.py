@@ -145,6 +145,7 @@ def classify(raw):
     out["selective"] = {
         "confidence": conf,
         "threshold": op["threshold"],
+        "auto": auto,
         "route": "AUTO-RESOLVE" if auto else "DEFER TO REVIEW",
         "decision": out["systems"]["raw"]["decision"] if auto else None,
         "margin": conf - op["threshold"],
@@ -173,11 +174,15 @@ button { font: inherit; padding: .45rem 1.1rem; margin-top: .5rem; cursor: point
          border: 1px solid #8886; border-radius: 4px; background: transparent;
          color: inherit; }
 button:hover { border-color: currentColor; }
+:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+label { display: block; font-size: .85rem; margin-bottom: .35rem; }
+#out:focus { outline: none; }
 table { border-collapse: collapse; width: 100%; margin: 1rem 0; font-size: .88rem; }
 th, td { text-align: left; padding: .4rem .6rem; border-bottom: 1px solid #8883;
          vertical-align: top; }
 th { font-weight: 600; opacity: .75; }
 .OFF { font-weight: 700; }
+.deferred { opacity: .6; }
 .tag { display: inline-block; padding: .05rem .4rem; border: 1px solid currentColor;
        border-radius: 3px; font-size: .78rem; }
 .route { padding: .7rem .9rem; border: 1px solid #8886; border-radius: 4px;
@@ -201,6 +206,7 @@ async function run(t) {
       body: JSON.stringify({text: document.getElementById('inp').value})
     });
     r.innerHTML = await resp.text();
+    r.focus();
   } catch (e) { r.textContent = 'error: ' + e; }
 }
 document.addEventListener('keydown', e => {
@@ -213,21 +219,35 @@ def render_result(res):
     if not res["ok"]:
         return f"<p class='notes'>{html.escape(' / '.join(res['notes']))}</p>"
 
+    sel = res["selective"]
+    op = STATE["operating_point"]
+
     rows = []
     label = {"keyword": "keyword filter",
              "raw": "BERTurk raw",
              "1a1b_d": "BERTurk +1a+1b+D"}
     for key in ("keyword", "raw", "1a1b_d"):
         s = res["systems"][key]
-        conf = f"{s['confidence']:.4f}" if s["confidence"] is not None else "—"
-        rows.append(
-            f"<tr><td>{label[key]}</td>"
-            f"<td class='{s['decision']}'><span class='tag'>{s['decision']}</span></td>"
-            f"<td>{conf}</td><td>{html.escape(s['detail'])}</td></tr>")
+        # The review layer gates the raw model and nothing else. When it defers,
+        # the raw label and probability must not reach the page at all: printing
+        # them would leak the decision the operating point just declined to make.
+        if key == "raw" and not sel["auto"]:
+            # The detail column normally carries P(OFF) verbatim, from which the
+            # withheld label is one comparison away. It is replaced outright, not
+            # masked: the number reaches no attribute, no title, nothing to hover.
+            # No lang='tr' -- the replacement is English, unlike what it stands in for.
+            cells = ("<td class='deferred'>—</td><td class='deferred'>—</td>"
+                     "<td class='deferred'>queued for review — score withheld</td>")
+        else:
+            conf = f"{s['confidence']:.4f}" if s["confidence"] is not None else "—"
+            cells = (f"<td class='{s['decision']}'>"
+                     f"<span class='tag'>{s['decision']}</span></td>"
+                     f"<td>{conf}</td>"
+                     f"<td lang='tr'>{html.escape(s['detail'])}</td>")
+        rows.append(f"<tr><td>{label[key]}</td>{cells}</tr>")
 
-    sel = res["selective"]
     verdict = (f"<b>{sel['route']}</b> &nbsp; as <b>{sel['decision']}</b>"
-               if sel["decision"] else f"<b>{sel['route']}</b>")
+               if sel["auto"] else f"<b>{sel['route']}</b>")
     notes = (f"<p class='notes'>note: {html.escape(' / '.join(res['notes']))}</p>"
              if res["notes"] else "")
 
@@ -238,7 +258,7 @@ def render_result(res):
   {''.join(rows)}
 </table>
 <div class='route'>
-  Review layer at the 90.2%-coverage operating point &nbsp;&rarr;&nbsp; {verdict}<br>
+  Review layer at the {op['test_coverage']:.1%}-coverage operating point &nbsp;&rarr;&nbsp; {verdict}<br>
   decision confidence max(p, 1-p) = <code>{sel['confidence']:.4f}</code>,
   threshold <code>{sel['threshold']:.4f}</code>,
   margin <code>{sel['margin']:+.4f}</code>
@@ -260,20 +280,22 @@ def render_page():
             js = json.dumps(e["text"])
             ex.append(
                 f"<div class='ex'><button onclick='run({html.escape(js)})'>"
-                f"{e['phase02_tag']}</button>"
-                f"<span class='tag'>gold {e['gold']}</span> {t}</div>")
+                f"{html.escape(e['phase02_tag'])}</button>"
+                f"<span class='tag'>gold {html.escape(e['gold'])}</span> "
+                f"<span lang='tr'>{t}</span></div>")
 
     op = STATE["operating_point"]
-    return f"""<!doctype html><html lang="tr"><head><meta charset="utf-8">
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NSosyal B* — offline demo</title><style>{CSS}</style></head><body><main>
 <h1>NSosyal B* — Turkish offensive language, three systems side by side</h1>
 <div class="sub">Runs fully offline. Local checkpoints only, no network calls.
 Device: {STATE['device']}.</div>
 
-<textarea id="inp" placeholder="Türkçe bir metin yapıştırın…"></textarea><br>
+<label for="inp">Text to classify</label>
+<textarea id="inp" lang="tr" placeholder="Türkçe bir metin yapıştırın…"></textarea><br>
 <button onclick="run()">Classify (Ctrl+Enter)</button>
-<div id="out"></div>
+<div id="out" aria-live="polite" tabindex="-1"></div>
 
 <h2 style="font-size:.95rem;margin-top:2rem">Examples from our analysed rows</h2>
 <div class="sub">Real dev rows from the phase 02 failure analysis, with the
