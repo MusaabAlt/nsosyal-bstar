@@ -450,3 +450,74 @@ It is now committed at **`e44b19a0`**, sha256
 **C12-9's citation resolves to that commit**, not to `95d20de4`. The number it
 relies on is unchanged and was verified at the time it was cited; only the
 locator was wrong.
+
+---
+
+### Addendum 3, 2026-08-19 — C12-16: an interval on the S1a-vs-S0 headline, added AFTER the point estimate was seen.
+
+**The ordering is stated first because it is the thing a reader needs.** C12-8
+pre-registered the S1a-vs-S0 comparison at `r = 3` as **descriptive, without
+intervals**, and it was run and reported that way in `metrics.json` and in the
+`RESULTS_LOG` row committed before this clause was written. The **quantities**
+were fixed in advance by C12-8 and by C12-4's designation of `r = 3` as primary;
+only their **uncertainty** is being computed late, after the point estimates were
+seen. That is legitimate and it is not the same thing as pre-registration. It is
+recorded here, and in a separate `RESULTS_LOG` row, so the sequence is visible
+rather than smoothed.
+
+**Why it is being added.** The report states that this project reports deltas
+with confidence intervals regardless of sign. Its single largest number would
+otherwise appear as a bare point estimate, and that inconsistency would undercut
+the argument the practice exists to support.
+
+**C12-16 — scope, fixed here.**
+
+Four quantities, **S1a versus S0, on EVAL, at `r = 3` only**, with the point
+estimates as recorded in the committed run (`metrics.json`, sha256
+`c60bd4a3...3b3815`):
+
+```
+d_recall       = OFF-recall(S1a) - OFF-recall(S0)          = +60/460 = +0.130435
+d_recall_free  = lexicon_free OFF-recall(S1a) - same(S0)   = +48/278 = +0.172662
+d_gap          = (hit-free gap)(S1a) - (hit-free gap)(S0)  =          -0.106728
+d_precision    = OFF-precision(S1a) - OFF-precision(S0)    =          -0.141816
+```
+
+These four must reproduce **to six decimal places**. A disagreement beyond that
+is a defect and aborts; display rounding is not a disagreement.
+
+Paired nonparametric bootstrap, identical scheme to C12-6: stratified over the
+four EVAL cells 182 / 127 / 278 / 1,795, each resampled to its own size, **10,000
+replicates, seed 42, percentile interval, alpha = 0.05**. Both arms are
+**zero-parameter** — S0 is the frozen 0.5, S1a is analytic `1/(1+r)` — so neither
+fits anything and there is no threshold-selection variance to exclude. The C12-6
+caveat about understated uncertainty **does not apply to C12-16**.
+
+**Restrictions, binding:**
+
+- **`r = 3` only.** No other frontier point receives an interval. Adding
+  intervals across several `r` after seeing which looks best would be selection,
+  and this phase would have no answer to it. The rest of the frontier stays
+  descriptive as C12-8 specified.
+- **No verdict attaches to any C12-16 quantity**, and no branch rule is defined
+  for them. These are estimation intervals, not hypothesis tests, so no
+  multiplicity correction is applied — and because no verdict turns on them, none
+  is owed. Any future clause that attaches a decision to one of these numbers
+  needs its own pre-registration.
+- **EVAL only.** Pooling to full dev was available — neither arm fits, so by the
+  argument applied to Phase 15 the CAL/EVAL split does no methodological work
+  here, and pooling would roughly halve the interval width. **It is declined**,
+  because it would change the point estimate after that estimate had been
+  published in the `RESULTS_LOG` row. Resolution is not worth a moved number.
+
+**Expected resolution.** S0 flags 302 of the 460 EVAL gold-`OFF` rows and S1a
+flags 362, both verified against the committed run. Because `t*(r=3) = 0.25 <
+0.5`, S1a's flagged set **strictly nests** S0's, so the discordant gold-`OFF`
+count is exactly **60** and `d_recall` is exactly `60/460`. A paired SE near
+`sqrt(60)/460 = 0.017` gives a half-width near +-0.033 — comfortably away from
+zero. `d_precision` is **not** a nested paired difference, since the arms flag
+402 and 594 rows respectively, and no design figure is offered for it.
+
+**Ceiling, unchanged.** C12-14 governs. Dev-only, one seed, one checkpoint,
+same-corpus. The test set is spent and **no interval computed here makes any of
+these numbers validatable on held-out data.**
