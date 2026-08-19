@@ -1,0 +1,5 @@
+# Byte-stability: this repository records sha256 digests of tracked
+# artifacts in pre-registrations and in docs/RESULTS_LOG.md. Git's
+# end-of-line conversion would make those digests unverifiable on any
+# platform other than the one that wrote them. Disable all conversion.
+* -text
