@@ -1,0 +1,394 @@
+{
+  "run_id": "12_threshold_policy",
+  "stage": "C12-16 -- intervals on the S1a-vs-S0 headline (Addendum 3)",
+  "clause": "C12-16",
+  "dev_only": true,
+  "dev_only_note": "EVAL half of the dev split (fingerprint 034415af3a23b388). The official test set is spent and was not read. C12-14 governs: no interval here makes any of these numbers validatable on held-out data.",
+  "ordering_disclosure": "The four QUANTITIES were fixed in advance by C12-8 and C12-4's designation of r = 3 as primary. Their UNCERTAINTY was computed late, after the point estimates were seen and published in the RESULTS_LOG row at commit d74acd93. Addendum 3 (b0f2b0b5) records that ordering. This is estimation after the fact, not pre-registration.",
+  "preregistration": {
+    "file": "phases/12_threshold_policy.md",
+    "clause": "Addendum 3 / C12-16",
+    "commit": "b0f2b0b528f577de56df0efb23a3dff33f2279b0",
+    "metrics_sha256_verified": "c60bd4a3c4f9040129202c66e7d84cb68fb1cfe539881f68eaf21669cf3b3815"
+  },
+  "scope": {
+    "systems": "S1a (analytic Elkan, t = 1/(1+r)) versus S0 (frozen 0.5)",
+    "t_S1a": 0.25,
+    "t_S0": 0.5,
+    "r": 3,
+    "split": "EVAL only -- pooling to full dev declined by C12-16",
+    "both_arms_zero_parameter": true,
+    "c12_6_understatement_caveat_applies": false
+  },
+  "not_run_in_this_stage": [
+    "no verdict and no branch rule -- C12-16 defines none",
+    "no other r; the rest of the frontier stays descriptive per C12-8",
+    "no other system pair",
+    "no pooling to full dev",
+    "no multiplicity correction -- these are estimation intervals, not tests",
+    "no per-slice macro-F1 and no per-slice accuracy (phase-01 constraint)",
+    "no RESULTS_LOG row -- the controller drafts it"
+  ],
+  "provenance": {
+    "gate": [
+      {
+        "check": "dev_predictions.csv sha256",
+        "expected": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "observed": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "pass": true
+      },
+      {
+        "check": "dev_predictions.csv bytes",
+        "expected": 736591,
+        "observed": 736591,
+        "pass": true
+      },
+      {
+        "check": "karaliste.txt sha256",
+        "expected": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+        "observed": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+        "pass": true
+      },
+      {
+        "check": "karaliste.txt bytes",
+        "expected": 5988,
+        "observed": 5988,
+        "pass": true
+      },
+      {
+        "check": "cal_eval_split.json sha256",
+        "expected": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+        "observed": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+        "pass": true
+      },
+      {
+        "check": "split-recorded dev_predictions sha256",
+        "expected": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "observed": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "pass": true,
+        "note": "the split file must name the dump that is actually on disk"
+      },
+      {
+        "check": "dev fingerprint",
+        "expected": "034415af3a23b388",
+        "observed": "034415af3a23b388",
+        "pass": true
+      },
+      {
+        "check": "split seed",
+        "expected": 42,
+        "observed": 42,
+        "pass": true
+      },
+      {
+        "check": "split n_cal",
+        "expected": 2382,
+        "observed": 2382,
+        "pass": true
+      },
+      {
+        "check": "split n_eval",
+        "expected": 2382,
+        "observed": 2382,
+        "pass": true
+      },
+      {
+        "check": "split dev fingerprint",
+        "expected": "034415af3a23b388",
+        "observed": "034415af3a23b388",
+        "pass": true
+      },
+      {
+        "check": "rows violating `pred == OFF iff confidence > 0.5`",
+        "expected": 0,
+        "observed": 0,
+        "pass": true
+      },
+      {
+        "check": "rows with confidence == 0.5 exactly",
+        "expected": 0,
+        "observed": 0,
+        "pass": true,
+        "note": "reported, not assumed away: at 0.5 exactly the rule `> 0.5` and phase-04's `>= 0.5` would disagree, and such a row would be excluded from the C11-4 band by the literal `p_OFF < 0.5` definition"
+      },
+      {
+        "check": "dev rows",
+        "expected": 4764,
+        "observed": 4764,
+        "pass": true
+      },
+      {
+        "check": "dev gold OFF",
+        "expected": 920,
+        "observed": 920,
+        "pass": true
+      },
+      {
+        "check": "lexicon_hit rows",
+        "expected": 614,
+        "observed": 614,
+        "pass": true
+      },
+      {
+        "check": "lexicon_hit gold OFF",
+        "expected": 355,
+        "observed": 355,
+        "pass": true
+      },
+      {
+        "check": "lexicon_free rows",
+        "expected": 4150,
+        "observed": 4150,
+        "pass": true
+      },
+      {
+        "check": "lexicon_free gold OFF",
+        "expected": 565,
+        "observed": 565,
+        "pass": true
+      },
+      {
+        "check": "overall OFF-recall (tp, support)",
+        "expected": [
+          635,
+          920
+        ],
+        "observed": [
+          635,
+          920
+        ],
+        "pass": true
+      },
+      {
+        "check": "lexicon_hit OFF-recall (tp, support)",
+        "expected": [
+          317,
+          355
+        ],
+        "observed": [
+          317,
+          355
+        ],
+        "pass": true
+      },
+      {
+        "check": "lexicon_free OFF-recall (tp, support)",
+        "expected": [
+          318,
+          565
+        ],
+        "observed": [
+          318,
+          565
+        ],
+        "pass": true
+      },
+      {
+        "check": "false negatives",
+        "expected": 285,
+        "observed": 285,
+        "pass": true
+      },
+      {
+        "check": "false positives",
+        "expected": 213,
+        "observed": 213,
+        "pass": true
+      },
+      {
+        "check": "rows where hit_root disagrees with the dumped `slice`",
+        "expected": 0,
+        "observed": 0,
+        "pass": true,
+        "note": "MIN_ROOT_LEN=3, 695 frozen roots, recomputed in 2.2s"
+      }
+    ],
+    "strata": [
+      {
+        "check": "EVAL rows",
+        "expected": 2382,
+        "observed": 2382,
+        "pass": true
+      },
+      {
+        "check": "EVAL lexicon_hit x OFF",
+        "expected": 182,
+        "observed": 182,
+        "pass": true
+      },
+      {
+        "check": "EVAL lexicon_hit x NOT",
+        "expected": 127,
+        "observed": 127,
+        "pass": true
+      },
+      {
+        "check": "EVAL lexicon_free x OFF",
+        "expected": 278,
+        "observed": 278,
+        "pass": true
+      },
+      {
+        "check": "EVAL lexicon_free x NOT",
+        "expected": 1795,
+        "observed": 1795,
+        "pass": true
+      }
+    ]
+  },
+  "point_estimate_reproduction": {
+    "d_recall": {
+      "observed": 0.13043478260869568,
+      "recorded_in_C12_16": 0.130435,
+      "abs_diff": 2.1739130431908116e-07,
+      "reproduces_to_six_decimals": true
+    },
+    "d_recall_free": {
+      "observed": 0.17266187050359716,
+      "recorded_in_C12_16": 0.172662,
+      "abs_diff": 1.294964028508705e-07,
+      "reproduces_to_six_decimals": true
+    },
+    "d_gap": {
+      "observed": -0.10672780456953124,
+      "recorded_in_C12_16": -0.106728,
+      "abs_diff": 1.9543046876624448e-07,
+      "reproduces_to_six_decimals": true
+    },
+    "d_precision": {
+      "observed": -0.14181617166691796,
+      "recorded_in_C12_16": -0.141816,
+      "abs_diff": 1.7166691795855726e-07,
+      "reproduces_to_six_decimals": true
+    }
+  },
+  "arms_on_EVAL": {
+    "S1a": {
+      "off_recall": 0.7869565217391304,
+      "off_recall_free": 0.6906474820143885,
+      "gap": 0.24341845205154555,
+      "off_precision": 0.6094276094276094
+    },
+    "S0": {
+      "off_recall": 0.6565217391304348,
+      "off_recall_free": 0.5179856115107914,
+      "gap": 0.3501462566210768,
+      "off_precision": 0.7512437810945274
+    }
+  },
+  "discordance": {
+    "realized_discordant_gold_off": 60,
+    "design_figure": 60,
+    "matches_design": true,
+    "S0_gold_off_caught": 302,
+    "S1a_gold_off_caught": 362,
+    "n_gold_off": 460,
+    "S0_flagged": 402,
+    "S1a_flagged": 594,
+    "S1a_strictly_nests_S0": true
+  },
+  "intervals": {
+    "d_recall": {
+      "point_estimate": 0.13043478260869568,
+      "ci_low": 0.10000000000000009,
+      "ci_high": 0.16086956521739137,
+      "half_width": 0.030434782608695643,
+      "boot_mean": 0.13010282608695653,
+      "boot_median": 0.13043478260869557,
+      "boot_se": 0.015428721980963178,
+      "n_boot": 10000,
+      "n_boot_used": 10000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42,
+      "interval_type": "percentile",
+      "excludes_zero": true
+    },
+    "d_recall_free": {
+      "point_estimate": 0.17266187050359716,
+      "ci_low": 0.1294964028776978,
+      "ci_high": 0.21942446043165464,
+      "half_width": 0.044964028776978415,
+      "boot_mean": 0.17221690647482013,
+      "boot_median": 0.17266187050359705,
+      "boot_se": 0.022639408602634314,
+      "n_boot": 10000,
+      "n_boot_used": 10000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42,
+      "interval_type": "percentile",
+      "excludes_zero": true
+    },
+    "d_gap": {
+      "point_estimate": -0.10672780456953124,
+      "ci_low": -0.1629773104593249,
+      "ci_high": -0.0483832714048541,
+      "half_width": 0.0572970195272354,
+      "boot_mean": -0.10644218120009487,
+      "boot_median": -0.10672780456953113,
+      "boot_se": 0.029357504354971115,
+      "n_boot": 10000,
+      "n_boot_used": 10000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42,
+      "interval_type": "percentile",
+      "excludes_zero": true
+    },
+    "d_precision": {
+      "point_estimate": -0.14181617166691796,
+      "ci_low": -0.172253772633705,
+      "ci_high": -0.113144552676357,
+      "half_width": 0.029554609978674005,
+      "boot_mean": -0.14204938399846093,
+      "boot_median": -0.14184670623481593,
+      "boot_se": 0.015154317833195416,
+      "n_boot": 10000,
+      "n_boot_used": 10000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42,
+      "interval_type": "percentile",
+      "excludes_zero": true
+    }
+  },
+  "bootstrap": {
+    "n_boot": 10000,
+    "seed": 42,
+    "alpha": 0.05,
+    "interval": "percentile",
+    "paired": true,
+    "strata": [
+      {
+        "slice": "lexicon_hit",
+        "gold": "OFF",
+        "n": 182
+      },
+      {
+        "slice": "lexicon_hit",
+        "gold": "NOT",
+        "n": 127
+      },
+      {
+        "slice": "lexicon_free",
+        "gold": "OFF",
+        "n": 278
+      },
+      {
+        "slice": "lexicon_free",
+        "gold": "NOT",
+        "n": 1795
+      }
+    ],
+    "scheme": "identical to C12-6: each of the four EVAL cells resampled with replacement to its own original size; both arms score the identical resampled rows"
+  },
+  "environment": {
+    "python": "3.14.0",
+    "numpy": "2.5.2",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "git_head_at_run": "b0f2b0b528f577de56df0efb23a3dff33f2279b0",
+    "utc": "2026-08-19T08:39:59+00:00",
+    "elapsed_seconds": 3.9
+  }
+}
