@@ -424,3 +424,29 @@ band cell of **n = 22** is recorded in `results/15_deixis/cell_counts.json`
 (commit `95d20de4`), and the decision not to run that control was taken by the
 project lead on 2026-08-19. C12-9's claim stands on that record; the citation is
 corrected to it here.
+
+---
+
+### Addendum 2, 2026-08-19 — two corrections to Addendum 1. Recorded, not rewritten.
+
+Found by Claude Code in the commit session for `584292c`, before any Phase 12
+number existed. **Addendum 1 is left exactly as committed.**
+
+**a. Addendum 1's heading says "four defects"; its body numbers five.** Items 1,
+2, 4 and 5 were reported by Claude Code; item 3 — the branch-5 power finding —
+was added afterwards by the controller and the heading was not recounted. The
+correct count is **five**. Item 3 follows from item 2 but stands as its own
+recorded defect.
+
+**b. Addendum 1 item 5 cites `results/15_deixis/cell_counts.json` at commit
+`95d20de4`. That file was not in that commit.** `95d20de4` contains four paths —
+`.gitignore`, `data/deixis/address_tokens.json`, `src/phase15_deixis.py`,
+`tests/test_phase15_address.py` — per the Phase 15 step 1 task, which named the
+paths to commit. The counts file existed on disk and untracked, holding
+`lexicon_hit × address × band = 22`.
+
+It is now committed at **`e44b19a0`**, sha256
+`facd3544c2ad28f63297219ca2a050e5c9626a323c304ad18e49d65757ee210a`.
+**C12-9's citation resolves to that commit**, not to `95d20de4`. The number it
+relies on is unchanged and was verified at the time it was cited; only the
+locator was wrong.
