@@ -364,3 +364,63 @@ phase in any arm.
 `results/12_threshold_policy/` — `metrics.json`, `findings.md`, and one
 `RESULTS_LOG.md` row. Aggregate statistics may be committed; **row text stays out
 of git**, as always.
+
+---
+
+### Addendum, 2026-08-19 — four defects found before any Phase 12 number existed. Recorded, not rewritten.
+
+Found by Claude Code in the commit session for `ec2fd3a7`, before the run.
+**C12-1…C12-15 above are left exactly as committed**, per the C9-8 and C11-2
+precedents. No verdict band moves.
+
+**1. `S1` and `S2` each name two different objects.** C12-3 defines systems
+S0 / S1a / S1b / S2; C12-11 labels its sensitivities S1, S2, S3. "S2 is
+unstable" (C12-9) and "S2 drops 28 rows" (C12-11) refer to unrelated things.
+**Binding convention from here:** the four systems keep S0 / S1a / S1b / S2; the
+three sensitivities are renamed **SENS-1** (cost frontier), **SENS-2**
+(`MIN_ROOT_LEN` leak), **SENS-3** (suspect-root contamination). `metrics.json`
+keys and all prose use these names. This is a naming defect, not a change to any
+comparison.
+
+**2. `Cost_S1b ≈ 0.27` in C12-7 is wrong arithmetic.** From the figures cited
+beside it, S0 costs `(213 + 3·285)/4764 = 0.2242` on full dev and
+`(100 + 3·158)/2382 = 0.2410` on EVAL, which is the relevant scoring set.
+S1b's cost is lower still, since `t* = 0.250` trades false negatives for false
+positives at `r = 3`. Corrected relative half-widths, against 0.241:
+
+| discordant `d` | SE(ΔCost) | 95% half-width, relative |
+|---:|---:|---:|
+| 40 | 0.0080 | ±0.065 |
+| 100 | 0.0126 | ±0.103 |
+| 200 | 0.0178 | ±0.145 |
+
+The SE column is unchanged and was correct; only the denominator was wrong.
+
+**3. The corrected table under-powers branch 5, and the bias is declared rather
+than corrected.** At `d = 100` the half-width (±0.103) meets the LARGE band
+(0.10), so `SLICE-CONDITIONAL BETTER` is reachable only for a large effect.
+That biases the design **toward** the outcome C12-10 predicts. The band is **not**
+moved: no Phase 12 number exists, so a change would be legitimate in principle,
+but any replacement value would be chosen with knowledge of which direction
+favours the recorded prediction, and that is a worse defect than an
+under-powered branch.
+
+**Pre-registered reporting requirement, added in its place:** the run reports the
+realized `d`, the realized relative half-width, and — whenever that half-width
+equals or exceeds 0.10 — an explicit statement that branch 5 was not reachable at
+the realized resolution. This appears beside the verdict, in `metrics.json` and in
+the findings, whatever the verdict is.
+
+**4. "bins above 0.5 run −0.13 to −0.18" (C12-1) overstates Run A.** The actual
+`lexicon_free` gaps above 0.5 are −0.1362, −0.0140, −0.0334, −0.1791, −0.1375.
+Two of the five sit well outside the stated range; the over-statement is real but
+not uniform. C12-1's point — that a cost-optimal threshold lands near a region of
+over-statement, leaving room for this phase to fail — survives on the [0.4, 0.5)
+gap of −0.162 and on bins [0.8, 0.9) and [0.9, 1.0).
+
+**5. C12-9's citation of Phase 15 pointed at a document that does not exist.**
+There is no Phase 15 pre-registration in the repo; the address × `lexicon_hit`
+band cell of **n = 22** is recorded in `results/15_deixis/cell_counts.json`
+(commit `95d20de4`), and the decision not to run that control was taken by the
+project lead on 2026-08-19. C12-9's claim stands on that record; the citation is
+corrected to it here.
