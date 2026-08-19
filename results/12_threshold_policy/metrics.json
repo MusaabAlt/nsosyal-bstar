@@ -1,0 +1,1756 @@
+{
+  "run_id": "12_threshold_policy",
+  "stage": "primary (r=3), stability, descriptive frontier, SENS-1/2/3",
+  "dev_only": true,
+  "dev_only_note": "Every number in this file is measured on the dev split (fingerprint 034415af3a23b388), thresholds fitted on CAL and scored on EVAL. The official test set is spent and was not read; load_coltekin_test is never called. C12-14: no figure here may carry a generalisation claim.",
+  "preregistration": {
+    "file": "phases/12_threshold_policy.md",
+    "commit": "ec2fd3a7af6ac2f4b241ef282451690ba1ee6030",
+    "addendum_1": "584292c",
+    "addendum_2": "2b4391bf",
+    "clauses": "C12-1..C12-15",
+    "naming": "Addendum 1 item 1: systems S0/S1a/S1b/S2; sensitivities SENS-1 (cost frontier), SENS-2 (MIN_ROOT_LEN leak), SENS-3 (suspect-root contamination). S1/S2 never denote a sensitivity here."
+  },
+  "not_run_in_this_stage": [
+    "no retraining, no forward pass, no GPU (C12-15)",
+    "no new corpus, no new labels; lexicon and MIN_ROOT_LEN frozen",
+    "no test-set measurement of any kind",
+    "no per-slice macro-F1 and no per-slice accuracy (C12-2, phase-01 constraint)",
+    "no cross-slice operating-point match (C12-5 spec defect)",
+    "no findings.md and no RESULTS_LOG row -- the controller drafts both"
+  ],
+  "provenance": {
+    "gate": [
+      {
+        "check": "dev_predictions.csv sha256",
+        "expected": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "observed": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "pass": true
+      },
+      {
+        "check": "dev_predictions.csv bytes",
+        "expected": 736591,
+        "observed": 736591,
+        "pass": true
+      },
+      {
+        "check": "karaliste.txt sha256",
+        "expected": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+        "observed": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+        "pass": true
+      },
+      {
+        "check": "karaliste.txt bytes",
+        "expected": 5988,
+        "observed": 5988,
+        "pass": true
+      },
+      {
+        "check": "cal_eval_split.json sha256",
+        "expected": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+        "observed": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+        "pass": true
+      },
+      {
+        "check": "split-recorded dev_predictions sha256",
+        "expected": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "observed": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+        "pass": true,
+        "note": "the split file must name the dump that is actually on disk"
+      },
+      {
+        "check": "dev fingerprint",
+        "expected": "034415af3a23b388",
+        "observed": "034415af3a23b388",
+        "pass": true
+      },
+      {
+        "check": "split seed",
+        "expected": 42,
+        "observed": 42,
+        "pass": true
+      },
+      {
+        "check": "split n_cal",
+        "expected": 2382,
+        "observed": 2382,
+        "pass": true
+      },
+      {
+        "check": "split n_eval",
+        "expected": 2382,
+        "observed": 2382,
+        "pass": true
+      },
+      {
+        "check": "split dev fingerprint",
+        "expected": "034415af3a23b388",
+        "observed": "034415af3a23b388",
+        "pass": true
+      },
+      {
+        "check": "rows violating `pred == OFF iff confidence > 0.5`",
+        "expected": 0,
+        "observed": 0,
+        "pass": true
+      },
+      {
+        "check": "rows with confidence == 0.5 exactly",
+        "expected": 0,
+        "observed": 0,
+        "pass": true,
+        "note": "reported, not assumed away: at 0.5 exactly the rule `> 0.5` and phase-04's `>= 0.5` would disagree, and such a row would be excluded from the C11-4 band by the literal `p_OFF < 0.5` definition"
+      },
+      {
+        "check": "dev rows",
+        "expected": 4764,
+        "observed": 4764,
+        "pass": true
+      },
+      {
+        "check": "dev gold OFF",
+        "expected": 920,
+        "observed": 920,
+        "pass": true
+      },
+      {
+        "check": "lexicon_hit rows",
+        "expected": 614,
+        "observed": 614,
+        "pass": true
+      },
+      {
+        "check": "lexicon_hit gold OFF",
+        "expected": 355,
+        "observed": 355,
+        "pass": true
+      },
+      {
+        "check": "lexicon_free rows",
+        "expected": 4150,
+        "observed": 4150,
+        "pass": true
+      },
+      {
+        "check": "lexicon_free gold OFF",
+        "expected": 565,
+        "observed": 565,
+        "pass": true
+      },
+      {
+        "check": "overall OFF-recall (tp, support)",
+        "expected": [
+          635,
+          920
+        ],
+        "observed": [
+          635,
+          920
+        ],
+        "pass": true
+      },
+      {
+        "check": "lexicon_hit OFF-recall (tp, support)",
+        "expected": [
+          317,
+          355
+        ],
+        "observed": [
+          317,
+          355
+        ],
+        "pass": true
+      },
+      {
+        "check": "lexicon_free OFF-recall (tp, support)",
+        "expected": [
+          318,
+          565
+        ],
+        "observed": [
+          318,
+          565
+        ],
+        "pass": true
+      },
+      {
+        "check": "false negatives",
+        "expected": 285,
+        "observed": 285,
+        "pass": true
+      },
+      {
+        "check": "false positives",
+        "expected": 213,
+        "observed": 213,
+        "pass": true
+      },
+      {
+        "check": "rows where hit_root disagrees with the dumped `slice`",
+        "expected": 0,
+        "observed": 0,
+        "pass": true,
+        "note": "MIN_ROOT_LEN=3, 695 frozen roots, recomputed in 3.4s"
+      }
+    ],
+    "cells": [
+      {
+        "check": "CAL rows",
+        "expected": 2382,
+        "observed": 2382,
+        "pass": true
+      },
+      {
+        "check": "EVAL rows",
+        "expected": 2382,
+        "observed": 2382,
+        "pass": true
+      },
+      {
+        "check": "CAL lexicon_hit x OFF",
+        "expected": 173,
+        "observed": 173,
+        "pass": true
+      },
+      {
+        "check": "CAL lexicon_hit x NOT",
+        "expected": 132,
+        "observed": 132,
+        "pass": true
+      },
+      {
+        "check": "CAL lexicon_free x OFF",
+        "expected": 287,
+        "observed": 287,
+        "pass": true
+      },
+      {
+        "check": "CAL lexicon_free x NOT",
+        "expected": 1790,
+        "observed": 1790,
+        "pass": true
+      },
+      {
+        "check": "EVAL lexicon_hit x OFF",
+        "expected": 182,
+        "observed": 182,
+        "pass": true
+      },
+      {
+        "check": "EVAL lexicon_hit x NOT",
+        "expected": 127,
+        "observed": 127,
+        "pass": true
+      },
+      {
+        "check": "EVAL lexicon_free x OFF",
+        "expected": 278,
+        "observed": 278,
+        "pass": true
+      },
+      {
+        "check": "EVAL lexicon_free x NOT",
+        "expected": 1795,
+        "observed": 1795,
+        "pass": true
+      }
+    ],
+    "split_sha256": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+    "matching_roots_vs_hit_root_disagreements": 0
+  },
+  "definitions": {
+    "cost": "Cost(r) = (FP + r*FN)/N, c_FP=1, c_FN=r  (C12-4)",
+    "decision_rule": "flag iff score > t  (frozen convention, C12-3)",
+    "elkan": "t* = 1/(1+r), base-rate independent  (C12-1)",
+    "dcost_rel": "[Cost_S2(EVAL,r=3) - Cost_S1b(EVAL,r=3)] / Cost_S1b(EVAL,r=3); negative means slice-conditional is better  (C12-5)",
+    "d": "count of EVAL rows where S1b and S2 flag differently  (C12-7)",
+    "candidate_set": "the distinct observed scores among the CAL rows being fitted, plus nextafter(min, -inf) so `flag everything` is reachable; ties broken toward the LOWER t  (C12-3)",
+    "verdict_bands": {
+      "d_floor": 40,
+      "SMALL": 0.04,
+      "LARGE": 0.1
+    }
+  },
+  "systems": {
+    "S0": "frozen historical, 0.5 everywhere, 0 fitted params, lexicon not consulted at inference",
+    "S1a": "analytic Elkan, t* = 1/(1+r) everywhere, 0 fitted params, lexicon not consulted at inference",
+    "S1b": "fitted single threshold, 1 fitted param, lexicon not consulted at inference -- THE PRIMARY COMPARATOR",
+    "S2": "slice-conditional, t_hit and t_free, 2 fitted params, lexicon IS consulted at inference"
+  },
+  "fitted_thresholds_CAL": {
+    "1": {
+      "S1a_analytic": 0.5,
+      "S1b": 0.584312,
+      "S2_t_hit": 0.494651,
+      "S2_t_free": 0.584312
+    },
+    "2": {
+      "S1a_analytic": 0.3333333333333333,
+      "S1b": 0.507305,
+      "S2_t_hit": 0.415888,
+      "S2_t_free": 0.507305
+    },
+    "3": {
+      "S1a_analytic": 0.25,
+      "S1b": 0.320188,
+      "S2_t_hit": 0.303421,
+      "S2_t_free": 0.439296
+    },
+    "5": {
+      "S1a_analytic": 0.16666666666666666,
+      "S1b": 0.211486,
+      "S2_t_hit": 0.096532,
+      "S2_t_free": 0.211486
+    },
+    "10": {
+      "S1a_analytic": 0.09090909090909091,
+      "S1b": 0.101077,
+      "S2_t_hit": 0.096532,
+      "S2_t_free": 0.107818
+    }
+  },
+  "correctness_check_C12_4": {
+    "elkan_at_r1_is_exactly_half": true,
+    "S1a_reproduces_S0_eval_confusion": true,
+    "confusion": {
+      "tp": 302,
+      "fp": 100,
+      "fn": 158,
+      "tn": 1822,
+      "n": 2382,
+      "n_flagged": 402,
+      "n_gold_off": 460
+    }
+  },
+  "primary": {
+    "tag": "primary",
+    "dev_only": true,
+    "r": 3,
+    "thresholds_fitted_on_CAL": {
+      "S1b": 0.320188,
+      "S2_t_hit": 0.303421,
+      "S2_t_free": 0.439296
+    },
+    "n_eval": 2382,
+    "S1b": {
+      "cost": 0.22460117548278757,
+      "confusion": {
+        "tp": 343,
+        "fp": 184,
+        "fn": 117,
+        "tn": 1738,
+        "n": 2382,
+        "n_flagged": 527,
+        "n_gold_off": 460
+      }
+    },
+    "S2": {
+      "cost": 0.23383711167086482,
+      "confusion": {
+        "tp": 318,
+        "fp": 131,
+        "fn": 142,
+        "tn": 1791,
+        "n": 2382,
+        "n_flagged": 449,
+        "n_gold_off": 460
+      }
+    },
+    "discordant_rows_d": 80,
+    "dcost_rel": 0.04112149532710281,
+    "ci_low": -0.0159585106382979,
+    "ci_high": 0.1048387096774194,
+    "bootstrap": {
+      "ci_low": -0.0159585106382979,
+      "ci_high": 0.1048387096774194,
+      "boot_mean": 0.04129391530580013,
+      "boot_median": 0.040084623590164764,
+      "abs_diff_ci_low": -0.0037783375314861265,
+      "abs_diff_ci_high": 0.022670025188916865,
+      "cost_baseline_boot_mean": 0.22455298068849705,
+      "cost_arm_boot_mean": 0.23369181360201516,
+      "n_boot": 10000,
+      "n_boot_used": 10000,
+      "n_boot_undefined": 0,
+      "alpha": 0.05,
+      "seed": 42,
+      "paired": true,
+      "thresholds_refitted_inside_replicate": false,
+      "strata": [
+        {
+          "slice": "lexicon_hit",
+          "gold": "OFF",
+          "n": 182
+        },
+        {
+          "slice": "lexicon_hit",
+          "gold": "NOT",
+          "n": 127
+        },
+        {
+          "slice": "lexicon_free",
+          "gold": "OFF",
+          "n": 278
+        },
+        {
+          "slice": "lexicon_free",
+          "gold": "NOT",
+          "n": 1795
+        }
+      ]
+    },
+    "verdict": "SINGLE-THRESHOLD-SUFFICIENT",
+    "branch": 2,
+    "resolution_C12_7_addendum1_item3": {
+      "clause": "Addendum 1 item 3 -- mandatory beside the verdict, whatever the verdict",
+      "realized_d": 80,
+      "realized_relative_half_width": 0.06039861015785865,
+      "LARGE_band": 0.1,
+      "branch_5_reachable_at_this_resolution": true,
+      "statement": "Realized d = 80; realized relative half-width = 0.0604. That half-width is below the LARGE band (0.10), so branch 5 was reachable at the realized resolution."
+    },
+    "S2_arm_unstable_C12_9": false
+  },
+  "threshold_stability_C12_9": {
+    "lexicon_hit": {
+      "median": 0.303421,
+      "q25": 0.292172,
+      "q75": 0.415888,
+      "iqr": 0.12371599999999999,
+      "p5": 0.129509,
+      "p95": 0.494651,
+      "boot_min": 0.070504,
+      "boot_max": 0.69867,
+      "n_boot": 10000,
+      "seed": 42,
+      "r": 3
+    },
+    "lexicon_free": {
+      "median": 0.423573,
+      "q25": 0.349156,
+      "q75": 0.456957,
+      "iqr": 0.10780099999999998,
+      "p5": 0.299916,
+      "p95": 0.509108,
+      "boot_min": 0.165745,
+      "boot_max": 0.584312,
+      "n_boot": 10000,
+      "seed": 42,
+      "r": 3
+    },
+    "_unstable_rule": {
+      "clause": "C12-9",
+      "statistic": "IQR of the bootstrap distribution of t_hit",
+      "limit": 0.2,
+      "observed": 0.12371599999999999,
+      "S2_arm_unstable": false,
+      "note": "may qualify the verdict; may not overturn it"
+    }
+  },
+  "descriptive": {
+    "clause": "C12-8, reported regardless of verdict",
+    "frontier": {
+      "1": {
+        "S0": {
+          "system": "S0",
+          "r": 1,
+          "thresholds": {
+            "lexicon_hit": 0.5,
+            "lexicon_free": 0.5
+          },
+          "cost": 0.10831234256926953,
+          "confusion": {
+            "tp": 302,
+            "fp": 100,
+            "fn": 158,
+            "tn": 1822,
+            "n": 2382,
+            "n_flagged": 402,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.6565217391304348,
+          "off_precision": 0.7512437810945274,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 158,
+                "fp": 17,
+                "fn": 24,
+                "tn": 110,
+                "n": 309,
+                "n_flagged": 175,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8681318681318682,
+              "off_precision": 0.9028571428571428
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 144,
+                "fp": 83,
+                "fn": 134,
+                "tn": 1712,
+                "n": 2073,
+                "n_flagged": 227,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.5179856115107914,
+              "off_precision": 0.6343612334801763
+            }
+          },
+          "recall_gap_hit_minus_free": 0.3501462566210768
+        },
+        "S1a": {
+          "system": "S1a",
+          "r": 1,
+          "thresholds": {
+            "lexicon_hit": 0.5,
+            "lexicon_free": 0.5
+          },
+          "cost": 0.10831234256926953,
+          "confusion": {
+            "tp": 302,
+            "fp": 100,
+            "fn": 158,
+            "tn": 1822,
+            "n": 2382,
+            "n_flagged": 402,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.6565217391304348,
+          "off_precision": 0.7512437810945274,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 158,
+                "fp": 17,
+                "fn": 24,
+                "tn": 110,
+                "n": 309,
+                "n_flagged": 175,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8681318681318682,
+              "off_precision": 0.9028571428571428
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 144,
+                "fp": 83,
+                "fn": 134,
+                "tn": 1712,
+                "n": 2073,
+                "n_flagged": 227,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.5179856115107914,
+              "off_precision": 0.6343612334801763
+            }
+          },
+          "recall_gap_hit_minus_free": 0.3501462566210768
+        },
+        "S1b": {
+          "system": "S1b",
+          "r": 1,
+          "thresholds": {
+            "lexicon_hit": 0.584312,
+            "lexicon_free": 0.584312
+          },
+          "cost": 0.10201511335012595,
+          "confusion": {
+            "tp": 284,
+            "fp": 67,
+            "fn": 176,
+            "tn": 1855,
+            "n": 2382,
+            "n_flagged": 351,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.6173913043478261,
+          "off_precision": 0.8091168091168092,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 156,
+                "fp": 12,
+                "fn": 26,
+                "tn": 115,
+                "n": 309,
+                "n_flagged": 168,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8571428571428571,
+              "off_precision": 0.9285714285714286
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 128,
+                "fp": 55,
+                "fn": 150,
+                "tn": 1740,
+                "n": 2073,
+                "n_flagged": 183,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.460431654676259,
+              "off_precision": 0.6994535519125683
+            }
+          },
+          "recall_gap_hit_minus_free": 0.3967112024665981
+        },
+        "S2": {
+          "system": "S2",
+          "r": 1,
+          "thresholds": {
+            "lexicon_hit": 0.494651,
+            "lexicon_free": 0.584312
+          },
+          "cost": 0.10285474391267842,
+          "confusion": {
+            "tp": 287,
+            "fp": 72,
+            "fn": 173,
+            "tn": 1850,
+            "n": 2382,
+            "n_flagged": 359,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.6239130434782608,
+          "off_precision": 0.7994428969359332,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 159,
+                "fp": 17,
+                "fn": 23,
+                "tn": 110,
+                "n": 309,
+                "n_flagged": 176,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8736263736263736,
+              "off_precision": 0.9034090909090909
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 128,
+                "fp": 55,
+                "fn": 150,
+                "tn": 1740,
+                "n": 2073,
+                "n_flagged": 183,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.460431654676259,
+              "off_precision": 0.6994535519125683
+            }
+          },
+          "recall_gap_hit_minus_free": 0.4131947189501146
+        }
+      },
+      "2": {
+        "S0": {
+          "system": "S0",
+          "r": 2,
+          "thresholds": {
+            "lexicon_hit": 0.5,
+            "lexicon_free": 0.5
+          },
+          "cost": 0.1746431570109152,
+          "confusion": {
+            "tp": 302,
+            "fp": 100,
+            "fn": 158,
+            "tn": 1822,
+            "n": 2382,
+            "n_flagged": 402,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.6565217391304348,
+          "off_precision": 0.7512437810945274,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 158,
+                "fp": 17,
+                "fn": 24,
+                "tn": 110,
+                "n": 309,
+                "n_flagged": 175,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8681318681318682,
+              "off_precision": 0.9028571428571428
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 144,
+                "fp": 83,
+                "fn": 134,
+                "tn": 1712,
+                "n": 2073,
+                "n_flagged": 227,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.5179856115107914,
+              "off_precision": 0.6343612334801763
+            }
+          },
+          "recall_gap_hit_minus_free": 0.3501462566210768
+        },
+        "S1a": {
+          "system": "S1a",
+          "r": 2,
+          "thresholds": {
+            "lexicon_hit": 0.3333333333333333,
+            "lexicon_free": 0.3333333333333333
+          },
+          "cost": 0.1809403862300588,
+          "confusion": {
+            "tp": 334,
+            "fp": 179,
+            "fn": 126,
+            "tn": 1743,
+            "n": 2382,
+            "n_flagged": 513,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.7260869565217392,
+          "off_precision": 0.6510721247563352,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 163,
+                "fp": 24,
+                "fn": 19,
+                "tn": 103,
+                "n": 309,
+                "n_flagged": 187,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8956043956043956,
+              "off_precision": 0.8716577540106952
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 171,
+                "fp": 155,
+                "fn": 107,
+                "tn": 1640,
+                "n": 2073,
+                "n_flagged": 326,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.6151079136690647,
+              "off_precision": 0.5245398773006135
+            }
+          },
+          "recall_gap_hit_minus_free": 0.28049648193533094
+        },
+        "S1b": {
+          "system": "S1b",
+          "r": 2,
+          "thresholds": {
+            "lexicon_hit": 0.507305,
+            "lexicon_free": 0.507305
+          },
+          "cost": 0.17506297229219145,
+          "confusion": {
+            "tp": 301,
+            "fp": 99,
+            "fn": 159,
+            "tn": 1823,
+            "n": 2382,
+            "n_flagged": 400,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.6543478260869565,
+          "off_precision": 0.7525,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 158,
+                "fp": 17,
+                "fn": 24,
+                "tn": 110,
+                "n": 309,
+                "n_flagged": 175,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8681318681318682,
+              "off_precision": 0.9028571428571428
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 143,
+                "fp": 82,
+                "fn": 135,
+                "tn": 1713,
+                "n": 2073,
+                "n_flagged": 225,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.5143884892086331,
+              "off_precision": 0.6355555555555555
+            }
+          },
+          "recall_gap_hit_minus_free": 0.35374337892323504
+        },
+        "S2": {
+          "system": "S2",
+          "r": 2,
+          "thresholds": {
+            "lexicon_hit": 0.415888,
+            "lexicon_free": 0.507305
+          },
+          "cost": 0.172544080604534,
+          "confusion": {
+            "tp": 305,
+            "fp": 101,
+            "fn": 155,
+            "tn": 1821,
+            "n": 2382,
+            "n_flagged": 406,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.6630434782608695,
+          "off_precision": 0.7512315270935961,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 162,
+                "fp": 19,
+                "fn": 20,
+                "tn": 108,
+                "n": 309,
+                "n_flagged": 181,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8901098901098901,
+              "off_precision": 0.8950276243093923
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 143,
+                "fp": 82,
+                "fn": 135,
+                "tn": 1713,
+                "n": 2073,
+                "n_flagged": 225,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.5143884892086331,
+              "off_precision": 0.6355555555555555
+            }
+          },
+          "recall_gap_hit_minus_free": 0.37572140090125694
+        }
+      },
+      "3": {
+        "S0": {
+          "system": "S0",
+          "r": 3,
+          "thresholds": {
+            "lexicon_hit": 0.5,
+            "lexicon_free": 0.5
+          },
+          "cost": 0.2409739714525609,
+          "confusion": {
+            "tp": 302,
+            "fp": 100,
+            "fn": 158,
+            "tn": 1822,
+            "n": 2382,
+            "n_flagged": 402,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.6565217391304348,
+          "off_precision": 0.7512437810945274,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 158,
+                "fp": 17,
+                "fn": 24,
+                "tn": 110,
+                "n": 309,
+                "n_flagged": 175,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8681318681318682,
+              "off_precision": 0.9028571428571428
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 144,
+                "fp": 83,
+                "fn": 134,
+                "tn": 1712,
+                "n": 2073,
+                "n_flagged": 227,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.5179856115107914,
+              "off_precision": 0.6343612334801763
+            }
+          },
+          "recall_gap_hit_minus_free": 0.3501462566210768
+        },
+        "S1a": {
+          "system": "S1a",
+          "r": 3,
+          "thresholds": {
+            "lexicon_hit": 0.25,
+            "lexicon_free": 0.25
+          },
+          "cost": 0.22082283795130142,
+          "confusion": {
+            "tp": 362,
+            "fp": 232,
+            "fn": 98,
+            "tn": 1690,
+            "n": 2382,
+            "n_flagged": 594,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.7869565217391304,
+          "off_precision": 0.6094276094276094,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 170,
+                "fp": 31,
+                "fn": 12,
+                "tn": 96,
+                "n": 309,
+                "n_flagged": 201,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.9340659340659341,
+              "off_precision": 0.845771144278607
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 192,
+                "fp": 201,
+                "fn": 86,
+                "tn": 1594,
+                "n": 2073,
+                "n_flagged": 393,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.6906474820143885,
+              "off_precision": 0.48854961832061067
+            }
+          },
+          "recall_gap_hit_minus_free": 0.24341845205154555
+        },
+        "S1b": {
+          "system": "S1b",
+          "r": 3,
+          "thresholds": {
+            "lexicon_hit": 0.320188,
+            "lexicon_free": 0.320188
+          },
+          "cost": 0.22460117548278757,
+          "confusion": {
+            "tp": 343,
+            "fp": 184,
+            "fn": 117,
+            "tn": 1738,
+            "n": 2382,
+            "n_flagged": 527,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.7456521739130435,
+          "off_precision": 0.650853889943074,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 166,
+                "fp": 26,
+                "fn": 16,
+                "tn": 101,
+                "n": 309,
+                "n_flagged": 192,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.9120879120879121,
+              "off_precision": 0.8645833333333334
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 177,
+                "fp": 158,
+                "fn": 101,
+                "tn": 1637,
+                "n": 2073,
+                "n_flagged": 335,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.6366906474820144,
+              "off_precision": 0.5283582089552239
+            }
+          },
+          "recall_gap_hit_minus_free": 0.27539726460589764
+        },
+        "S2": {
+          "system": "S2",
+          "r": 3,
+          "thresholds": {
+            "lexicon_hit": 0.303421,
+            "lexicon_free": 0.439296
+          },
+          "cost": 0.23383711167086482,
+          "confusion": {
+            "tp": 318,
+            "fp": 131,
+            "fn": 142,
+            "tn": 1791,
+            "n": 2382,
+            "n_flagged": 449,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.691304347826087,
+          "off_precision": 0.7082405345211581,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 166,
+                "fp": 27,
+                "fn": 16,
+                "tn": 100,
+                "n": 309,
+                "n_flagged": 193,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.9120879120879121,
+              "off_precision": 0.8601036269430051
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 152,
+                "fp": 104,
+                "fn": 126,
+                "tn": 1691,
+                "n": 2073,
+                "n_flagged": 256,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.5467625899280576,
+              "off_precision": 0.59375
+            }
+          },
+          "recall_gap_hit_minus_free": 0.36532532215985447
+        }
+      },
+      "5": {
+        "S0": {
+          "system": "S0",
+          "r": 5,
+          "thresholds": {
+            "lexicon_hit": 0.5,
+            "lexicon_free": 0.5
+          },
+          "cost": 0.37363560033585225,
+          "confusion": {
+            "tp": 302,
+            "fp": 100,
+            "fn": 158,
+            "tn": 1822,
+            "n": 2382,
+            "n_flagged": 402,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.6565217391304348,
+          "off_precision": 0.7512437810945274,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 158,
+                "fp": 17,
+                "fn": 24,
+                "tn": 110,
+                "n": 309,
+                "n_flagged": 175,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8681318681318682,
+              "off_precision": 0.9028571428571428
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 144,
+                "fp": 83,
+                "fn": 134,
+                "tn": 1712,
+                "n": 2073,
+                "n_flagged": 227,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.5179856115107914,
+              "off_precision": 0.6343612334801763
+            }
+          },
+          "recall_gap_hit_minus_free": 0.3501462566210768
+        },
+        "S1a": {
+          "system": "S1a",
+          "r": 5,
+          "thresholds": {
+            "lexicon_hit": 0.16666666666666666,
+            "lexicon_free": 0.16666666666666666
+          },
+          "cost": 0.2795969773299748,
+          "confusion": {
+            "tp": 394,
+            "fp": 336,
+            "fn": 66,
+            "tn": 1586,
+            "n": 2382,
+            "n_flagged": 730,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.8565217391304348,
+          "off_precision": 0.5397260273972603,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 175,
+                "fp": 47,
+                "fn": 7,
+                "tn": 80,
+                "n": 309,
+                "n_flagged": 222,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.9615384615384616,
+              "off_precision": 0.7882882882882883
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 219,
+                "fp": 289,
+                "fn": 59,
+                "tn": 1506,
+                "n": 2073,
+                "n_flagged": 508,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.7877697841726619,
+              "off_precision": 0.4311023622047244
+            }
+          },
+          "recall_gap_hit_minus_free": 0.1737686773657997
+        },
+        "S1b": {
+          "system": "S1b",
+          "r": 5,
+          "thresholds": {
+            "lexicon_hit": 0.211486,
+            "lexicon_free": 0.211486
+          },
+          "cost": 0.2976490344248531,
+          "confusion": {
+            "tp": 374,
+            "fp": 279,
+            "fn": 86,
+            "tn": 1643,
+            "n": 2382,
+            "n_flagged": 653,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.8130434782608695,
+          "off_precision": 0.5727411944869831,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 172,
+                "fp": 41,
+                "fn": 10,
+                "tn": 86,
+                "n": 309,
+                "n_flagged": 213,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.945054945054945,
+              "off_precision": 0.8075117370892019
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 202,
+                "fp": 238,
+                "fn": 76,
+                "tn": 1557,
+                "n": 2073,
+                "n_flagged": 440,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.7266187050359713,
+              "off_precision": 0.4590909090909091
+            }
+          },
+          "recall_gap_hit_minus_free": 0.21843624001897377
+        },
+        "S2": {
+          "system": "S2",
+          "r": 5,
+          "thresholds": {
+            "lexicon_hit": 0.096532,
+            "lexicon_free": 0.211486
+          },
+          "cost": 0.29219143576826195,
+          "confusion": {
+            "tp": 381,
+            "fp": 301,
+            "fn": 79,
+            "tn": 1621,
+            "n": 2382,
+            "n_flagged": 682,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.8282608695652174,
+          "off_precision": 0.5586510263929618,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 179,
+                "fp": 63,
+                "fn": 3,
+                "tn": 64,
+                "n": 309,
+                "n_flagged": 242,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.9835164835164835,
+              "off_precision": 0.7396694214876033
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 202,
+                "fp": 238,
+                "fn": 76,
+                "tn": 1557,
+                "n": 2073,
+                "n_flagged": 440,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.7266187050359713,
+              "off_precision": 0.4590909090909091
+            }
+          },
+          "recall_gap_hit_minus_free": 0.2568977784805122
+        }
+      },
+      "10": {
+        "S0": {
+          "system": "S0",
+          "r": 10,
+          "thresholds": {
+            "lexicon_hit": 0.5,
+            "lexicon_free": 0.5
+          },
+          "cost": 0.7052896725440806,
+          "confusion": {
+            "tp": 302,
+            "fp": 100,
+            "fn": 158,
+            "tn": 1822,
+            "n": 2382,
+            "n_flagged": 402,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.6565217391304348,
+          "off_precision": 0.7512437810945274,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 158,
+                "fp": 17,
+                "fn": 24,
+                "tn": 110,
+                "n": 309,
+                "n_flagged": 175,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.8681318681318682,
+              "off_precision": 0.9028571428571428
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 144,
+                "fp": 83,
+                "fn": 134,
+                "tn": 1712,
+                "n": 2073,
+                "n_flagged": 227,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.5179856115107914,
+              "off_precision": 0.6343612334801763
+            }
+          },
+          "recall_gap_hit_minus_free": 0.3501462566210768
+        },
+        "S1a": {
+          "system": "S1a",
+          "r": 10,
+          "thresholds": {
+            "lexicon_hit": 0.09090909090909091,
+            "lexicon_free": 0.09090909090909091
+          },
+          "cost": 0.3811922753988245,
+          "confusion": {
+            "tp": 420,
+            "fp": 508,
+            "fn": 40,
+            "tn": 1414,
+            "n": 2382,
+            "n_flagged": 928,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.9130434782608695,
+          "off_precision": 0.4525862068965517,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 179,
+                "fp": 64,
+                "fn": 3,
+                "tn": 63,
+                "n": 309,
+                "n_flagged": 243,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.9835164835164835,
+              "off_precision": 0.7366255144032922
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 241,
+                "fp": 444,
+                "fn": 37,
+                "tn": 1351,
+                "n": 2073,
+                "n_flagged": 685,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.8669064748201439,
+              "off_precision": 0.3518248175182482
+            }
+          },
+          "recall_gap_hit_minus_free": 0.11661000869633953
+        },
+        "S1b": {
+          "system": "S1b",
+          "r": 10,
+          "thresholds": {
+            "lexicon_hit": 0.101077,
+            "lexicon_free": 0.101077
+          },
+          "cost": 0.36607892527287994,
+          "confusion": {
+            "tp": 419,
+            "fp": 462,
+            "fn": 41,
+            "tn": 1460,
+            "n": 2382,
+            "n_flagged": 881,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.9108695652173913,
+          "off_precision": 0.47559591373439275,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 179,
+                "fp": 59,
+                "fn": 3,
+                "tn": 68,
+                "n": 309,
+                "n_flagged": 238,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.9835164835164835,
+              "off_precision": 0.7521008403361344
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 240,
+                "fp": 403,
+                "fn": 38,
+                "tn": 1392,
+                "n": 2073,
+                "n_flagged": 643,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.8633093525179856,
+              "off_precision": 0.37325038880248834
+            }
+          },
+          "recall_gap_hit_minus_free": 0.12020713099849789
+        },
+        "S2": {
+          "system": "S2",
+          "r": 10,
+          "thresholds": {
+            "lexicon_hit": 0.096532,
+            "lexicon_free": 0.107818
+          },
+          "cost": 0.36481947942905124,
+          "confusion": {
+            "tp": 418,
+            "fp": 449,
+            "fn": 42,
+            "tn": 1473,
+            "n": 2382,
+            "n_flagged": 867,
+            "n_gold_off": 460
+          },
+          "off_recall": 0.908695652173913,
+          "off_precision": 0.48212226066897346,
+          "per_slice": {
+            "lexicon_hit": {
+              "confusion": {
+                "tp": 179,
+                "fp": 63,
+                "fn": 3,
+                "tn": 64,
+                "n": 309,
+                "n_flagged": 242,
+                "n_gold_off": 182
+              },
+              "off_recall": 0.9835164835164835,
+              "off_precision": 0.7396694214876033
+            },
+            "lexicon_free": {
+              "confusion": {
+                "tp": 239,
+                "fp": 386,
+                "fn": 39,
+                "tn": 1409,
+                "n": 2073,
+                "n_flagged": 625,
+                "n_gold_off": 278
+              },
+              "off_recall": 0.8597122302158273,
+              "off_precision": 0.3824
+            }
+          },
+          "recall_gap_hit_minus_free": 0.12380425330065614
+        }
+      }
+    },
+    "matched_flag_count_view": {
+      "labelled": "BETWEEN-SYSTEMS comparison per C12-5; NOT a cross-slice operating-point match",
+      "descriptive_only": true,
+      "no_verdict": true,
+      "target_S1b_CAL_flag_count_at_r3": 594,
+      "S1b_threshold_at_r3": 0.320188,
+      "r_prime": 3.334,
+      "S2_CAL_flag_count_at_r_prime": 594,
+      "flag_count_difference": 0,
+      "exact_match": true,
+      "r_prime_achieving_interval": [
+        3.334,
+        4.199
+      ],
+      "n_grid_points_achieving": 866,
+      "grid": {
+        "start": 0.001,
+        "stop": 20.0,
+        "step": 0.001,
+        "n_points": 20000
+      },
+      "S2_thresholds_at_r_prime": {
+        "lexicon_hit": 0.303421,
+        "lexicon_free": 0.320188
+      },
+      "S2_on_EVAL_at_r_prime": {
+        "recall_gap_hit_minus_free": 0.27539726460589764,
+        "off_precision": 0.6496212121212122,
+        "off_recall": 0.7456521739130435,
+        "per_slice": {
+          "lexicon_hit": {
+            "confusion": {
+              "tp": 166,
+              "fp": 27,
+              "fn": 16,
+              "tn": 100,
+              "n": 309,
+              "n_flagged": 193,
+              "n_gold_off": 182
+            },
+            "off_recall": 0.9120879120879121,
+            "off_precision": 0.8601036269430051
+          },
+          "lexicon_free": {
+            "confusion": {
+              "tp": 177,
+              "fp": 158,
+              "fn": 101,
+              "tn": 1637,
+              "n": 2073,
+              "n_flagged": 335,
+              "n_gold_off": 278
+            },
+            "off_recall": 0.6366906474820144,
+            "off_precision": 0.5283582089552239
+          }
+        },
+        "confusion": {
+          "tp": 343,
+          "fp": 185,
+          "fn": 117,
+          "tn": 1737,
+          "n": 2382,
+          "n_flagged": 528,
+          "n_gold_off": 460
+        }
+      }
+    }
+  },
+  "sensitivities_C12_11": {
+    "SENS-2": {
+      "definition": "drop from lexicon_free the gold-OFF rows whose tokens intersect {ag, am, aq, oc, oç}",
+      "tokens": [
+        "ag",
+        "am",
+        "aq",
+        "oc",
+        "oç"
+      ],
+      "n_dropped_full_dev": 28,
+      "n_dropped_expected_full_dev": 28,
+      "matches_preregistered_count": true,
+      "n_dropped_cal": 18,
+      "n_dropped_eval": 10,
+      "primary": {
+        "tag": "SENS-2",
+        "dev_only": true,
+        "r": 3,
+        "thresholds_fitted_on_CAL": {
+          "S1b": 0.320188,
+          "S2_t_hit": 0.303421,
+          "S2_t_free": 0.439296
+        },
+        "n_eval": 2372,
+        "S1b": {
+          "cost": 0.22554806070826308,
+          "confusion": {
+            "tp": 333,
+            "fp": 184,
+            "fn": 117,
+            "tn": 1738,
+            "n": 2372,
+            "n_flagged": 517,
+            "n_gold_off": 450
+          }
+        },
+        "S2": {
+          "cost": 0.234822934232715,
+          "confusion": {
+            "tp": 308,
+            "fp": 131,
+            "fn": 142,
+            "tn": 1791,
+            "n": 2372,
+            "n_flagged": 439,
+            "n_gold_off": 450
+          }
+        },
+        "discordant_rows_d": 80,
+        "dcost_rel": 0.04112149532710269,
+        "ci_low": -0.014598540145985385,
+        "ci_high": 0.10429622472381,
+        "bootstrap": {
+          "ci_low": -0.014598540145985385,
+          "ci_high": 0.10429622472381,
+          "boot_mean": 0.04149987775432336,
+          "boot_median": 0.04022988505747131,
+          "abs_diff_ci_low": -0.0033726812816188834,
+          "abs_diff_ci_high": 0.022765598650927477,
+          "cost_baseline_boot_mean": 0.22557221753794265,
+          "cost_arm_boot_mean": 0.23480539629005062,
+          "n_boot": 10000,
+          "n_boot_used": 10000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42,
+          "paired": true,
+          "thresholds_refitted_inside_replicate": false,
+          "strata": [
+            {
+              "slice": "lexicon_hit",
+              "gold": "OFF",
+              "n": 182
+            },
+            {
+              "slice": "lexicon_hit",
+              "gold": "NOT",
+              "n": 127
+            },
+            {
+              "slice": "lexicon_free",
+              "gold": "OFF",
+              "n": 268
+            },
+            {
+              "slice": "lexicon_free",
+              "gold": "NOT",
+              "n": 1795
+            }
+          ]
+        },
+        "verdict": "SINGLE-THRESHOLD-SUFFICIENT",
+        "branch": 2,
+        "resolution_C12_7_addendum1_item3": {
+          "clause": "Addendum 1 item 3 -- mandatory beside the verdict, whatever the verdict",
+          "realized_d": 80,
+          "realized_relative_half_width": 0.059447382434897694,
+          "LARGE_band": 0.1,
+          "branch_5_reachable_at_this_resolution": true,
+          "statement": "Realized d = 80; realized relative half-width = 0.0594. That half-width is below the LARGE band (0.10), so branch 5 was reachable at the realized resolution."
+        }
+      }
+    },
+    "SENS-3": {
+      "definition": "drop from lexicon_hit every row for which EVERY matching root is in {allah, ana, cim, emi, göt, mal, sie}",
+      "roots": [
+        "allah",
+        "ana",
+        "cim",
+        "emi",
+        "göt",
+        "mal",
+        "sie"
+      ],
+      "n_dropped_full_dev": 248,
+      "n_dropped_cal": 119,
+      "n_dropped_eval": 129,
+      "primary": {
+        "tag": "SENS-3",
+        "dev_only": true,
+        "r": 3,
+        "thresholds_fitted_on_CAL": {
+          "S1b": 0.439296,
+          "S2_t_hit": 0.078505,
+          "S2_t_free": 0.439296
+        },
+        "n_eval": 2253,
+        "S1b": {
+          "cost": 0.2334664891256103,
+          "confusion": {
+            "tp": 284,
+            "fp": 112,
+            "fn": 138,
+            "tn": 1719,
+            "n": 2253,
+            "n_flagged": 396,
+            "n_gold_off": 422
+          }
+        },
+        "S2": {
+          "cost": 0.22769640479360853,
+          "confusion": {
+            "tp": 293,
+            "fp": 126,
+            "fn": 129,
+            "tn": 1705,
+            "n": 2253,
+            "n_flagged": 419,
+            "n_gold_off": 422
+          }
+        },
+        "discordant_rows_d": 23,
+        "dcost_rel": -0.02471482889733837,
+        "ci_low": -0.05984642683744477,
+        "ci_high": 0.007952286282306134,
+        "bootstrap": {
+          "ci_low": -0.05984642683744477,
+          "ci_high": 0.007952286282306134,
+          "boot_mean": -0.02441959424469787,
+          "boot_median": -0.023831367409349123,
+          "abs_diff_ci_low": -0.014203284509542835,
+          "abs_diff_ci_high": 0.0017754105636928474,
+          "cost_baseline_boot_mean": 0.23338952507767416,
+          "cost_arm_boot_mean": 0.22764079005770083,
+          "n_boot": 10000,
+          "n_boot_used": 10000,
+          "n_boot_undefined": 0,
+          "alpha": 0.05,
+          "seed": 42,
+          "paired": true,
+          "thresholds_refitted_inside_replicate": false,
+          "strata": [
+            {
+              "slice": "lexicon_hit",
+              "gold": "OFF",
+              "n": 144
+            },
+            {
+              "slice": "lexicon_hit",
+              "gold": "NOT",
+              "n": 36
+            },
+            {
+              "slice": "lexicon_free",
+              "gold": "OFF",
+              "n": 278
+            },
+            {
+              "slice": "lexicon_free",
+              "gold": "NOT",
+              "n": 1795
+            }
+          ]
+        },
+        "verdict": "INSUFFICIENT",
+        "branch": 0,
+        "resolution_C12_7_addendum1_item3": {
+          "clause": "Addendum 1 item 3 -- mandatory beside the verdict, whatever the verdict",
+          "realized_d": 23,
+          "realized_relative_half_width": 0.03389935655987545,
+          "LARGE_band": 0.1,
+          "branch_5_reachable_at_this_resolution": true,
+          "statement": "Realized d = 23; realized relative half-width = 0.0339. That half-width is below the LARGE band (0.10), so branch 5 was reachable at the realized resolution."
+        }
+      }
+    },
+    "SENS-1": {
+      "definition": "the four non-primary r values",
+      "r_values": [
+        1,
+        2,
+        5,
+        10
+      ],
+      "where": "reported in full under descriptive.frontier",
+      "rule": "may qualify the verdict; may not overturn it (C9-10)"
+    }
+  },
+  "prediction_C12_10": {
+    "recorded": "dCost_rel falls inside SMALL -- branch 2 or 3, SINGLE-THRESHOLD-SUFFICIENT",
+    "observed_branch": 2,
+    "observed_verdict": "SINGLE-THRESHOLD-SUFFICIENT",
+    "held": true
+  },
+  "ceilings_C12_14": [
+    "The official test set is spent. Any threshold selected here can never receive an independent held-out number.",
+    "A Phase 12 threshold may be wired into the offline demo; it may not carry any generalisation claim.",
+    "Phase 05's dev->test transfer is about the phase-04 thresholds and is background, not validation of these.",
+    "One seed, one checkpoint (best.pt = epoch 1), same-corpus, dev-only, with both known slice-definition defects unrepaired.",
+    "C12-13: this phase derives an operating point. That prohibition is lifted here and only here, and remains in force for every earlier phase."
+  ],
+  "environment": {
+    "python": "3.14.0",
+    "numpy": "2.5.2",
+    "platform": "Windows-10-10.0.19045-SP0",
+    "git_head_at_run": "2b4391bfd792f643a1a93c62c45ab46aa034ade8",
+    "utc": "2026-08-19T07:49:14+00:00",
+    "n_boot": 10000,
+    "seed": 42,
+    "alpha": 0.05,
+    "elapsed_seconds": 15.9
+  }
+}
