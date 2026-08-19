@@ -1,0 +1,1466 @@
+{
+  "run_id": "15_deixis",
+  "stage": "step 1 -- freeze the address flag, then count (COUNTS ONLY)",
+  "dev_only": true,
+  "counts_only": "No calibration quantity, no signed gap, no ECE, no AUC, no recall, no mean p_OFF, no per-cell OFF rate expressed as a calibration figure, and no verdict appears in this file. Integers, shares of those integers, and hashes.",
+  "why_before_any_band": "The sensitivity denominators and the CAL-half fitting cell sizes are recorded here, before any band or statistic is fixed, so that a later choice of band cannot be made after seeing what it would buy.",
+  "flag": {
+    "path": "data/deixis/address_tokens.json",
+    "sha256": "90c880c1e9c58bea6af74d6a098c4e790fb978fe00d8d9ac210e440b9d45af91",
+    "matching_rule": "exact match against src.lexicon.tokens() output; NOT hit_root, NOT prefix matching",
+    "provenance": "phases/09_deeper_analysis.md Stage 4, committed before Phase 15",
+    "primary_set": [
+      "sen",
+      "siz",
+      "sizin",
+      "senin",
+      "sizi",
+      "sana",
+      "size"
+    ],
+    "extended_set": [
+      "sen",
+      "siz",
+      "sizin",
+      "senin",
+      "sizi",
+      "sana",
+      "size",
+      "seni",
+      "sende",
+      "senden",
+      "seninle",
+      "sence",
+      "sizde",
+      "sizden",
+      "sizinle",
+      "sizce",
+      "sizler",
+      "sizleri",
+      "sizlere",
+      "sizlerin"
+    ],
+    "third_person_deictic_set": [
+      "lan",
+      "bak",
+      "adam",
+      "bunlar",
+      "onlar"
+    ]
+  },
+  "band_definition": "p_OFF < 0.5, strictly -- the frozen decision rule. Rows at p_OFF == 0.5 exactly are counted separately per cell and are excluded from the band by the literal `<`.",
+  "provenance_gate": [
+    {
+      "check": "dev_predictions.csv sha256",
+      "expected": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+      "observed": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+      "pass": true
+    },
+    {
+      "check": "dev_predictions.csv bytes",
+      "expected": 736591,
+      "observed": 736591,
+      "pass": true
+    },
+    {
+      "check": "karaliste.txt sha256",
+      "expected": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+      "observed": "0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b",
+      "pass": true
+    },
+    {
+      "check": "karaliste.txt bytes",
+      "expected": 5988,
+      "observed": 5988,
+      "pass": true
+    },
+    {
+      "check": "cal_eval_split.json sha256",
+      "expected": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+      "observed": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+      "pass": true
+    },
+    {
+      "check": "split-recorded dev_predictions sha256",
+      "expected": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+      "observed": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346",
+      "pass": true,
+      "note": "the split file must name the dump that is actually on disk"
+    },
+    {
+      "check": "dev fingerprint",
+      "expected": "034415af3a23b388",
+      "observed": "034415af3a23b388",
+      "pass": true
+    },
+    {
+      "check": "split seed",
+      "expected": 42,
+      "observed": 42,
+      "pass": true
+    },
+    {
+      "check": "split n_cal",
+      "expected": 2382,
+      "observed": 2382,
+      "pass": true
+    },
+    {
+      "check": "split n_eval",
+      "expected": 2382,
+      "observed": 2382,
+      "pass": true
+    },
+    {
+      "check": "split dev fingerprint",
+      "expected": "034415af3a23b388",
+      "observed": "034415af3a23b388",
+      "pass": true
+    },
+    {
+      "check": "rows violating `pred == OFF iff confidence > 0.5`",
+      "expected": 0,
+      "observed": 0,
+      "pass": true
+    },
+    {
+      "check": "rows with confidence == 0.5 exactly",
+      "expected": 0,
+      "observed": 0,
+      "pass": true,
+      "note": "reported, not assumed away: at 0.5 exactly the rule `> 0.5` and phase-04's `>= 0.5` would disagree, and such a row would be excluded from the C11-4 band by the literal `p_OFF < 0.5` definition"
+    },
+    {
+      "check": "dev rows",
+      "expected": 4764,
+      "observed": 4764,
+      "pass": true
+    },
+    {
+      "check": "dev gold OFF",
+      "expected": 920,
+      "observed": 920,
+      "pass": true
+    },
+    {
+      "check": "lexicon_hit rows",
+      "expected": 614,
+      "observed": 614,
+      "pass": true
+    },
+    {
+      "check": "lexicon_hit gold OFF",
+      "expected": 355,
+      "observed": 355,
+      "pass": true
+    },
+    {
+      "check": "lexicon_free rows",
+      "expected": 4150,
+      "observed": 4150,
+      "pass": true
+    },
+    {
+      "check": "lexicon_free gold OFF",
+      "expected": 565,
+      "observed": 565,
+      "pass": true
+    },
+    {
+      "check": "overall OFF-recall (tp, support)",
+      "expected": [
+        635,
+        920
+      ],
+      "observed": [
+        635,
+        920
+      ],
+      "pass": true
+    },
+    {
+      "check": "lexicon_hit OFF-recall (tp, support)",
+      "expected": [
+        317,
+        355
+      ],
+      "observed": [
+        317,
+        355
+      ],
+      "pass": true
+    },
+    {
+      "check": "lexicon_free OFF-recall (tp, support)",
+      "expected": [
+        318,
+        565
+      ],
+      "observed": [
+        318,
+        565
+      ],
+      "pass": true
+    },
+    {
+      "check": "false negatives",
+      "expected": 285,
+      "observed": 285,
+      "pass": true
+    },
+    {
+      "check": "false positives",
+      "expected": 213,
+      "observed": 213,
+      "pass": true
+    },
+    {
+      "check": "rows where hit_root disagrees with the dumped `slice`",
+      "expected": 0,
+      "observed": 0,
+      "pass": true,
+      "note": "MIN_ROOT_LEN=3, 695 frozen roots, recomputed in 2.3s"
+    }
+  ],
+  "split": {
+    "file": "results/04_calibration/cal_eval_split.json",
+    "sha256": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899",
+    "n_cal": 2382,
+    "n_eval": 2382,
+    "seed": 42,
+    "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4"
+  },
+  "counts": {
+    "EVAL": {
+      "primary": {
+        "token_set_size": 7,
+        "tokens": [
+          "sana",
+          "sen",
+          "senin",
+          "siz",
+          "size",
+          "sizi",
+          "sizin"
+        ],
+        "role": "PRIMARY (Stage 4 seven-token set)",
+        "cells": {
+          "lexicon_free|address|OFF": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "OFF",
+            "n": 59,
+            "n_band_p_off_lt_0.5": 21,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 38
+          },
+          "lexicon_free|address|NOT": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "NOT",
+            "n": 176,
+            "n_band_p_off_lt_0.5": 156,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 20
+          },
+          "lexicon_free|no_address|OFF": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 219,
+            "n_band_p_off_lt_0.5": 113,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 106
+          },
+          "lexicon_free|no_address|NOT": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 1619,
+            "n_band_p_off_lt_0.5": 1556,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 63
+          },
+          "lexicon_hit|address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "OFF",
+            "n": 46,
+            "n_band_p_off_lt_0.5": 8,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 38
+          },
+          "lexicon_hit|address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "NOT",
+            "n": 17,
+            "n_band_p_off_lt_0.5": 14,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 3
+          },
+          "lexicon_hit|no_address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 136,
+            "n_band_p_off_lt_0.5": 16,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 120
+          },
+          "lexicon_hit|no_address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 110,
+            "n_band_p_off_lt_0.5": 96,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 14
+          }
+        },
+        "margins": {
+          "by_slice": {
+            "lexicon_free": {
+              "n": 2073,
+              "n_band_p_off_lt_0.5": 1846,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit": {
+              "n": 309,
+              "n_band_p_off_lt_0.5": 134,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_address": {
+            "address": {
+              "n": 298,
+              "n_band_p_off_lt_0.5": 199,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "no_address": {
+              "n": 2084,
+              "n_band_p_off_lt_0.5": 1781,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_gold": {
+            "OFF": {
+              "n": 460,
+              "n_band_p_off_lt_0.5": 158,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "NOT": {
+              "n": 1922,
+              "n_band_p_off_lt_0.5": 1822,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_address": {
+            "lexicon_free|address": {
+              "n": 235,
+              "n_band_p_off_lt_0.5": 177,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|no_address": {
+              "n": 1838,
+              "n_band_p_off_lt_0.5": 1669,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|address": {
+              "n": 63,
+              "n_band_p_off_lt_0.5": 22,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|no_address": {
+              "n": 246,
+              "n_band_p_off_lt_0.5": 112,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_gold": {
+            "lexicon_free|OFF": {
+              "n": 278,
+              "n_band_p_off_lt_0.5": 134,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|NOT": {
+              "n": 1795,
+              "n_band_p_off_lt_0.5": 1712,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|OFF": {
+              "n": 182,
+              "n_band_p_off_lt_0.5": 24,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|NOT": {
+              "n": 127,
+              "n_band_p_off_lt_0.5": 110,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "all": {
+            "n": 2382,
+            "n_band_p_off_lt_0.5": 1980,
+            "n_at_p_off_exactly_0.5": 0
+          }
+        },
+        "prevalence": {
+          "lexicon_free": {
+            "n_rows": 2073,
+            "n_address": 235,
+            "address_share_full": 0.11336227689339122,
+            "n_rows_band": 1846,
+            "n_address_band": 177,
+            "address_share_band": 0.09588299024918744
+          },
+          "lexicon_hit": {
+            "n_rows": 309,
+            "n_address": 63,
+            "address_share_full": 0.20388349514563106,
+            "n_rows_band": 134,
+            "n_address_band": 22,
+            "address_share_band": 0.16417910447761194
+          },
+          "_both_slices": {
+            "n_rows": 2382,
+            "n_address": 298,
+            "address_share_full": 0.12510495382031905,
+            "n_rows_band": 1980,
+            "n_address_band": 199,
+            "address_share_band": 0.1005050505050505
+          }
+        }
+      },
+      "extended": {
+        "token_set_size": 20,
+        "tokens": [
+          "sana",
+          "sen",
+          "sence",
+          "sende",
+          "senden",
+          "seni",
+          "senin",
+          "seninle",
+          "siz",
+          "sizce",
+          "sizde",
+          "sizden",
+          "size",
+          "sizi",
+          "sizin",
+          "sizinle",
+          "sizler",
+          "sizlere",
+          "sizleri",
+          "sizlerin"
+        ],
+        "role": "pre-registered SENSITIVITY -- denominator only, not primary",
+        "cells": {
+          "lexicon_free|address|OFF": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "OFF",
+            "n": 68,
+            "n_band_p_off_lt_0.5": 27,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 41
+          },
+          "lexicon_free|address|NOT": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "NOT",
+            "n": 234,
+            "n_band_p_off_lt_0.5": 211,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 23
+          },
+          "lexicon_free|no_address|OFF": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 210,
+            "n_band_p_off_lt_0.5": 107,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 103
+          },
+          "lexicon_free|no_address|NOT": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 1561,
+            "n_band_p_off_lt_0.5": 1501,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 60
+          },
+          "lexicon_hit|address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "OFF",
+            "n": 55,
+            "n_band_p_off_lt_0.5": 8,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 47
+          },
+          "lexicon_hit|address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "NOT",
+            "n": 22,
+            "n_band_p_off_lt_0.5": 19,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 3
+          },
+          "lexicon_hit|no_address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 127,
+            "n_band_p_off_lt_0.5": 16,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 111
+          },
+          "lexicon_hit|no_address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 105,
+            "n_band_p_off_lt_0.5": 91,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 14
+          }
+        },
+        "margins": {
+          "by_slice": {
+            "lexicon_free": {
+              "n": 2073,
+              "n_band_p_off_lt_0.5": 1846,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit": {
+              "n": 309,
+              "n_band_p_off_lt_0.5": 134,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_address": {
+            "address": {
+              "n": 379,
+              "n_band_p_off_lt_0.5": 265,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "no_address": {
+              "n": 2003,
+              "n_band_p_off_lt_0.5": 1715,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_gold": {
+            "OFF": {
+              "n": 460,
+              "n_band_p_off_lt_0.5": 158,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "NOT": {
+              "n": 1922,
+              "n_band_p_off_lt_0.5": 1822,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_address": {
+            "lexicon_free|address": {
+              "n": 302,
+              "n_band_p_off_lt_0.5": 238,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|no_address": {
+              "n": 1771,
+              "n_band_p_off_lt_0.5": 1608,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|address": {
+              "n": 77,
+              "n_band_p_off_lt_0.5": 27,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|no_address": {
+              "n": 232,
+              "n_band_p_off_lt_0.5": 107,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_gold": {
+            "lexicon_free|OFF": {
+              "n": 278,
+              "n_band_p_off_lt_0.5": 134,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|NOT": {
+              "n": 1795,
+              "n_band_p_off_lt_0.5": 1712,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|OFF": {
+              "n": 182,
+              "n_band_p_off_lt_0.5": 24,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|NOT": {
+              "n": 127,
+              "n_band_p_off_lt_0.5": 110,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "all": {
+            "n": 2382,
+            "n_band_p_off_lt_0.5": 1980,
+            "n_at_p_off_exactly_0.5": 0
+          }
+        },
+        "prevalence": {
+          "lexicon_free": {
+            "n_rows": 2073,
+            "n_address": 302,
+            "address_share_full": 0.1456825856246985,
+            "n_rows_band": 1846,
+            "n_address_band": 238,
+            "address_share_band": 0.12892741061755147
+          },
+          "lexicon_hit": {
+            "n_rows": 309,
+            "n_address": 77,
+            "address_share_full": 0.24919093851132687,
+            "n_rows_band": 134,
+            "n_address_band": 27,
+            "address_share_band": 0.20149253731343283
+          },
+          "_both_slices": {
+            "n_rows": 2382,
+            "n_address": 379,
+            "address_share_full": 0.15910999160369438,
+            "n_rows_band": 1980,
+            "n_address_band": 265,
+            "address_share_band": 0.13383838383838384
+          }
+        }
+      },
+      "third_person_deictic": {
+        "token_set_size": 5,
+        "tokens": [
+          "adam",
+          "bak",
+          "bunlar",
+          "lan",
+          "onlar"
+        ],
+        "role": "pre-registered SENSITIVITY -- denominator only, not primary",
+        "cells": {
+          "lexicon_free|address|OFF": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "OFF",
+            "n": 23,
+            "n_band_p_off_lt_0.5": 10,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 13
+          },
+          "lexicon_free|address|NOT": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "NOT",
+            "n": 65,
+            "n_band_p_off_lt_0.5": 53,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 12
+          },
+          "lexicon_free|no_address|OFF": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 255,
+            "n_band_p_off_lt_0.5": 124,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 131
+          },
+          "lexicon_free|no_address|NOT": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 1730,
+            "n_band_p_off_lt_0.5": 1659,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 71
+          },
+          "lexicon_hit|address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "OFF",
+            "n": 18,
+            "n_band_p_off_lt_0.5": 1,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 17
+          },
+          "lexicon_hit|address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "NOT",
+            "n": 7,
+            "n_band_p_off_lt_0.5": 6,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 1
+          },
+          "lexicon_hit|no_address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 164,
+            "n_band_p_off_lt_0.5": 23,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 141
+          },
+          "lexicon_hit|no_address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 120,
+            "n_band_p_off_lt_0.5": 104,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 16
+          }
+        },
+        "margins": {
+          "by_slice": {
+            "lexicon_free": {
+              "n": 2073,
+              "n_band_p_off_lt_0.5": 1846,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit": {
+              "n": 309,
+              "n_band_p_off_lt_0.5": 134,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_address": {
+            "address": {
+              "n": 113,
+              "n_band_p_off_lt_0.5": 70,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "no_address": {
+              "n": 2269,
+              "n_band_p_off_lt_0.5": 1910,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_gold": {
+            "OFF": {
+              "n": 460,
+              "n_band_p_off_lt_0.5": 158,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "NOT": {
+              "n": 1922,
+              "n_band_p_off_lt_0.5": 1822,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_address": {
+            "lexicon_free|address": {
+              "n": 88,
+              "n_band_p_off_lt_0.5": 63,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|no_address": {
+              "n": 1985,
+              "n_band_p_off_lt_0.5": 1783,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|address": {
+              "n": 25,
+              "n_band_p_off_lt_0.5": 7,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|no_address": {
+              "n": 284,
+              "n_band_p_off_lt_0.5": 127,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_gold": {
+            "lexicon_free|OFF": {
+              "n": 278,
+              "n_band_p_off_lt_0.5": 134,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|NOT": {
+              "n": 1795,
+              "n_band_p_off_lt_0.5": 1712,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|OFF": {
+              "n": 182,
+              "n_band_p_off_lt_0.5": 24,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|NOT": {
+              "n": 127,
+              "n_band_p_off_lt_0.5": 110,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "all": {
+            "n": 2382,
+            "n_band_p_off_lt_0.5": 1980,
+            "n_at_p_off_exactly_0.5": 0
+          }
+        },
+        "prevalence": {
+          "lexicon_free": {
+            "n_rows": 2073,
+            "n_address": 88,
+            "address_share_full": 0.042450554751567775,
+            "n_rows_band": 1846,
+            "n_address_band": 63,
+            "address_share_band": 0.03412784398699892
+          },
+          "lexicon_hit": {
+            "n_rows": 309,
+            "n_address": 25,
+            "address_share_full": 0.08090614886731391,
+            "n_rows_band": 134,
+            "n_address_band": 7,
+            "address_share_band": 0.05223880597014925
+          },
+          "_both_slices": {
+            "n_rows": 2382,
+            "n_address": 113,
+            "address_share_full": 0.04743912678421495,
+            "n_rows_band": 1980,
+            "n_address_band": 70,
+            "address_share_band": 0.03535353535353535
+          }
+        }
+      }
+    },
+    "CAL": {
+      "primary": {
+        "token_set_size": 7,
+        "tokens": [
+          "sana",
+          "sen",
+          "senin",
+          "siz",
+          "size",
+          "sizi",
+          "sizin"
+        ],
+        "role": "PRIMARY (Stage 4 seven-token set)",
+        "cells": {
+          "lexicon_free|address|OFF": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "OFF",
+            "n": 67,
+            "n_band_p_off_lt_0.5": 17,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 50
+          },
+          "lexicon_free|address|NOT": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "NOT",
+            "n": 167,
+            "n_band_p_off_lt_0.5": 155,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 12
+          },
+          "lexicon_free|no_address|OFF": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 220,
+            "n_band_p_off_lt_0.5": 96,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 124
+          },
+          "lexicon_free|no_address|NOT": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 1623,
+            "n_band_p_off_lt_0.5": 1552,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 71
+          },
+          "lexicon_hit|address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "OFF",
+            "n": 30,
+            "n_band_p_off_lt_0.5": 2,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 28
+          },
+          "lexicon_hit|address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "NOT",
+            "n": 20,
+            "n_band_p_off_lt_0.5": 15,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 5
+          },
+          "lexicon_hit|no_address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 143,
+            "n_band_p_off_lt_0.5": 12,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 131
+          },
+          "lexicon_hit|no_address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 112,
+            "n_band_p_off_lt_0.5": 87,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 25
+          }
+        },
+        "margins": {
+          "by_slice": {
+            "lexicon_free": {
+              "n": 2077,
+              "n_band_p_off_lt_0.5": 1820,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit": {
+              "n": 305,
+              "n_band_p_off_lt_0.5": 116,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_address": {
+            "address": {
+              "n": 284,
+              "n_band_p_off_lt_0.5": 189,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "no_address": {
+              "n": 2098,
+              "n_band_p_off_lt_0.5": 1747,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_gold": {
+            "OFF": {
+              "n": 460,
+              "n_band_p_off_lt_0.5": 127,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "NOT": {
+              "n": 1922,
+              "n_band_p_off_lt_0.5": 1809,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_address": {
+            "lexicon_free|address": {
+              "n": 234,
+              "n_band_p_off_lt_0.5": 172,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|no_address": {
+              "n": 1843,
+              "n_band_p_off_lt_0.5": 1648,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|address": {
+              "n": 50,
+              "n_band_p_off_lt_0.5": 17,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|no_address": {
+              "n": 255,
+              "n_band_p_off_lt_0.5": 99,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_gold": {
+            "lexicon_free|OFF": {
+              "n": 287,
+              "n_band_p_off_lt_0.5": 113,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|NOT": {
+              "n": 1790,
+              "n_band_p_off_lt_0.5": 1707,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|OFF": {
+              "n": 173,
+              "n_band_p_off_lt_0.5": 14,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|NOT": {
+              "n": 132,
+              "n_band_p_off_lt_0.5": 102,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "all": {
+            "n": 2382,
+            "n_band_p_off_lt_0.5": 1936,
+            "n_at_p_off_exactly_0.5": 0
+          }
+        },
+        "prevalence": {
+          "lexicon_free": {
+            "n_rows": 2077,
+            "n_address": 234,
+            "address_share_full": 0.11266249398170439,
+            "n_rows_band": 1820,
+            "n_address_band": 172,
+            "address_share_band": 0.0945054945054945
+          },
+          "lexicon_hit": {
+            "n_rows": 305,
+            "n_address": 50,
+            "address_share_full": 0.16393442622950818,
+            "n_rows_band": 116,
+            "n_address_band": 17,
+            "address_share_band": 0.14655172413793102
+          },
+          "_both_slices": {
+            "n_rows": 2382,
+            "n_address": 284,
+            "address_share_full": 0.11922753988245172,
+            "n_rows_band": 1936,
+            "n_address_band": 189,
+            "address_share_band": 0.09762396694214875
+          }
+        }
+      },
+      "extended": {
+        "token_set_size": 20,
+        "tokens": [
+          "sana",
+          "sen",
+          "sence",
+          "sende",
+          "senden",
+          "seni",
+          "senin",
+          "seninle",
+          "siz",
+          "sizce",
+          "sizde",
+          "sizden",
+          "size",
+          "sizi",
+          "sizin",
+          "sizinle",
+          "sizler",
+          "sizlere",
+          "sizleri",
+          "sizlerin"
+        ],
+        "role": "pre-registered SENSITIVITY -- denominator only, not primary",
+        "cells": {
+          "lexicon_free|address|OFF": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "OFF",
+            "n": 80,
+            "n_band_p_off_lt_0.5": 20,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 60
+          },
+          "lexicon_free|address|NOT": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "NOT",
+            "n": 234,
+            "n_band_p_off_lt_0.5": 219,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 15
+          },
+          "lexicon_free|no_address|OFF": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 207,
+            "n_band_p_off_lt_0.5": 93,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 114
+          },
+          "lexicon_free|no_address|NOT": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 1556,
+            "n_band_p_off_lt_0.5": 1488,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 68
+          },
+          "lexicon_hit|address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "OFF",
+            "n": 40,
+            "n_band_p_off_lt_0.5": 2,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 38
+          },
+          "lexicon_hit|address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "NOT",
+            "n": 22,
+            "n_band_p_off_lt_0.5": 17,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 5
+          },
+          "lexicon_hit|no_address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 133,
+            "n_band_p_off_lt_0.5": 12,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 121
+          },
+          "lexicon_hit|no_address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 110,
+            "n_band_p_off_lt_0.5": 85,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 25
+          }
+        },
+        "margins": {
+          "by_slice": {
+            "lexicon_free": {
+              "n": 2077,
+              "n_band_p_off_lt_0.5": 1820,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit": {
+              "n": 305,
+              "n_band_p_off_lt_0.5": 116,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_address": {
+            "address": {
+              "n": 376,
+              "n_band_p_off_lt_0.5": 258,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "no_address": {
+              "n": 2006,
+              "n_band_p_off_lt_0.5": 1678,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_gold": {
+            "OFF": {
+              "n": 460,
+              "n_band_p_off_lt_0.5": 127,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "NOT": {
+              "n": 1922,
+              "n_band_p_off_lt_0.5": 1809,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_address": {
+            "lexicon_free|address": {
+              "n": 314,
+              "n_band_p_off_lt_0.5": 239,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|no_address": {
+              "n": 1763,
+              "n_band_p_off_lt_0.5": 1581,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|address": {
+              "n": 62,
+              "n_band_p_off_lt_0.5": 19,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|no_address": {
+              "n": 243,
+              "n_band_p_off_lt_0.5": 97,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_gold": {
+            "lexicon_free|OFF": {
+              "n": 287,
+              "n_band_p_off_lt_0.5": 113,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|NOT": {
+              "n": 1790,
+              "n_band_p_off_lt_0.5": 1707,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|OFF": {
+              "n": 173,
+              "n_band_p_off_lt_0.5": 14,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|NOT": {
+              "n": 132,
+              "n_band_p_off_lt_0.5": 102,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "all": {
+            "n": 2382,
+            "n_band_p_off_lt_0.5": 1936,
+            "n_at_p_off_exactly_0.5": 0
+          }
+        },
+        "prevalence": {
+          "lexicon_free": {
+            "n_rows": 2077,
+            "n_address": 314,
+            "address_share_full": 0.15117958594126144,
+            "n_rows_band": 1820,
+            "n_address_band": 239,
+            "address_share_band": 0.13131868131868132
+          },
+          "lexicon_hit": {
+            "n_rows": 305,
+            "n_address": 62,
+            "address_share_full": 0.20327868852459016,
+            "n_rows_band": 116,
+            "n_address_band": 19,
+            "address_share_band": 0.16379310344827586
+          },
+          "_both_slices": {
+            "n_rows": 2382,
+            "n_address": 376,
+            "address_share_full": 0.15785054575986565,
+            "n_rows_band": 1936,
+            "n_address_band": 258,
+            "address_share_band": 0.13326446280991736
+          }
+        }
+      },
+      "third_person_deictic": {
+        "token_set_size": 5,
+        "tokens": [
+          "adam",
+          "bak",
+          "bunlar",
+          "lan",
+          "onlar"
+        ],
+        "role": "pre-registered SENSITIVITY -- denominator only, not primary",
+        "cells": {
+          "lexicon_free|address|OFF": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "OFF",
+            "n": 31,
+            "n_band_p_off_lt_0.5": 9,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 22
+          },
+          "lexicon_free|address|NOT": {
+            "slice": "lexicon_free",
+            "address": "address",
+            "gold": "NOT",
+            "n": 64,
+            "n_band_p_off_lt_0.5": 54,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 10
+          },
+          "lexicon_free|no_address|OFF": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 256,
+            "n_band_p_off_lt_0.5": 104,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 152
+          },
+          "lexicon_free|no_address|NOT": {
+            "slice": "lexicon_free",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 1726,
+            "n_band_p_off_lt_0.5": 1653,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 73
+          },
+          "lexicon_hit|address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "OFF",
+            "n": 11,
+            "n_band_p_off_lt_0.5": 0,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 11
+          },
+          "lexicon_hit|address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "address",
+            "gold": "NOT",
+            "n": 6,
+            "n_band_p_off_lt_0.5": 2,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 4
+          },
+          "lexicon_hit|no_address|OFF": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "OFF",
+            "n": 162,
+            "n_band_p_off_lt_0.5": 14,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 148
+          },
+          "lexicon_hit|no_address|NOT": {
+            "slice": "lexicon_hit",
+            "address": "no_address",
+            "gold": "NOT",
+            "n": 126,
+            "n_band_p_off_lt_0.5": 100,
+            "n_at_p_off_exactly_0.5": 0,
+            "n_above_band": 26
+          }
+        },
+        "margins": {
+          "by_slice": {
+            "lexicon_free": {
+              "n": 2077,
+              "n_band_p_off_lt_0.5": 1820,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit": {
+              "n": 305,
+              "n_band_p_off_lt_0.5": 116,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_address": {
+            "address": {
+              "n": 112,
+              "n_band_p_off_lt_0.5": 65,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "no_address": {
+              "n": 2270,
+              "n_band_p_off_lt_0.5": 1871,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_gold": {
+            "OFF": {
+              "n": 460,
+              "n_band_p_off_lt_0.5": 127,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "NOT": {
+              "n": 1922,
+              "n_band_p_off_lt_0.5": 1809,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_address": {
+            "lexicon_free|address": {
+              "n": 95,
+              "n_band_p_off_lt_0.5": 63,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|no_address": {
+              "n": 1982,
+              "n_band_p_off_lt_0.5": 1757,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|address": {
+              "n": 17,
+              "n_band_p_off_lt_0.5": 2,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|no_address": {
+              "n": 288,
+              "n_band_p_off_lt_0.5": 114,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "by_slice_x_gold": {
+            "lexicon_free|OFF": {
+              "n": 287,
+              "n_band_p_off_lt_0.5": 113,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_free|NOT": {
+              "n": 1790,
+              "n_band_p_off_lt_0.5": 1707,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|OFF": {
+              "n": 173,
+              "n_band_p_off_lt_0.5": 14,
+              "n_at_p_off_exactly_0.5": 0
+            },
+            "lexicon_hit|NOT": {
+              "n": 132,
+              "n_band_p_off_lt_0.5": 102,
+              "n_at_p_off_exactly_0.5": 0
+            }
+          },
+          "all": {
+            "n": 2382,
+            "n_band_p_off_lt_0.5": 1936,
+            "n_at_p_off_exactly_0.5": 0
+          }
+        },
+        "prevalence": {
+          "lexicon_free": {
+            "n_rows": 2077,
+            "n_address": 95,
+            "address_share_full": 0.045739046701974,
+            "n_rows_band": 1820,
+            "n_address_band": 63,
+            "address_share_band": 0.03461538461538462
+          },
+          "lexicon_hit": {
+            "n_rows": 305,
+            "n_address": 17,
+            "address_share_full": 0.05573770491803279,
+            "n_rows_band": 116,
+            "n_address_band": 2,
+            "address_share_band": 0.017241379310344827
+          },
+          "_both_slices": {
+            "n_rows": 2382,
+            "n_address": 112,
+            "address_share_full": 0.047019311502938706,
+            "n_rows_band": 1936,
+            "n_address_band": 65,
+            "address_share_band": 0.033574380165289255
+          }
+        }
+      }
+    }
+  },
+  "environment": {
+    "python_version": "3.14.0",
+    "git_head": "5ba53cdce45525dc3aadf32df7d77989dd4eb42d",
+    "generated_at": "2026-08-18T14:53:53+00:00"
+  }
+}
