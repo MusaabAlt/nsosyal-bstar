@@ -50,3 +50,10 @@ runs/
 # Offline demo asset bundle: 885.9 MB, rebuilt by demo/build_assets.py.
 # Checkpoints are reproducible from a seed + a results file; they do not belong in git.
 demo_assets/
+
+# --- report build output: a measurement instrument, rebuilt on demand ---
+# report/build_docx.py regenerates report_draft.docx from the committed
+# template plus report/*.md. The .docx is a derived artifact (~2.5 MB, and it
+# carries the template's embedded fonts and media), so the inputs are tracked
+# and the output is not.
+report/build/
