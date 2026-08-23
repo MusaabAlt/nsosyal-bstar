@@ -19,7 +19,7 @@ Piyasadaki çözümler incelendiğinde, altı ürünün tamamının bir toksisit
 | Detoxify (Unitary) | Var; çok dilli XLM-RoBERTa türevi Türkçeyi içeriyor | Alt grup ROC-AUC %97,19 (çevrilmiş veri) | Kendi sunucusunda çalıştırılabilir | Yok |
 | YSS Shield (YamanSoftSystem) | Var; anahtar sözcük ve OCR tabanlı | Yok, bağımsız değerlendirme yok | Kendi sunucusu veya API | Yok |
 
-Tablo, 20.08.2026 tarihli incelemeye dayanmaktadır.
+Tablo, 23.08.2026 tarihli incelemeye dayanmaktadır.
 
 Mevcut çözümlerin eksik yönleri üç başlıkta toplanmaktadır. Birincisi, taranan altı üründen yalnızca biri Türkçeye özgü bir başarım değeri yayımlamaktadır. Detoxify, çok dilli modelinin Türkçe alt grubunda 14.000 örnek üzerinde %97,19 alt grup ROC-AUC bildirmektedir [16]. Bu değerin iki sınırı vardır: ilgili yarışmanın Türkçe verisi İngilizceden makine çevirisiyle üretilmiştir, ve bildirilen ölçüt sıralama başarımıdır. Bir işletim eşiğinde geri çağırma değeri hiçbir üründe yayımlanmamıştır. Bölüm 1.1'de ölçülen kayıp tam olarak bu iki büyüklük arasında oluşmaktadır. İkincisi, Detoxify'ın kendi belgeleri, küfür, hakaret veya sövgüyle ilişkili sözcükler bir yorumda geçtiğinde, yazarın üslubundan ve niyetinden bağımsız olarak o yorumun toksik sınıflandırılmasının olası olduğunu, bunun da hâlihazırda kırılgan azınlık gruplarına yönelik yanlılık üretebileceğini belirtmektedir [16]; bu, projemizin nicelleştirdiği mekanizmanın üreticisi tarafından kabulüdür. Üçüncüsü, ürünlerin tamamı bir puan döndürmekte, hiçbiri bir triyaj akışı sunmamaktadır: bir moderasyon ekibine içeriğin ne kadar toksik olduğunu bildirmekte, hangi içeriğe önce bakılması gerektiğini ve o incelemenin hataların ne kadarını yakalayacağını bildirmemektedir.
 
