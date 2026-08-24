@@ -1,218 +1,273 @@
-# NSosyal B* — measuring lexicon dependence in Turkish offensive-language detection
+# Sözlükten Kaçan Saldırganlık: Türkçe İçerik Moderasyonunda Sözlük Bağımlılığını Ölçen Tanı ve İnceleme Sistemi
 
-Most Turkish offensive content carries no profanity word. Keyword and lexicon
-filters — the first layer of automated moderation — never see it. This project
-**measures** how much of a fine-tuned classifier's performance rests on profanity
-vocabulary, and repairs the resulting failure at the **decision threshold**,
-without retraining the model.
+Türkçe saldırgan içeriğin büyük bölümü hiçbir küfür sözcüğü taşımaz. Bu depo, ince
+ayarlı bir BERTurk sınıflandırıcısının başarımının ne kadarının küfür sözcük
+dağarcığına dayandığını ölçer. Ölçüm iki katmanda ayrışır. Karar eşiğinde, sözlük
+eşleşmeli kesit ile sözlük içermeyen kesit arasındaki saldırgan içerik geri çağırma
+farkı **+0,3301**, %95 güven aralığı **[+0,2771; +0,3827]** (geliştirme kümesi,
+n = 4.764, eşik 0,50). Sıralamada aynı iki kesit arasındaki ROC-AUC farkı ise **+0,0345**,
+%95 güven aralığı **[+0,0103; +0,0585]**. Model, küfür içermeyen saldırgan
+içeriği sıralayabiliyor; onu karar eşiğinin üstüne çıkaramıyor.
 
-The deliverable is not a better classifier. It is a measurement with confidence
-intervals, replicated on a held-out test set, plus a triage layer that routes the
-uncertain fraction to a human reviewer.
+Kaynaklar: `results/03_defense/comparison.json` (`/runs/raw/recall_gap`) ve
+`results/09_deeper_analysis/stage_1/stage1_auc.json` (`/primary`).
 
-Full spec: [`docs/phase_briefing.md`](docs/phase_briefing.md) (what is being
-built) and [`docs/claude_master_brief.md`](docs/claude_master_brief.md) (how the
-work is run). Both are binding.
+## 1. Yeniden üretilebilirlik durumu
 
-**Repo stays private until submission** — `src/obfuscation.py` generates
-functional evasion text.
+**Önce şunu bilin:** ham derlem ve satır düzeyi tahmin dökümleri bu depoda
+dağıtılmaz. `.gitignore` `data/**` yolunu ve `results/**/*predictions*.csv`
+desenini hariç tutar. Bu nedenle temiz bir klonda `data/coltekin/*.tsv`,
+`data/lexicon/karaliste.txt` ve `results/01_baseline_berturk/dev_predictions.csv`
+**bulunmaz**. Gerekçe lisans ve boyuttur; dağıtılmayan derlem dosyalarının kimliği
+yine de sonuç dosyalarına yazılı sha256 özetleriyle bağlıdır, bkz. bölüm 6.
 
-## Headline findings
+Ayrıca `src/obfuscation.py` bu kamuya açık kopyadan **çıkarılmıştır**: modül
+işlevsel kaçırma metni üretir ve yayımlanması amaçlanmamıştır.
 
-Every figure below is read from the results file named. Confidence intervals are
-95% bootstrap percentile, seed 42.
+| Ne | Temiz bir klondan yeniden üretilebilir mi? |
+|---|---|
+| `results/` altındaki sonuç dosyaları | **Evet.** Tüm ölçüm JSON dosyaları depoda; doğrudan okunur, çalıştırma gerektirmez. |
+| Şekiller | **Kısmen.** Beş şeklin üçü (sözlük eşleşme dağılımı, risk-kapsam eğrisi, geçişler ve AUC farkı) yalnızca depodaki `day1_report.json`, `04_calibration/calibration.json` ve `09_deeper_analysis/stage_1b/stage1b_defense_auc.json` dosyalarından çizilir. İkisi (kesit başına P(OFF) birikimli dağılımı ve kesit başına ROC eğrisi) `dev_predictions.csv` dökümünü ister; bu dosya dağıtılmaz, dolayısıyla o iki şekil temiz bir klonda **çizilemez**. AUC değerlerinin kendisi depodadır, eğrinin noktaları değildir. |
+| Eğitim çalışması | **Hayır, olduğu gibi değil.** GPU zorunludur: `phase01_baseline.py` çalışma başlamadan `torch.cuda.is_available()` doğrular ve `+cpu` derlemesini reddeder. Derlem dağıtılmadığı için önce Çöltekin verisinin ayrıca edinilmesi gerekir. Kayıtlı hiperparametreler: 3 dönem, yığın 32, öğrenme oranı 2e-5, `max_len` 128, fp16, %10 doğrusal ısınma, tohum 42. Kullanılan GPU adı sonuç dosyasına yazılmamıştır. |
+| Resmî test kümesi değerlendirmesi | **Hayır.** Küme tek kullanımlıktır ve harcanmıştır. `results/05_final_test/TEST_SET_SPENT.json` depoda mevcuttur ve `src/data_io.load_coltekin_test()` bu dosya varken yüklemeyi reddeder. Kilit kodla uygulanır, hatırlamayla değil. |
 
-**The gap.** In the OffensEval-2020 TR training split (31,756 posts, Çöltekin
-corpus; 19.3% offensive), **3,892 of 6,131 offensive posts — 63.5% — match no
-root** in a frozen 695-entry profanity lexicon.
-→ `results/day1_report.json`
+Bu tabloda hiçbir "hayır" yumuşatılmamıştır.
 
-**The classifier does not close it.** Fine-tuned BERTurk OFF-recall on dev:
-**0.8930** on the lexicon-matched slice, **0.5628** on the lexicon-free slice.
-Gap **+0.3301** [+0.2771, +0.3827].
-→ `results/03_defense/comparison.json`
+## 2. Yöntem disiplini
 
-**Replicated once on the official test set** (opened exactly once, then locked):
-gap **+0.3970** [+0.3418, +0.4542].
-→ `results/05_final_test/metrics.json`
+**Ön kayıt.** `phases/` altında sürüm denetimine alınmış **9** protokol dosyası
+vardır. Bunlardan **7** tanesi sayı üreten bir fazın karar kurallarını, eşiklerini ve
+başarısızlık koşullarını o fazın ilk sayısı var olmadan önce sabitler:
+`01_baseline_diagnosis.md`, `03_defense_design.md`, `04_calibration.md`,
+`08_lexical_analysis.md`, `09_deeper_analysis.md`, `11_prior_correction.md`,
+`12_threshold_policy.md`. Kalan ikisi (`07_report.md`, `10_sablon_mapping.md`) rapor
+ve şablon protokolleridir, sayı üretmez. Sıralama `git log --follow` ile denetlenebilir.
 
-**The loss is at the decision, not the ranking.** Dev ROC-AUC is **0.9306**
-lexicon-matched vs **0.8962** lexicon-free. The model separates profanity-free
-offensive content; it fails to push it over the threshold.
-→ `results/09_deeper_analysis/stage_1/stage1_auc.json`
+**Ekleme yalnızca yapılan deney kaydı.** `docs/RESULTS_LOG.md` tarihli **49** satır
+taşır. Satırlar düzeltilmez; çelişki çıktığında yeni bir düzeltme satırı eklenir ve
+eski okuma görünür kalır. Kayıt şu anda **6** düzeltme satırı ve **1** şartname
+kusuru satırı içerir.
 
-**Retraining was tried and failed.** Counterfactual data augmentation (`1a1b_d`)
-moved dev macro-F1 by **−0.0069** [−0.0185, +0.0052] — interval includes zero.
-It bought **+0.0336** [+0.0052, +0.0662] lexicon-free OFF-recall at a cost of
-**−0.0423** [−0.0778, −0.0109] on the lexicon-matched slice. This is reported as
-a failure, and it is why the repair moved to the threshold layer.
-→ `results/03_defense/comparison.json`
+**Tek kullanımlık test kümesi.** Yukarıda anlatılan kilit. Kayıt dosyası, harcama
+anını, çalıştıran ölçümü ve o andaki commit'i taşır.
 
-**The threshold repair.** On the EVAL half of dev (n = 2,382), a cost-derived
-threshold raises lexicon-free OFF-recall by **+0.1727** [+0.1295, +0.2194] and
-narrows the slice gap by **−0.1067** [−0.1630, −0.0484], at a precision cost of
-**−0.1418** [−0.1723, −0.1131]. The four point estimates were pre-registered;
-the intervals were added afterwards and are labelled as not pre-registered.
-→ `results/12_threshold_policy/c12_16_intervals.json`
+**Her farkta güven aralığı.** Raporlanan her fark, işareti ne olursa olsun, %95
+önyükleme yüzdelik aralığıyla verilir; tohum 42.
 
-## What this project does not claim
+**Ön kayıt kapsamı dışında kalan bir ek.** Eşik politikası ön kaydının numaralı bir
+maddesi (C12-16) uyarınca eklenen güven aralıkları, ilgili nokta kestirimlerinden
+**sonra** hesaplanmıştır. Bunu bizim beyanımız olarak değil,
+sonuç dosyasının kendi ifadesi olarak okuyun:
+`results/12_threshold_policy/c12_16_intervals.json` `/ordering_disclosure` alanı
+"This is estimation after the fact, not pre-registration." der. Bu README o
+dosyadan daha sessiz olmamalıdır.
 
-Stated here because these are the claims the numbers do **not** support:
+## 3. Depo düzeni
 
-- **Not** that the interface or the threshold improves model accuracy. Ranking is
-  unchanged; only the operating point moves, and it is a recall/precision trade.
-- **Not** that human review effort disappears. The triage layer routes work; it
-  does not remove it.
-- **Not** WCAG *conformance*. Contrast and attribute checks are measurements, not
-  a conformance process, and no conformance testing was run.
-- **Not** cross-corpus generalisation, and not fine-grained target classification.
-  Both are out of scope; see [`report/final/`](report/final/).
-- **No live-test numbers.** The official test set is spent. Everything produced
-  after that single pass is dev-set evidence and is labelled as such.
+```
+config.py        her yol ve sabit; hiçbir betik konum gömmez
+src/             ölçümün tek kaynağı; betikler buradan içe aktarır
+  data_io.py     derlem okuyucuları, biçim tuzağı korumaları, test kümesi kilidi
+  lexicon.py     Türkçeye duyarlı küçültme, kök eşleştirme
+  augment.py     ters olgusal veri artırımı
+  models.py      BERTurk sarmalayıcıları ve eğitim döngüsü
+  calibration.py sıcaklık ölçekleme, risk-kapsam, seçici tahmin
+  evaluate.py    her sistemin paylaştığı tek metrik yolu
+phase*.py        faz başına bir çalıştırıcı, depo kökünde
+phases/          ön kayıt protokolleri; sayılarından önce işlenmiş
+data/            dağıtılmaz; yalnızca satır kimlikleri taşıyan bölme dosyası hariç
+results/         deney JSON dosyaları; satır düzeyi dökümler hariç
+docs/            brifingler ve RESULTS_LOG.md
+report/          Türkçe rapor metinleri ve docx üreticisi
+demo/            çevrimdışı yan yana karşılaştırma arayüzü
+tests/           doğrulanmış biçim tuzakları için gerileme testleri
+```
 
-## Status
+`src/obfuscation.py` bu listede yoktur; birinci bölümde belirtildiği gibi
+çıkarılmıştır.
 
-| Phase | Protocol | State |
+## 4. Temel sonuçlar
+
+Her satır kendi popülasyonunu ve n değerini adlandırır. Bu projede dört ayrı
+popülasyon vardır ve onları karıştırmak, bu belgeyi raporla çelişkiye düşürmenin en
+kolay yoludur.
+
+Geliştirme kümesi ikiye ayrılmıştır: eşik, kalibrasyon yarısında uyarlanır ve
+değerlendirme yarısında ölçülür. İki yarı ayrıktır, dolayısıyla eşiğin ölçüldüğü
+satırlar onu seçen satırlar değildir.
+
+### 4.1 Sözlük eşleşme ayrımı (etiketli derlem)
+
+Popülasyon: 31.756 satırlık etiketli derlem (eğitim + geliştirme), resmî test kümesi
+dışında. Saldırgan satır sayısı 6.131, taban oran %19,3.
+
+| | Sayı | Pay |
 |---|---|---|
-| Day 1 — data load, lexicon freeze, go/no-go gate | — | done → `results/day1_report.json` |
-| 01 — baseline diagnosis | [`phases/01_baseline_diagnosis.md`](phases/01_baseline_diagnosis.md) | done → `results/01_baseline_berturk/` |
-| 02 — failure analysis | — | done → `results/02_failure_analysis/` |
-| 03 — defense design (counterfactual augmentation) | [`phases/03_defense_design.md`](phases/03_defense_design.md) | done, **negative result** → `results/03_defense/` |
-| 04 — calibration + risk–coverage | [`phases/04_calibration.md`](phases/04_calibration.md) | done → `results/04_calibration/` |
-| 05 — official test run (once) | — | done, **test set spent** → `results/05_final_test/TEST_SET_SPENT.json` |
-| 07 — report | [`phases/07_report.md`](phases/07_report.md) | in progress → `report/` |
-| 08 — lexical analysis | [`phases/08_lexical_analysis.md`](phases/08_lexical_analysis.md) | done → `results/08_lexical_analysis/` |
-| 09 — deeper analysis (AUC decomposition) | [`phases/09_deeper_analysis.md`](phases/09_deeper_analysis.md) | done → `results/09_deeper_analysis/` |
-| 10 — template mapping | [`phases/10_sablon_mapping.md`](phases/10_sablon_mapping.md) | done |
-| 11 — prior correction | [`phases/11_prior_correction.md`](phases/11_prior_correction.md) | done → `results/11_prior_correction/` |
-| 12 — threshold policy | [`phases/12_threshold_policy.md`](phases/12_threshold_policy.md) | done → `results/12_threshold_policy/` |
-| 15 — deixis / address flag | — | done → `results/15_deixis/` |
-| Offline demo | — | runs; verified end-to-end 2026-08-23 |
+| Sözlük kökü eşleşen saldırgan satırlar | 2.239 | %36,5 |
+| Hiçbir kök eşleşmeyen saldırgan satırlar | **3.892** | **%63,5** |
 
-Seven phase protocols fix decision rules and produce numbers (01, 03, 04, 08, 09,
-11, 12). Each was committed to version control **before** the first number of its
-phase existed; `git log --follow` confirms the ordering for all seven, phase 08
-included once its rename from `phases/06_lexical_analysis.md` is followed.
+Sözlük 695 girdilik dondurulmuş bir listedir (dosyada 698 satır; yükleyici Türkçeye
+duyarlı küçültmeden sonra yinelenenleri ayıklar). Kaynak: `results/day1_report.json`.
 
-## Layout
+### 4.2 Kesit başına saldırgan içerik geri çağırma, eşik 0,50
 
-```
-config.py        every path + constant; no script hardcodes a location
-src/             source of truth — scripts import from here, never re-implement
-  data_io.py     corpus readers, format traps guarded in code, test-set lock
-  lexicon.py     Turkish-aware casing + literal/root lexicon matching
-  obfuscation.py attack families D (train) / H (eval) + disjointness guard
-  augment.py     counterfactual augmentation (phase 03)
-  models.py      BERTurk wrappers + training loop
-  calibration.py temperature scaling, ECE, risk–coverage, selective prediction
-  evaluate.py    one metric path shared by every system
-  phase11_*.py   prior correction
-  phase12_*.py   threshold policy + C12-16 intervals
-  phase15_*.py   deixis / address flag
-phase*.py        one runner per phase, at the repo root
-phases/          pre-registration protocols — committed before their numbers
-data/            gitignored — raw corpora live here locally only
-results/         experiment JSON (committed); prediction dumps ignored
-docs/            briefings + RESULTS_LOG.md (append-only evidence log)
-report/          Turkish report drafts + build_docx.py
-report/final/    approved report text (KYS 1.1 / 1.2 / 2.1 / 2.2) + bibliography
-demo/            offline side-by-side demo (app.py, build_assets.py)
-demo_assets/     gitignored — 885.9 MB bundle, rebuilt by demo/build_assets.py
-tests/           regression tests for the confirmed format traps
-```
+| Popülasyon | Kesit | n (saldırgan) | Geri çağırma | %95 GA |
+|---|---|---|---|---|
+| Tam geliştirme, n = 4.764 | sözlük eşleşmeli | 355 | 0,8930 | [0,8618; 0,9248] |
+| Tam geliştirme, n = 4.764 | sözlük içermeyen | 565 | 0,5628 | [0,5210; 0,6010] |
+| Tam geliştirme, n = 4.764 | **fark** | | **+0,3301** | **[+0,2771; +0,3827]** |
+| Resmî test, n = 3.528 | sözlük eşleşmeli | 269 | 0,9071 | [0,8710; 0,9387] |
+| Resmî test, n = 3.528 | sözlük içermeyen | 447 | 0,5101 | [0,4628; 0,5546] |
+| Resmî test, n = 3.528 | **fark** | | **+0,3970** | **[+0,3418; +0,4542]** |
 
-Nothing in `src/` is a stub any more. Every module listed above is implemented.
+İki fark aralığı **örtüşür**: örtüşme bölgesi [+0,3418; +0,3827]. Sınırlar
+karşılaştırılarak doğrulanmıştır. Farkın tutulduğu söylenebilir; test kümesinde
+büyüdüğü söylenemez.
 
-## Setup
+Kaynaklar: `results/01_baseline_berturk/metrics.json` (`/berturk`),
+`results/03_defense/comparison.json` (`/runs/raw/recall_gap`),
+`results/05_final_test/metrics.json` (`/systems/raw`).
+
+### 4.3 Kesit başına ROC-AUC, tam geliştirme kümesi (n = 4.764)
+
+| Kesit | n | AUC | %95 GA |
+|---|---|---|---|
+| sözlük eşleşmeli | 355 saldırgan / 259 saldırgan değil | 0,9306 | [0,9102; 0,9495] |
+| sözlük içermeyen | 565 saldırgan / 3.585 saldırgan değil | 0,8962 | [0,8821; 0,9095] |
+| **fark** | | **+0,0345** | **[+0,0103; +0,0585]** |
+
+Ön kayıtlı karar: `INTERMEDIATE`. Bu belgedeki `INTERMEDIATE`, `FLAT`,
+`ORDERING WORSENED` ve `SINGLE-THRESHOLD-SUFFICIENT` gibi büyük harfli karar
+etiketleri, ölçüm yapılmadan önce ön kayıt protokolünde sabitlenmiş değerlerdir:
+etiket, sayı henüz yokken seçilmiştir. Önyükleme 10.000 yineleme, tohum 42, dört
+kesit x altın etiket hücresi üzerinde katmanlı. Kaynak:
+`results/09_deeper_analysis/stage_1/stage1_auc.json`.
+
+Yorum sınırı: bu, sıralamanın karar eşiğinden çok daha az bozulduğunu gösterir. Model
+küfür içermeyen saldırgan içeriği tespit **edememektedir** denemez; sıralamaktadır.
+
+### 4.4 İnsan incelemesine devretme çalışma noktası
+
+Eşik **0,663171**, geliştirme kümesinin kalibrasyon yarısında %90 kapsam hedefiyle
+seçilmiştir ve üç popülasyonun tümünde aynıdır. Test kümesinde yeniden türetilmemiştir
+(`thresholds_re_derived_on_test: false`).
+
+| Popülasyon | n | Kapsam | %95 GA | Devredilen | Hata oranı | Makro-F1 |
+|---|---|---|---|---|---|---|
+| Geliştirme, değerlendirme yarısı | 2.382 | 0,9118 | [0,9005; 0,9236] | 210 | 0,0792 | 0,8504 |
+| Tam geliştirme | 4.764 | 0,9060 | kayıtlı değil | 448 | 0,0765 | 0,8590 |
+| Resmî test | 3.528 | 0,9016 | [0,8926; 0,9116] | 347 | 0,0852 | 0,8485 |
+
+Üç kapsam değeri de yaklaşık 0,90'a yuvarlanır ve **birbirinin yerine kullanılamaz**.
+Hangi sayının hangi popülasyona ait olduğu yukarıda satır satır adlandırılmıştır.
+Makro-F1 yalnızca sistem düzeyinde verilir; kesit başına makro-F1 hiçbir yerde
+raporlanmaz, çünkü kesitlerin taban oranları birkaç kat farklıdır.
+
+Kaynaklar: `results/04_calibration/calibration.json`
+(`/variants/raw/operating_points`, `/variants/raw/deferral_full_dev`) ve
+`results/05_final_test/metrics.json` (`/systems/raw/selective`).
+
+### 4.5 Eşik kuralı karşılaştırması, değerlendirme yarısı (n = 2.382)
+
+Dört kural aynı satırlarda ve aynı donmuş karar kuralıyla ("skor > t ise işaretle")
+karşılaştırılır. Maliyet, kaçırılan bir saldırgan gönderiyi yanlış işaretlenmiş bir
+gönderiden üç kat kötü sayan orana göre hesaplanır (r = 3); S1b'nin kesinlik kaybı bu
+nedenle kuralın amaçlanan davranışıdır, bir kusur değil. **Önerilen kural S1b'dir**:
+tek, veriden uyarlanmış eşik. S1a, 0,25 değerindeki çözümlemeli eşik, sıfır
+parametreli bir iç kontroldür ve bir dağıtım adayı değildir.
+
+| | S0 | S1a (kontrol) | **S1b (önerilen)** | S2 |
+|---|---|---|---|---|
+| Uyarlanan parametre | 0 | 0 | **1** | 2 |
+| Eşik | 0,50 | 0,25 | **0,320188** | 0,303421 / 0,439296 |
+| Çıkarımda sözlüğe başvurur mu | Hayır | Hayır | **Hayır** | Evet |
+| Maliyet, satır başına (düşük olan iyi) | 0,2410 | 0,2208 | **0,2246** | 0,2338 |
+| Saldırgan geri çağırma, sözlük eşleşmeli | 0,8681 | 0,9341 | **0,9121** | 0,9121 |
+| Saldırgan geri çağırma, sözlük içermeyen | 0,5180 | 0,6906 | **0,6367** | 0,5468 |
+| Saldırgan kesinlik (genel) | 0,7512 | 0,6094 | **0,6509** | 0,7082 |
+| İşaretlenen satır | 402 | 594 | **527** | 449 |
+
+Ön kayıtlı karar `SINGLE-THRESHOLD-SUFFICIENT`: kesit koşullu iki eşikli S2, tek
+eşikli S1b'ye göre göreli maliyeti **+0,04112** değiştirir; artı işaret S2'nin **daha
+pahalı** olduğu anlamına gelir. %95 güven aralığı **[-0,01596; +0,10484]**, sıfırı
+içerir. Kesit başına ayrı eşik tutmanın maliyeti düşürdüğü gösterilemedi; sözlüğü
+çıkarım anında okumayan basit kural yeterlidir.
+Kaynak: `results/12_threshold_policy/metrics.json`.
+
+### 4.6 Ters olgusal veri artırımı: ölçülmüş bir başarısızlık
+
+Ters olgusal veri artırımı denendi ve amacına ulaşmadı. Bu bir başarı kadar açık
+biçimde raporlanır. Tam geliştirme kümesi, n = 4.764, eşleştirilmiş önyükleme:
+
+| Ölçüt | Fark | %95 GA | Sıfırı dışlıyor mu |
+|---|---|---|---|
+| Sistem makro-F1 | -0,0069 | [-0,0185; +0,0052] | Hayır |
+| Saldırgan geri çağırma, sözlük içermeyen | +0,0336 | [+0,0052; +0,0662] | Evet |
+| Saldırgan geri çağırma, sözlük eşleşmeli | -0,0423 | [-0,0778; -0,0109] | Evet |
+
+Hedeflenen kesitte ölçülebilir bir kazanç vardır; karşılığında diğer kesitte
+ölçülebilir bir kayıp vardır ve sistem düzeyinde net etki sıfırdan ayırt edilemez.
+Sıralama da düzelmemiştir: sözlük içermeyen kesitte AUC farkı **-0,0056**
+[-0,0134; +0,0024] (karar `FLAT`), sözlük eşleşmeli kesitte **-0,0254**
+[-0,0429; -0,0086] (karar `ORDERING WORSENED`). Onarımın eşik katmanına
+taşınmasının nedeni budur. Kaynaklar: `results/03_defense/comparison.json`,
+`results/09_deeper_analysis/stage_1b/stage1b_defense_auc.json`.
+
+## 5. Ne çalıştırılabilir
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate        # Windows
 pip install -r requirements.txt
 pytest tests/ -q
 ```
 
-Raw data is gitignored. On a fresh checkout, place it as:
+Veri gerektirmeyen adımlar bunlardır. Test paketinin bu belge yazılırken, commit
+`90c70b7` üzerinde ölçülen durumu: **415 test geçti, 1 test kaldı.** Kalan test
+`tests/test_demo.py::test_render_result_escapes_html`; çevrimdışı arayüzün
+`render_result` işlevini, modül durumu doldurulmadan çağırdığı için `KeyError`
+veriyor. Paket yeşil değildir ve yeşil olduğu söylenmemektedir.
 
-```
-data/coltekin/offenseval-tr-training-v1.tsv
-data/coltekin/offenseval-tr-testset-v1.tsv
-data/coltekin/offenseval-tr-labela-v1.tsv     # comma-separated despite .tsv
-data/lexicon/karaliste.txt                     # frozen, 695 entries
-```
-
-Reproduce the Day 1 gate:
+Aşağıdaki komutlar dağıtılmayan dosyaları ister:
 
 ```bash
+# Sözlük eşleşme sayımlarını yeniden üretir. data/lexicon/karaliste.txt ve
+# data/coltekin/offenseval-tr-training-v1.tsv GEREKİR, ikisi de dağıtılmaz.
 python day1_gate_en.py --out results/day1_report_rerun.json
-python tests/_verify_day1_reproduction.py      # diffs it against the frozen record
+
+# Yukarıdaki çıktıyı dondurulmuş kayıtla karşılaştırır. Yalnızca o çalıştırma
+# yapıldıysa anlamlıdır.
+python tests/_verify_day1_reproduction.py
+
+# Model eğitimi. GPU ve derlem GEREKİR; her ikisi de dağıtılmaz.
+python phase01_baseline.py --stage train
 ```
 
-## Offline demo
+Resmî test kümesini yeniden değerlendiren bir komut yoktur ve olmayacaktır; kilit
+bölüm 1'de anlatılmıştır.
 
-Three systems side by side — keyword filter, raw BERTurk, augmented variant —
-with the review layer gating the raw model at the frozen phase-04 threshold
-(0.663171). Build the asset bundle once (this is the only step that needs
-network), then run:
+Sonuçları okumak için hiçbir şey çalıştırmanız gerekmez: `results/` altındaki JSON
+dosyaları depodadır ve bu belgedeki her sayı oradan okunur.
 
-```bash
-python demo/build_assets.py \
-    --raw_ckpt     <path>/01_baseline_berturk/best.pt \
-    --defense_ckpt <path>/03_defense/1a1b_d/best.pt \
-    --out demo_assets
-python demo/app.py --host 127.0.0.1 --port 8000
-```
+## 6. Veri, model ve lisans
 
-At runtime it makes **no network calls**: `HF_HUB_OFFLINE=1` and
-`TRANSFORMERS_OFFLINE=1` are set before `transformers` is imported, there are no
-CDN script tags, and the served page carries no external references. CPU only, no
-GPU required. Startup takes roughly 40 s to load 885.9 MB of fp32 weights.
-
-On a deferred case the raw model's decision and probability are withheld from the
-page; the confidence that remains visible is `max(p, 1-p)`, which is
-label-neutral. The other two systems are not gated — the demo is a research
-comparison tool, and that is deliberate.
-
-## Ground rules
-
-Enforced in code where possible, not left as tribal knowledge:
-
-- **Seed 42** everywhere data is split, shuffled or a model is initialised, and
-  stated in every result file.
-- **Every experiment writes a step-named JSON** into `results/`. Nothing is
-  silently overwritten — `day1_gate_en.py` refuses to clobber without `--force`.
-- **The official Çöltekin test set was touched exactly once.**
-  `results/05_final_test/TEST_SET_SPENT.json` now exists, and
-  `data_io.load_coltekin_test()` refuses while it does. Deleting it is a
-  project-lead decision and must be recorded in `docs/RESULTS_LOG.md`.
-- **Pre-registration.** Each phase protocol in `phases/` fixes its decision rules,
-  numeric thresholds and failure conditions before any number of that phase
-  exists. Ordering is auditable with `git log --follow`.
-- **Training obfuscation ≠ evaluation obfuscation.** `obfuscation.assert_disjoint()`
-  raises if a robustness number would be measured on an attack family the model
-  was trained on. That circularity killed an earlier version of this idea.
-- **The lexicon is frozen** (695 entries, sha256 `0f5a05f5…ce20b` in
-  `results/day1_report.json`). Adding words after seeing a result is post-hoc
-  tuning and invalidates the lexicon-free measurement the whole project rests on.
-- **`docs/RESULTS_LOG.md` is append-only** — one row per completed experiment:
-  date, what ran, headline numbers, interpretation, decision. Contradictions are
-  recorded as new correction rows; earlier rows are never edited. The log
-  currently carries six correction rows and one spec-defect row.
-- **Byte stability.** `.gitattributes` sets `* -text` so Git performs no
-  end-of-line conversion — the repo records sha256 digests, and conversion would
-  make them unverifiable on any platform other than the one that wrote them.
-- **Every difference is reported with a confidence interval, whatever its sign.**
-  Negative results are published as results.
-
-## Data sources
-
-| Role | Source | Note |
+| Rol | Kaynak | Not |
 |---|---|---|
-| Train + diagnose | Çöltekin OffensEval-2020 TR | 31,756 rows, 85/15 train/dev |
-| Final test | Çöltekin official test + gold | 3,528 rows; touched once, now locked |
-| Cross-corpus | [Mayda](https://github.com/imayda/turkish-hate-speech-dataset-1), [Beyhan](https://github.com/verimsu/Turkish-HS-Dataset) | never trained on; 3-way labels → `LABEL_MAP_3TO2` |
-| Lexicon | [turkce-kufur-karaliste](https://github.com/ooguz/turkce-kufur-karaliste) | CC BY-SA 4.0; frozen Day 1 |
-| Base model | [`dbmdz/bert-base-turkish-cased`](https://huggingface.co/dbmdz/bert-base-turkish-cased) | 110,618,882 params |
+| Eğitim ve geliştirme | Çöltekin, Ç. (2020), A Corpus of Turkish Offensive Language on Social Media, LREC 2020, 6174-6184, ACL Anthology 2020.lrec-1.758 | 31.756 satır; tohum 42 ile %85 / %15 bölünür: 26.992 eğitim, 4.764 geliştirme. Dosya sha256 `8509c01c...2bcd4baa`. |
+| Resmî test | Aynı derlemin resmî test kümesi ve altın etiketleri | 3.528 satır. Bir kez okundu, kilitlendi. sha256 `9052784e...2866b437`. |
+| Sözlük | Oğuz, O., Türkçe Küfür Karaliste, https://github.com/ooguz/turkce-kufur-karaliste | 695 girdi, ölçüm başlamadan önce donduruldu, sha256 `0f5a05f5...3eace20b`. |
+| Temel model | `dbmdz/bert-base-turkish-cased` | Yaklaşık 110 milyon parametre. |
 
-Rejected: `Overfit-GM/turkish-toxic-language` — merged (likely contains
-Çöltekin → contamination) and partly pseudo-labeled.
+**Lisans durumu, açıkça.** Sözlüğün kaynak deposu lisansını "Creative Commons
+Attribution-ShareAlike 4.0 International" (CC BY-SA 4.0) olarak beyan etmektedir ve
+yukarıdaki adresten doğrulanabilir. Ancak bu lisans **bu depoda hiçbir yerde kayıtlı
+değildir**: `docs/phase_briefing.md`, sözlüğün "commit hash + lisans + tarih" ile
+kaydedilmesini şart koşuyordu ve lisans alanı hiç doldurulmadı. Geçerli olan kaynağın
+beyanıdır; eksik olan, bu deponun kendi kaydı. Projenin kendisi için de bir lisans
+dosyası yoktur.
+
+## 7. Sınırlılıklar
+
+Yalnızca Türkçe, yalnızca metin, tek derlem. Derlemler arası genelleme ölçülmedi.
+Kullanılabilirlik testi yapılmadı; arayüz için erişilebilirlik uygunluk süreci de
+işletilmedi. Resmî test kümesi harcanmıştır: tek geçişten sonra üretilen her sayı
+geliştirme kümesi kanıtıdır ve bu belgede öyle etiketlenmiştir.
