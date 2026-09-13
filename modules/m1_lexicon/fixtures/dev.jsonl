@@ -1,0 +1,4 @@
+{"id": "m1-dev-0001", "text": "Bu bir test cumlesi", "context": {"charsafe_text": "bu bir test cumlesi"}, "expected": []}
+{"id": "m1-dev-0002", "text": "Amcam ambulansla psikoloji kliniğine gitti", "context": {"charsafe_text": "amcam ambulansla psikoloji kliniğine gitti"}, "expected": []}
+{"id": "m1-dev-0003", "text": "<DEV-SET ITEM: A1 inflected root>", "expected": ["A1"], "placeholder": true}
+{"id": "m1-dev-0004", "text": "<DEV-SET ITEM: A4 sacred profanity>", "expected": ["A4"], "placeholder": true}

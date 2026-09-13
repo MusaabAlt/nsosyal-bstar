@@ -1,0 +1,52 @@
+# tr-moderation
+
+Turkish offensive-content moderation. Modular: every category of offensive
+speech gets its own engine, its own threshold and its own action. Runs fully
+offline on CPU - no platform API, no network call at inference.
+
+**Status: skeleton.** Contracts, decision layer, pipeline, evaluation harness
+and the reference module `m0_charsafe` are implemented. Modules m1-m6 are
+documented stubs, and every number in `decision/thresholds.yaml` is a
+placeholder until derived on dev.
+
+## Quick start
+
+```bash
+python -m pip install -r requirements.txt      # pyyaml only
+python -m pipeline.run "Bu bir test cumlesi"   # prints the full contract JSON
+python -m unittest discover -p "test_*.py"
+python -m modules.m0_charsafe.eval             # writes eval/results/m0_charsafe.json
+python -m eval.run_all                         # every module on its dev fixture
+python -m api.main --port 8080                 # POST /analyze {"text": "..."}
+bash scripts/check.sh                          # everything above, pre-merge
+```
+
+## How a post flows
+
+```
+text ─► m0_charsafe ─► m2_deobf ─► m1_lexicon ─► m6_target ─┬─► m3_encoder ─► m4_implicit ─► m5_sarcasm
+        (charsafe)     (parallel    (raw+norm)    (target,   │   (3 heads,      (C1-C5)        (D1)
+                        channel)                   guards)    │    both channels)
+                                                   fast path ─┘ (skip the rest when decisive)
+                                   ─► decision/fusion.py: fuse channels → thresholds → guards → thread → verdict
+```
+
+Modules emit scores (`code/score/source`); only `decision/` compares them with
+thresholds and picks an action (`block > escalate > review > nudge > clean`).
+
+## Layout
+
+| path | what |
+|---|---|
+| `contracts/` | FROZEN code books (`codes.py`), result dataclasses (`schema.py`), module interface (`module_api.py`), example JSON |
+| `modules/` | `registry.py` (order) + one folder per module: `module.py`, `spec.md`, `test_unit.py`, `eval.py`, `fixtures/` |
+| `decision/` | `thresholds.yaml` (the only place for numbers), `fusion.py`, `actions.py` |
+| `pipeline/` | `run.py` - orchestration + CLI |
+| `api/` | `main.py` - stdlib HTTP API |
+| `eval/` | `harness.py` (metrics, bootstrap CIs, traps, latency), `run_all.py`, `traps/`, `testsuite/`, `results/` |
+| `artifacts/` | `MANIFEST.md` - hashes of lexicons, gazetteers, weights |
+| `protocols/templates/` | annotation, threshold derivation, experiment and error-analysis templates |
+| `tests/` | contract, decision, pipeline and architecture-rule tests |
+| `scripts/check.sh` | pre-merge check |
+
+See `CLAUDE.md` for the rules and `CONTRIBUTING.md` for the workflow.

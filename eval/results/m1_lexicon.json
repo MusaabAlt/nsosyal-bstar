@@ -1,0 +1,57 @@
+{
+  "module": "m1_lexicon",
+  "version": "0.0.0",
+  "created_at": "2026-09-13T20:51:29+00:00",
+  "fixture": "modules\\m1_lexicon\\fixtures\\dev.jsonl",
+  "thresholds_artifact": "thresholds-v0.0.0-placeholder",
+  "thresholds_status": "placeholder",
+  "artifact_hash": "9f0ae7d423b13433d0c0a744e8c1a3f6be21dc9b40550153fc58f66bf5c0ec12",
+  "n_items": 4,
+  "n_scored": 2,
+  "n_placeholder": 2,
+  "codes": [],
+  "metrics": {
+    "recall": {
+      "value": null,
+      "ci_low": null,
+      "ci_high": null,
+      "n_boot_defined": 0
+    },
+    "precision": {
+      "value": null,
+      "ci_low": null,
+      "ci_high": null,
+      "n_boot_defined": 0
+    },
+    "fpr": {
+      "value": null,
+      "ci_low": null,
+      "ci_high": null,
+      "n_boot_defined": 0
+    }
+  },
+  "bootstrap": {
+    "n_boot": 500,
+    "ci": 0.95,
+    "seed": 20240901,
+    "unit": "item"
+  },
+  "per_code": {},
+  "expect": {
+    "n": 0,
+    "exact_match": null,
+    "failures": []
+  },
+  "traps": {
+    "n": 23,
+    "regressions": 0,
+    "failures": []
+  },
+  "latency": {
+    "p50_ms": 0.001500011421740055,
+    "p95_ms": 0.0037999998312443495,
+    "budget_p95_ms": 5,
+    "within_budget": true
+  },
+  "module_errors": []
+}

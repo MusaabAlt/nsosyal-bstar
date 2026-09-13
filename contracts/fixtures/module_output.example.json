@@ -1,0 +1,41 @@
+{
+  "module": "m0_charsafe",
+  "version": "0.1.0",
+  "ok": true,
+  "latency_ms": 0.07390000973828137,
+  "charsafe_text": "sıkıntı",
+  "normalized_text": null,
+  "form": {
+    "patterns": [
+      {
+        "code": "DOTLESS_I",
+        "confidence": 0.1,
+        "evidence": "'SIKINTI' -> 'sıkıntı' (Turkish casing I->ı, İ->i; ordinary capitalization)",
+        "span": [
+          0,
+          7
+        ],
+        "source": "m0_charsafe"
+      }
+    ],
+    "active": []
+  },
+  "content": [],
+  "target": null,
+  "guards": [],
+  "thread": null,
+  "signals": {
+    "offsets": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "invisible_removed": 0,
+    "homoglyphs_mapped": 0
+  },
+  "notes": []
+}
