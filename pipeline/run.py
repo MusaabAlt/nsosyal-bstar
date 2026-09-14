@@ -4,47 +4,168 @@ one AnalysisResult, honours the fast path, then hands off to the decision layer.
 The pipeline enforces the module contract at runtime:
   * fields a module did not declare in `provides` are dropped (rule 5)
   * threshold / fired / active set by a module are cleared (rule 4)
-  * a failing module degrades the result with a note, it never aborts it
+  * malformed output items (wrong types, NaN/inf scores, invalid spans, a
+    `source` naming another module) are dropped with a note - a NaN score is
+    an error, never an implicit "clean"
+  * each module sees a deep read-only copy of earlier modules' signals
+  * nothing a module does - failing to construct, load, run, or returning
+    garbage - crashes the request; the result is marked degraded instead
 
 CLI:  python -m pipeline.run "metin" [--compact] [--trace-id ID]
 """
 from __future__ import annotations
 
 import argparse
+import copy
 import hashlib
 import json
+import math
 import sys
 import time
 import uuid
 from types import MappingProxyType
-from typing import Any
+from typing import Any, Mapping
 
+from contracts.codes import ContentCode, FormCode, GuardCode, ModuleName, TargetType
 from contracts.module_api import Context, ModuleOutput
-from contracts.schema import AnalysisResult, ThreadSignal
+from contracts.schema import (AnalysisResult, ContentScore, FormPattern, FormResult, GuardResult, TargetResult,
+                              ThreadSignal)
 from decision import fusion
 from modules import registry
 
+_IMMUTABLE_SCALARS = (str, int, float, bool, bytes, type(None))
 
-def artifact_hash(cfg_path: Any, modules: list[Any]) -> str:
-    """sha256 over the thresholds file and every module name:version, so a
-    stored result names exactly which decision config and code produced it."""
+
+def _canonical(value: Any) -> Any:
+    if isinstance(value, Mapping):
+        return {str(k): _canonical(v) for k, v in sorted(value.items(), key=lambda kv: str(kv[0]))}
+    if isinstance(value, (list, tuple)):
+        return [_canonical(v) for v in value]
+    return value
+
+
+def artifact_hash(config: Mapping[str, Any], modules: list[Any]) -> str:
+    """sha256 over the decision config actually in use (in-memory, canonical
+    JSON) and every module name:version. The harness uses this same function,
+    so a stored result names exactly which decision config and code produced it."""
     digest = hashlib.sha256()
-    with open(cfg_path, "rb") as fh:
-        digest.update(fh.read())
+    digest.update(json.dumps(_canonical(config), sort_keys=True, separators=(",", ":"),
+                             ensure_ascii=False, default=str).encode("utf-8"))
     for module in modules:
-        digest.update(f"{module.name.value}:{module.version}".encode())
+        digest.update(f"|{module.name.value}:{module.version}".encode("utf-8"))
     return digest.hexdigest()
+
+
+def deep_freeze(value: Any) -> Any:
+    """Read-only deep copy: mappings become MappingProxyType, sequences tuples.
+    A module can therefore neither mutate another module's signal payload nor
+    see later mutations by the producer."""
+    if isinstance(value, Mapping):
+        return MappingProxyType({k: deep_freeze(v) for k, v in value.items()})
+    if isinstance(value, (list, tuple)):
+        return tuple(deep_freeze(v) for v in value)
+    if isinstance(value, (set, frozenset)):
+        return frozenset(deep_freeze(v) for v in value)
+    if isinstance(value, _IMMUTABLE_SCALARS) or isinstance(value, (ModuleName, ContentCode, FormCode, GuardCode)):
+        return value
+    return copy.deepcopy(value)
+
+
+class UnavailableModule:
+    """Stands in for a module that could not be constructed or loaded, so the
+    failure is reported on every request instead of crashing the service."""
+
+    def __init__(self, name: ModuleName, error: str) -> None:
+        self.name = name
+        self.version = "unavailable"
+        self.provides: frozenset[str] = frozenset()
+        self.error = error
+
+    def load(self) -> None:
+        return None
+
+    def process(self, ctx: Context) -> ModuleOutput:
+        return ModuleOutput(ok=False, notes=[self.error])
+
+
+def build_modules_safely(entries: tuple[registry.RegistryEntry, ...] = registry.REGISTRY) -> list[Any]:
+    modules: list[Any] = []
+    for entry in entries:
+        if not entry.enabled:
+            continue
+        try:
+            module = registry.load_class(entry)()
+        except Exception as exc:
+            modules.append(UnavailableModule(entry.name, f"construction failed: {type(exc).__name__}: {exc}"))
+            continue
+        try:
+            module.load()
+        except Exception as exc:
+            modules.append(UnavailableModule(entry.name, f"load failed: {type(exc).__name__}: {exc}"))
+            continue
+        modules.append(module)
+    return modules
+
+
+def safe_process(module: Any, ctx: Context) -> ModuleOutput:
+    """Call module.process without letting anything escape. BaseModule already
+    catches its own exceptions; this also covers Protocol-only modules."""
+    start = time.perf_counter()
+    try:
+        out = module.process(ctx)
+        if not isinstance(out, ModuleOutput):
+            out = ModuleOutput(ok=False, notes=[f"process returned {type(out).__name__}, expected ModuleOutput"])
+    except Exception as exc:
+        out = ModuleOutput(ok=False, notes=[f"process raised {type(exc).__name__}: {exc}"])
+    out.module = module.name.value
+    out.version = getattr(module, "version", "")
+    out.latency_ms = (time.perf_counter() - start) * 1000.0
+    return out
+
+
+def _finite(value: Any) -> bool:
+    return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
+
+
+def _span_problem(span: Any, text: str) -> str | None:
+    if span is None:
+        return None
+    if (not isinstance(span, (tuple, list)) or len(span) != 2
+            or not all(isinstance(v, int) and not isinstance(v, bool) for v in span)):
+        return f"span {span!r} is not a (start, end) pair of ints"
+    if not 0 <= span[0] <= span[1] <= len(text):
+        return f"span {tuple(span)} is outside the original text (length {len(text)})"
+    return None
+
+
+def _source_problem(source: Any, name: str, required: bool) -> str | None:
+    if not isinstance(source, str):
+        return f"source {source!r} is not a string"
+    if not source:
+        return "source is empty" if required else None
+    if fusion.module_of(source) != name:
+        # A module may not speak for another: guard scoping (ADR-001) trusts `source`.
+        return f"source {source!r} names a different module"
+    return None
 
 
 class Pipeline:
     def __init__(self, modules: list[Any] | None = None, config: dict[str, Any] | None = None,
                  config_path: str | None = None) -> None:
         path = config_path if config_path is not None else fusion.DEFAULT_CONFIG_PATH
+        # A broken decision config must stop the service at startup, loudly.
         self.config = config if config is not None else fusion.load_config(path)
-        self.modules = modules if modules is not None else registry.build_all()
-        self.artifact_hash = artifact_hash(path, self.modules)
-        for module in self.modules:
-            module.load()
+        if modules is None:
+            self.modules = build_modules_safely()
+        else:
+            self.modules = []
+            for module in modules:
+                try:
+                    module.load()
+                    self.modules.append(module)
+                except Exception as exc:
+                    self.modules.append(UnavailableModule(module.name, f"load failed: {type(exc).__name__}: {exc}"))
+        self.artifact_hash = artifact_hash(self.config, self.modules)
 
     def analyze(self, text: str, thread: ThreadSignal | None = None,
                 trace_id: str | None = None) -> AnalysisResult:
@@ -66,10 +187,10 @@ class Pipeline:
                 text=text,
                 charsafe_text=charsafe_text,
                 normalized_text=normalized_text,
-                signals=MappingProxyType(dict(signals)),
+                signals=deep_freeze(signals),
                 trace_id=result.trace_id,
             )
-            out = module.process(ctx)
+            out = safe_process(module, ctx)
             self._merge(result, out, module)
             if "charsafe_text" in module.provides and out.charsafe_text is not None:
                 charsafe_text = out.charsafe_text
@@ -79,7 +200,8 @@ class Pipeline:
             ran.add(module.name.value)
 
             remaining = self.modules[index + 1:]
-            if remaining and required <= ran and fusion.fast_path_hit(result.content, result.guards, self.config, signals):
+            if remaining and required <= ran and fusion.fast_path_hit(result.content, result.guards,
+                                                                     self.config, signals):
                 result.fast_path = True
                 skipped = ", ".join(m.name.value for m in remaining)
                 result.notes.append(f"[pipeline] fast path after {module.name.value}; skipped: {skipped}")
@@ -93,7 +215,12 @@ class Pipeline:
             # A screenshot of a "clean" verdict must not pass for a real result.
             result.notes.insert(0, f"[pipeline] STUB modules with no detection logic (their silence is not "
                                    f"evidence): {', '.join(stubs)}")
-        fusion.decide(result, self.config)
+        try:
+            fusion.decide(result, self.config)
+        except Exception as exc:
+            result.verdict = None
+            result.explanation = "Karar verilemedi: karar katmanında bir hata oluştu, içerik değerlendirilmedi."
+            result.notes.append(f"[pipeline] decision layer failed: {type(exc).__name__}: {exc}")
         result.latency_ms = (time.perf_counter() - start) * 1000.0
         return result
 
@@ -101,9 +228,17 @@ class Pipeline:
     def _merge(result: AnalysisResult, out: ModuleOutput, module: Any) -> None:
         name = module.name.value
         result.per_module_ms[name] = out.latency_ms
+        if not isinstance(out.notes, list):
+            out.notes = [f"notes was {type(out.notes).__name__}, expected list"]
         result.notes.extend(f"[{name}] {note}" for note in out.notes)
-        if not out.ok:
-            result.notes.append(f"[pipeline] {name} failed; result is degraded")
+        if not isinstance(out.signals, dict):
+            result.notes.append(f"[pipeline] {name} signals was {type(out.signals).__name__}; replaced by {{}}")
+            out.signals = {}
+
+        problems: list[str] = []
+
+        def drop(what: str, why: str) -> None:
+            problems.append(f"[pipeline] {name}: dropped {what}: {why}")
 
         undeclared = out.populated_fields() - set(module.provides)
         if undeclared:
@@ -112,33 +247,90 @@ class Pipeline:
         def allowed(field_name: str) -> bool:
             return field_name in module.provides and field_name not in undeclared
 
+        for text_field in ("charsafe_text", "normalized_text"):
+            value = getattr(out, text_field)
+            if value is not None and not isinstance(value, str):
+                drop(text_field, f"is {type(value).__name__}, expected str")
+                setattr(out, text_field, None)
+
         if allowed("form") and out.form is not None:
-            for pattern in out.form.patterns:
-                pattern.source = pattern.source or name
-            result.form.patterns.extend(out.form.patterns)
-            if out.form.active:
-                result.notes.append(f"[pipeline] {name} set form.active (decision-owned); cleared")
+            if not isinstance(out.form, FormResult):
+                drop("form", f"is {type(out.form).__name__}, expected FormResult")
+            else:
+                for i, pattern in enumerate(out.form.patterns):
+                    if not isinstance(pattern, FormPattern) or not isinstance(pattern.code, FormCode):
+                        drop(f"form pattern #{i}", "not a FormPattern with a FormCode")
+                    elif not _finite(pattern.confidence):
+                        drop(f"form pattern #{i} ({pattern.code.value})",
+                             f"confidence {pattern.confidence!r} is not a finite number")
+                    elif (why := _span_problem(pattern.span, result.text)
+                          or _source_problem(pattern.source, name, required=False)):
+                        drop(f"form pattern #{i} ({pattern.code.value})", why)
+                    else:
+                        pattern.source = pattern.source or name
+                        result.form.patterns.append(pattern)
+                if out.form.active:
+                    result.notes.append(f"[pipeline] {name} set form.active (decision-owned); cleared")
+
         if allowed("content"):
-            for score in out.content:
+            for i, score in enumerate(out.content):
+                if not isinstance(score, ContentScore) or not isinstance(score.code, ContentCode):
+                    drop(f"content item #{i}", "not a ContentScore with a ContentCode")
+                    continue
+                if not _finite(score.score):
+                    drop(f"content {score.code.value}",
+                         f"score {score.score!r} is not a finite number (treated as an error, not as clean)")
+                    continue
+                why = _span_problem(score.span, result.text) or _source_problem(score.source, name, required=True)
+                if why:
+                    drop(f"content {score.code.value}", why)
+                    continue
                 if score.threshold is not None or score.fired is not None:
                     result.notes.append(f"[pipeline] {name} set threshold/fired on {score.code.value} "
                                         f"(decision-owned); cleared")
                     score.threshold, score.fired = None, None
                 result.content.append(score)
+
         if allowed("guards"):
-            for guard in out.guards:
+            for i, guard in enumerate(out.guards):
+                if not isinstance(guard, GuardResult) or not isinstance(guard.code, GuardCode):
+                    drop(f"guard #{i}", "not a GuardResult with a GuardCode")
+                    continue
+                if not _finite(guard.score):
+                    drop(f"guard {guard.code.value}", f"score {guard.score!r} is not a finite number")
+                    continue
+                why = _span_problem(guard.span, result.text) or _source_problem(guard.source, name, required=False)
+                if why:
+                    drop(f"guard {guard.code.value}", why)
+                    continue
+                guard.source = guard.source or name
                 if guard.threshold is not None or guard.active is not None or guard.suppressed:
                     result.notes.append(f"[pipeline] {name} set decision fields on guard "
                                         f"{guard.code.value}; cleared")
                     guard.threshold, guard.active, guard.suppressed = None, None, []
                 result.guards.append(guard)
+
         if allowed("target") and out.target is not None:
-            if result.target is not None:
-                result.notes.append(f"[pipeline] {name} overrides target from {result.target.source}")
-            result.target = out.target
+            if (not isinstance(out.target, TargetResult) or not isinstance(out.target.type, TargetType)
+                    or not _finite(out.target.confidence)):
+                drop("target", "not a TargetResult with a TargetType and finite confidence")
+            elif why := _span_problem(out.target.span, result.text):
+                drop("target", why)
+            else:
+                if result.target is not None:
+                    result.notes.append(f"[pipeline] {name} overrides target from {result.target.source}")
+                result.target = out.target
+
         if allowed("thread") and out.thread is not None:
-            out.thread.threshold, out.thread.fired = None, None
-            result.thread = out.thread
+            if not isinstance(out.thread, ThreadSignal) or not isinstance(out.thread.repeat_count, int):
+                drop("thread", "not a ThreadSignal with an int repeat_count")
+            else:
+                out.thread.threshold, out.thread.fired = None, None
+                result.thread = out.thread
+
+        result.notes.extend(problems)
+        if not out.ok or problems:
+            result.notes.append(f"[pipeline] {name} failed or returned invalid output; result is degraded")
 
 
 def main(argv: list[str] | None = None) -> int:

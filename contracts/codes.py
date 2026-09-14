@@ -136,65 +136,96 @@ def codes_in_family(family: Family) -> list[ContentCode]:
     return [code for code, fam in FAMILY.items() if fam is family]
 
 
+class EnumLabels(dict):
+    """Label map keyed by (enum type, value).
+
+    These enums subclass `str`, so members of different enums with the same
+    value compare and hash equal - `ContentCode.CLEAN == Family.CLEAN` - and a
+    plain dict silently keeps only one of them (ADR-002). Keying by type keeps
+    `TR_LABELS[member]`, `member in TR_LABELS` and `.get` working unchanged.
+    """
+
+    @staticmethod
+    def _key(member: Enum) -> tuple[type, str]:
+        return (type(member), member.value)
+
+    def __init__(self, pairs: list[tuple[Enum, str]]) -> None:
+        super().__init__()
+        for member, label in pairs:
+            key = self._key(member)
+            if dict.__contains__(self, key):
+                raise ValueError(f"duplicate label for {member!r}")
+            dict.__setitem__(self, key, label)
+
+    def __getitem__(self, member: Enum) -> str:
+        return dict.__getitem__(self, self._key(member))
+
+    def __contains__(self, member: object) -> bool:
+        return isinstance(member, Enum) and dict.__contains__(self, self._key(member))
+
+    def get(self, member: Enum, default: str | None = None) -> str | None:  # type: ignore[override]
+        return self[member] if member in self else default
+
+
 # Turkish labels for the UI. Every enum member must have an entry
 # (enforced by tests/test_contracts.py).
-TR_LABELS: dict[Enum, str] = {
-    ContentCode.A1: "Hedefsiz küfür",
-    ContentCode.A2: "Bireye yönelik küfür",
-    ContentCode.A3: "Gruba yönelik küfür",
-    ContentCode.A4: "Kutsal değerlere yönelik küfür",
-    ContentCode.B1: "Aşağılama",
-    ContentCode.B2: "Tehdit",
-    ContentCode.B3: "Lanetleme / dışlama",
-    ContentCode.B4: "Kişisel bilgi ifşası (doxing)",
-    ContentCode.B5: "Cinsel saldırganlık",
-    ContentCode.C1: "Kalıp yargı",
-    ContentCode.C2: "Aşağılık atfetme",
-    ContentCode.C3: "Kodlu dil",
-    ContentCode.C4: "Kışkırtma",
-    ContentCode.C5: "Karalama / iftira",
-    ContentCode.D1: "Aşağılayıcı alay",
-    ContentCode.CLEAN: "Temiz",
-    Family.A: "Açık küfür",
-    Family.B: "Sözcük dışı saldırganlık",
-    Family.C: "Örtük saldırganlık",
-    Family.D: "Aşağılayıcı ironi",
-    Family.CLEAN: "Temiz",
-    FormCode.LEET: "Rakam/sembol ikamesi",
-    FormCode.SPACED: "Harf arası boşluk",
-    FormCode.PUNCT_SPLIT: "Noktalama ile bölme",
-    FormCode.REPEAT: "Harf tekrarı",
-    FormCode.CHAR_DROP: "Harf düşürme",
-    FormCode.WORD_MERGE: "Sözcük birleştirme",
-    FormCode.ABBREV: "Kısaltma",
-    FormCode.DEASCII: "Türkçe karaktersiz yazım",
-    FormCode.DOTLESS_I: "Noktalı/noktasız i oyunu",
-    FormCode.VOWEL_DROP: "Ünlü düşürme",
-    FormCode.SUFFIX_ON_MASKED: "Maskelenmiş köke ek",
-    FormCode.DIALECT: "Ağız / yöresel yazım",
-    FormCode.HOMOGLYPH: "Benzer görünümlü karakter",
-    FormCode.ZERO_WIDTH: "Görünmez karakter",
-    FormCode.EMOJI_SUB: "Emoji ikamesi",
-    FormCode.PHONETIC: "Sesletime dayalı yazım",
-    GuardCode.SUBSTRING_COLLISION: "Alt dizi çakışması",
-    GuardCode.NEGATION: "Olumsuzlama",
-    GuardCode.QUOTE_COUNTERSPEECH: "Alıntı / karşı söylem",
-    GuardCode.METADISCUSSION: "Dil üzerine tartışma",
-    GuardCode.SELF_DIRECTED: "Kendine yönelik",
-    GuardCode.FRIENDLY_BANTER: "Dostça takılma",
-    GuardCode.DUAL_REGISTER: "Çift anlamlı kullanım",
-    GuardCode.HOMONYM: "Eş sesli sözcük",
-    GuardCode.NON_HUMAN_TARGET: "İnsan dışı hedef",
-    TargetType.INDIVIDUAL: "Birey",
-    TargetType.GROUP: "Grup",
-    TargetType.NON_HUMAN: "İnsan dışı",
-    TargetType.NONE: "Hedef yok",
-    Action.BLOCK: "Engelle",
-    Action.ESCALATE: "Üst incelemeye ilet",
-    Action.REVIEW: "İncelemeye al",
-    Action.NUDGE: "Uyar",
-    Action.CLEAN: "Temiz",
-}
+TR_LABELS: EnumLabels = EnumLabels([
+    (ContentCode.A1, "Hedefsiz küfür"),
+    (ContentCode.A2, "Bireye yönelik küfür"),
+    (ContentCode.A3, "Gruba yönelik küfür"),
+    (ContentCode.A4, "Kutsal değerlere yönelik küfür"),
+    (ContentCode.B1, "Aşağılama"),
+    (ContentCode.B2, "Tehdit"),
+    (ContentCode.B3, "Lanetleme / dışlama"),
+    (ContentCode.B4, "Kişisel bilgi ifşası (doxing)"),
+    (ContentCode.B5, "Cinsel saldırganlık"),
+    (ContentCode.C1, "Kalıp yargı"),
+    (ContentCode.C2, "Aşağılık atfetme"),
+    (ContentCode.C3, "Kodlu dil"),
+    (ContentCode.C4, "Kışkırtma"),
+    (ContentCode.C5, "Karalama / iftira"),
+    (ContentCode.D1, "Aşağılayıcı alay"),
+    (ContentCode.CLEAN, "Temiz"),
+    (Family.A, "Açık küfür"),
+    (Family.B, "Sözcük dışı saldırganlık"),
+    (Family.C, "Örtük saldırganlık"),
+    (Family.D, "Aşağılayıcı ironi"),
+    (Family.CLEAN, "Temiz"),
+    (FormCode.LEET, "Rakam/sembol ikamesi"),
+    (FormCode.SPACED, "Harf arası boşluk"),
+    (FormCode.PUNCT_SPLIT, "Noktalama ile bölme"),
+    (FormCode.REPEAT, "Harf tekrarı"),
+    (FormCode.CHAR_DROP, "Harf düşürme"),
+    (FormCode.WORD_MERGE, "Sözcük birleştirme"),
+    (FormCode.ABBREV, "Kısaltma"),
+    (FormCode.DEASCII, "Türkçe karaktersiz yazım"),
+    (FormCode.DOTLESS_I, "Noktalı/noktasız i oyunu"),
+    (FormCode.VOWEL_DROP, "Ünlü düşürme"),
+    (FormCode.SUFFIX_ON_MASKED, "Maskelenmiş köke ek"),
+    (FormCode.DIALECT, "Ağız / yöresel yazım"),
+    (FormCode.HOMOGLYPH, "Benzer görünümlü karakter"),
+    (FormCode.ZERO_WIDTH, "Görünmez karakter"),
+    (FormCode.EMOJI_SUB, "Emoji ikamesi"),
+    (FormCode.PHONETIC, "Sesletime dayalı yazım"),
+    (GuardCode.SUBSTRING_COLLISION, "Alt dizi çakışması"),
+    (GuardCode.NEGATION, "Olumsuzlama"),
+    (GuardCode.QUOTE_COUNTERSPEECH, "Alıntı / karşı söylem"),
+    (GuardCode.METADISCUSSION, "Dil üzerine tartışma"),
+    (GuardCode.SELF_DIRECTED, "Kendine yönelik"),
+    (GuardCode.FRIENDLY_BANTER, "Dostça takılma"),
+    (GuardCode.DUAL_REGISTER, "Çift anlamlı kullanım"),
+    (GuardCode.HOMONYM, "Eş sesli sözcük"),
+    (GuardCode.NON_HUMAN_TARGET, "İnsan dışı hedef"),
+    (TargetType.INDIVIDUAL, "Birey"),
+    (TargetType.GROUP, "Grup"),
+    (TargetType.NON_HUMAN, "İnsan dışı"),
+    (TargetType.NONE, "Hedef yok"),
+    (Action.BLOCK, "Engelle"),
+    (Action.ESCALATE, "Üst incelemeye ilet"),
+    (Action.REVIEW, "İncelemeye al"),
+    (Action.NUDGE, "Uyar"),
+    (Action.CLEAN, "Temiz"),
+])
 
 
 def tr_label(code: Enum) -> str:

@@ -114,7 +114,7 @@ budgets:
   fpr_increase_on_clean: 0.005     # PLACEHOLDER - max absolute FPR increase a change may cause
   latency_p95_ms: 150              # PLACEHOLDER - whole pipeline, CPU
   module_latency_p95_ms:           # PLACEHOLDER - per module, CPU
-    m0_charsafe: 2
+    m0_charsafe: 1                 # PLACEHOLDER - spec.md acceptance: p95 under 1 ms
     m1_lexicon: 5
     m2_deobf: 10
     m3_encoder: 80

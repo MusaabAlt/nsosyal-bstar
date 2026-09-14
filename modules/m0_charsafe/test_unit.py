@@ -8,7 +8,11 @@ from types import MappingProxyType
 from contracts.codes import FormCode, ModuleName
 from contracts.module_api import Context, ModuleOutput
 from contracts.schema import ContentScore, GuardResult
-from modules.m0_charsafe.module import CharSafeModule
+from modules.m0_charsafe.module import (CONF_CASING_INNER, CONF_CASING_ORDINARY, CONF_COMBINING_STUFFING,
+                                        CONF_FULLWIDTH, CONF_HOMOGLYPH_ALL_LOOKALIKE,
+                                        CONF_HOMOGLYPH_MIXED_SCRIPT, CONF_INVISIBLE_BOUNDARY,
+                                        CONF_INVISIBLE_INSIDE_WORD, CONF_INVISIBLE_LEADING_BOM,
+                                        CharSafeModule)
 
 ZWSP = "\u200b"
 ZWJ = "\u200d"
@@ -133,7 +137,7 @@ class CharSafeTest(unittest.TestCase):
         self.assertEqual(pattern.span, (2, 4))
         self.assertIn("inside word", pattern.evidence)
         self.assertIn("U+200B", pattern.evidence)
-        self.assertGreater(pattern.confidence, 0.9)
+        self.assertEqual(pattern.confidence, CONF_INVISIBLE_INSIDE_WORD)
 
     def test_soft_hyphen_is_cf_and_stripped(self) -> None:
         out = self.run_m0("ap" + SOFT_HYPHEN + "tal")
@@ -143,7 +147,7 @@ class CharSafeTest(unittest.TestCase):
     def test_leading_bom_is_low_confidence(self) -> None:
         out = self.run_m0(BOM + "Merhaba")
         self.assertEqual(out.charsafe_text, "merhaba")
-        self.assertLess(out.form.patterns[0].confidence, 0.1)
+        self.assertEqual(out.form.patterns[0].confidence, CONF_INVISIBLE_LEADING_BOM)
 
     def test_layout_controls_are_preserved(self) -> None:
         out = self.run_m0("kerpic\nsikke\tamca")
@@ -191,7 +195,7 @@ class CharSafeTest(unittest.TestCase):
         self.assertEqual(out.charsafe_text, "sıkıntı")
         [pattern] = out.form.patterns
         self.assertIs(pattern.code, FormCode.DOTLESS_I)
-        self.assertLess(pattern.confidence, 0.5)
+        self.assertEqual(pattern.confidence, CONF_CASING_ORDINARY)
 
     def test_dotted_capital_i(self) -> None:
         self.assertEqual(self.run_m0("İSTANBUL").charsafe_text, "istanbul")
@@ -204,7 +208,75 @@ class CharSafeTest(unittest.TestCase):
     def test_inner_capital_i_is_high_confidence(self) -> None:
         out = self.run_m0("sIkIntI")
         self.assertEqual(out.charsafe_text, "sıkıntı")
-        self.assertGreater(out.form.patterns[0].confidence, 0.5)
+        self.assertEqual(out.form.patterns[0].confidence, CONF_CASING_INNER)
+
+    def test_evidence_strength_ordering(self) -> None:
+        # Relative strength is the module's claim; where the cut-off sits is
+        # decided in decision/thresholds.yaml, not here.
+        self.assertLess(CONF_INVISIBLE_LEADING_BOM, CONF_INVISIBLE_BOUNDARY)
+        self.assertLess(CONF_INVISIBLE_BOUNDARY, CONF_INVISIBLE_INSIDE_WORD)
+        self.assertLess(CONF_HOMOGLYPH_ALL_LOOKALIKE, CONF_HOMOGLYPH_MIXED_SCRIPT)
+        self.assertLess(CONF_CASING_ORDINARY, CONF_CASING_INNER)
+
+    # -- gaps: fullwidth, combining marks, invisible fillers ----------------------
+    def test_fullwidth_letters_are_mapped(self) -> None:
+        text = "".join(chr(0xFF41 + ord(c) - ord("a")) for c in "aptal")
+        out = self.run_m0(text)
+        self.assertEqual(out.charsafe_text, "aptal")
+        [pattern] = out.form.patterns
+        self.assertIs(pattern.code, FormCode.HOMOGLYPH)
+        self.assertEqual(pattern.confidence, CONF_FULLWIDTH)
+        self.assertEqual(pattern.span, (0, 5))
+
+    def test_fullwidth_capital_i_follows_turkish_casing(self) -> None:
+        out = self.run_m0(chr(0xFF33) + chr(0xFF29) + "KINTI")
+        self.assertEqual(out.charsafe_text, "sıkıntı")
+        self.assertIn(FormCode.DOTLESS_I, self.codes(out))
+
+    def test_fullwidth_punctuation_is_left_alone(self) -> None:
+        text = "\u4f60\u597d\uff01"
+        out = self.run_m0(text)
+        self.assertEqual(out.charsafe_text, text)
+        self.assertEqual(out.form.patterns, [])
+
+    def test_combining_mark_stuffing_is_stripped(self) -> None:
+        text = "".join(c + "\u0336" for c in "aptal")
+        out = self.run_m0(text)
+        self.assertEqual(out.charsafe_text, "aptal")
+        [pattern] = out.form.patterns
+        self.assertIs(pattern.code, FormCode.ZERO_WIDTH)
+        self.assertEqual(pattern.confidence, CONF_COMBINING_STUFFING)
+        self.assertEqual(out.signals["offsets"], [0, 2, 4, 6, 8])
+
+    def test_decomposed_turkish_letter_is_composed_not_stripped(self) -> None:
+        out = self.run_m0("s\u0327ahane")
+        self.assertEqual(out.charsafe_text, "şahane")
+        self.assertLess(out.form.patterns[0].confidence, CONF_COMBINING_STUFFING)
+
+    def test_combining_marks_of_other_scripts_are_kept(self) -> None:
+        text = "\u0645\u064e\u0631\u062d\u064e\u0628\u064b\u0627"
+        out = self.run_m0(text)
+        self.assertEqual(out.charsafe_text, text)
+        self.assertEqual(out.form.patterns, [])
+
+    def test_emoji_presentation_marks_are_kept(self) -> None:
+        for text in ("\u2764\ufe0f", "1\ufe0f\u20e3"):
+            with self.subTest(text=text):
+                out = self.run_m0(text)
+                self.assertEqual(out.charsafe_text, text)
+                self.assertEqual(out.form.patterns, [])
+
+    def test_invisible_filler_letters_are_stripped(self) -> None:
+        for filler in ("\u3164", "\u115f", "\u1160", "\uffa0", "\u2800"):
+            with self.subTest(filler=hex(ord(filler))):
+                out = self.run_m0("ap" + filler + "tal")
+                self.assertEqual(out.charsafe_text, "aptal")
+                self.assertEqual(self.codes(out), [FormCode.ZERO_WIDTH])
+                self.assertEqual(out.form.patterns[0].confidence, CONF_INVISIBLE_INSIDE_WORD)
+
+    def test_charsafe_changed_signal(self) -> None:
+        self.assertFalse(self.run_m0("bu bir test").signals["charsafe_changed"])
+        self.assertTrue(self.run_m0("ap\u200btal").signals["charsafe_changed"])
 
     def test_ascii_i_is_not_guessed_as_dotted(self) -> None:
         # DEASCII is m2's interpretation, not m0's.

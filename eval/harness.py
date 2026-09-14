@@ -6,6 +6,7 @@ Fixture format (jsonl, one item per line):
    "context": {"charsafe_text": "...", "normalized_text": "...", "signals": {}},  # optional
    "expect": {"charsafe_text": "..."},                                            # optional
    "expect_clean": true,                                                           # optional
+   ("expect_patterns" is accepted as the spec.md name for "expected")
    "placeholder": false}                                                           # optional
 
 `context` lets a downstream module be measured without running upstream
@@ -30,9 +31,9 @@ import datetime as dt
 import json
 import random
 import sys
+import unicodedata
 from dataclasses import dataclass
 from pathlib import Path
-from types import MappingProxyType
 from typing import Any
 
 from contracts.codes import ContentCode, FormCode, GuardCode, TargetType
@@ -40,7 +41,7 @@ from contracts.module_api import Context, ModuleOutput
 from contracts.schema import AnalysisResult
 from decision import fusion
 from modules import registry
-from pipeline.run import Pipeline, artifact_hash
+from pipeline.run import Pipeline, artifact_hash, deep_freeze, safe_process
 
 ROOT = Path(__file__).resolve().parent.parent
 TRAPS_PATH = ROOT / "eval" / "traps" / "traps.jsonl"
@@ -91,8 +92,9 @@ def code_space(module: Any) -> list[str]:
 
 
 def tr_fold(text: str) -> str:
-    """Turkish-aware case fold, used only to decide whether a word changed."""
-    return text.replace("I", "ı").replace("İ", "i").lower()
+    """Turkish-aware case fold, used only to decide whether a word changed.
+    NFC first: canonical composition ("s" + U+0327 -> "ş") is not damage."""
+    return unicodedata.normalize("NFC", text).replace("I", "ı").replace("İ", "i").lower()
 
 
 @dataclass
@@ -140,10 +142,10 @@ class ModuleEvaluator:
             text=item["text"],
             charsafe_text=extra.get("charsafe_text"),
             normalized_text=extra.get("normalized_text"),
-            signals=MappingProxyType(dict(extra.get("signals", {}))),
+            signals=deep_freeze(extra.get("signals", {})),
             trace_id=str(item.get("id", "")),
         )
-        out = self.module.process(ctx)
+        out = safe_process(self.module, ctx)
         (self.fixture_latencies if latencies is None else latencies).append(out.latency_ms)
         result = AnalysisResult(text=item["text"])
         Pipeline._merge(result, out, self.module)
@@ -231,7 +233,7 @@ class ModuleEvaluator:
             out, _, predicted = self.run_item(item)
             if not out.ok:
                 module_errors.append({"id": item.get("id"), "notes": out.notes})
-            gold = set(item.get("expected", []))
+            gold = set(item.get("expected", item.get("expect_patterns", [])))
             unknown = sorted(gold - set(codes))
             if unknown:
                 out_of_space.append({"id": item.get("id"), "codes": unknown})
@@ -267,7 +269,8 @@ class ModuleEvaluator:
                         else str(self.fixture_path)),
             "thresholds_artifact": self.config["artifact"]["id"],
             "thresholds_status": self.config["artifact"]["status"],
-            "artifact_hash": artifact_hash(fusion.DEFAULT_CONFIG_PATH, [self.module]),
+            # Same definition as the pipeline: config in use + the modules measured (here, one).
+            "artifact_hash": artifact_hash(self.config, [self.module]),
             "n_items": len(items),
             "n_scored": len(scored),
             "n_placeholder": len(items) - len(scored),

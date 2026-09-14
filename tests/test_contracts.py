@@ -28,6 +28,15 @@ class CodesTest(unittest.TestCase):
             for member in enum:
                 self.assertIn(member, TR_LABELS, member)
 
+    def test_turkish_labels_do_not_collide_across_enums(self) -> None:
+        # str-valued members of different enums hash equal (ADR-002).
+        self.assertEqual(ContentCode.CLEAN, Family.CLEAN)
+        expected = sum(len(e) for e in (ContentCode, Family, FormCode, GuardCode, TargetType, Action))
+        self.assertEqual(len(TR_LABELS), expected)
+        self.assertIn(ContentCode.CLEAN, TR_LABELS)
+        self.assertIn(Family.CLEAN, TR_LABELS)
+        self.assertNotIn("CLEAN", TR_LABELS)
+
     def test_family_map(self) -> None:
         self.assertIs(FAMILY[ContentCode.B4], Family.B)
         self.assertIs(FAMILY[ContentCode.CLEAN], Family.CLEAN)

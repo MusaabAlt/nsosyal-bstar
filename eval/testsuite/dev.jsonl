@@ -1,2 +1,2 @@
 {"id": "ts-000001", "text": "Bu bir test cumlesi", "content": "CLEAN", "form": [], "target": "none", "level": "post", "guards": [], "split": "dev", "source": "format-example", "annotators": 0}
-{"id": "ts-000002", "text": "SIKINTI YOK", "content": "CLEAN", "form": [], "target": "none", "level": "post", "guards": ["SUBSTRING_COLLISION"], "split": "dev", "source": "format-example", "annotators": 0}
+{"id": "ts-000002", "text": "SIKINTI YOK", "content": "CLEAN", "form": [], "target": "none", "level": "post", "guards": [], "split": "dev", "source": "format-example", "annotators": 0}

@@ -49,7 +49,7 @@ class _Spy(BaseModule):
     def _run(self, ctx: Context) -> ModuleOutput:
         self.seen.append(ctx)
         # Also returns an undeclared field, which must be dropped.
-        return ModuleOutput(guards=[GuardResult(GuardCode.NEGATION, 0.1, "m3")], normalized_text="sneaky")
+        return ModuleOutput(guards=[GuardResult(GuardCode.NEGATION, 0.1, "m3_encoder")], normalized_text="sneaky")
 
 
 class PipelineTest(unittest.TestCase):
@@ -134,6 +134,131 @@ class PipelineTest(unittest.TestCase):
             self.assertEqual(run.main(["Bu bir test cumlesi", "--compact"]), 0)
         data = json.loads(buffer.getvalue())
         self.assertEqual(data["verdict"], "clean")
+
+
+class _InitBoom(BaseModule):
+    name = ModuleName.M5_SARCASM
+    provides = frozenset({"content"})
+
+    def __init__(self) -> None:
+        raise RuntimeError("init crash")
+
+
+class _Emit(BaseModule):
+    """Returns whatever ModuleOutput it was given."""
+
+    name = ModuleName.M3_ENCODER
+    provides = frozenset({"content", "guards"})
+
+    def __init__(self, out: ModuleOutput) -> None:
+        super().__init__()
+        self.out = out
+
+    def _run(self, ctx: Context) -> ModuleOutput:
+        return self.out
+
+
+class RobustnessTest(unittest.TestCase):
+    """W1/W2/W4: nothing a module does crashes a request."""
+
+    def setUp(self) -> None:
+        self.cfg = copy.deepcopy(fusion.load_config())
+
+    def test_protocol_module_that_raises_does_not_crash(self) -> None:
+        class RawModule:
+            name = ModuleName.M6_TARGET
+            version = "0"
+            provides = frozenset({"target"})
+
+            def load(self) -> None:
+                return None
+
+            def process(self, ctx: Context) -> ModuleOutput:
+                raise RuntimeError("raw crash")
+
+        result = Pipeline(modules=[_Charsafe(), RawModule()], config=self.cfg).analyze("x")
+        self.assertIn("m6_target", result.per_module_ms)
+        self.assertTrue(any("process raised RuntimeError: raw crash" in n for n in result.notes))
+        self.assertTrue(any("degraded" in n for n in result.notes))
+
+    def test_module_load_that_raises_does_not_crash(self) -> None:
+        class BadLoad(_Charsafe):
+            def load(self) -> None:
+                raise OSError("missing artifact")
+
+        result = Pipeline(modules=[BadLoad()], config=self.cfg).analyze("x")
+        self.assertTrue(any("load failed: OSError: missing artifact" in n for n in result.notes))
+
+    def test_module_construction_failure_does_not_crash(self) -> None:
+        entries = (run.registry.RegistryEntry(ModuleName.M0_CHARSAFE, "modules.m0_charsafe.module:CharSafeModule"),
+                   run.registry.RegistryEntry(ModuleName.M5_SARCASM, "tests.test_pipeline:_InitBoom"))
+        modules = run.build_modules_safely(entries)
+        result = Pipeline(modules=modules, config=self.cfg).analyze("Bu bir test")
+        self.assertEqual(result.signals["channels"]["charsafe_text"], "bu bir test")
+        self.assertTrue(any("construction failed: RuntimeError: init crash" in n for n in result.notes))
+
+    def test_malformed_code_is_dropped_not_crashing(self) -> None:
+        result = Pipeline(modules=[_Emit(ModuleOutput(content=[ContentScore("A2", 0.9, "m3_encoder@raw")]))],
+                          config=self.cfg).analyze("x")
+        self.assertEqual(result.content, [])
+        self.assertTrue(any("not a ContentScore with a ContentCode" in n for n in result.notes))
+
+    def test_nan_score_is_an_error_not_clean(self) -> None:
+        nan = float("nan")
+        result = Pipeline(modules=[_Emit(ModuleOutput(content=[ContentScore(ContentCode.A3, nan, "m3_encoder@raw")]))],
+                          config=self.cfg).analyze("x")
+        self.assertEqual(result.content, [])
+        self.assertTrue(any("not a finite number (treated as an error, not as clean)" in n for n in result.notes))
+        self.assertTrue(any("degraded" in n for n in result.notes))
+
+    def test_source_naming_another_module_is_dropped(self) -> None:
+        out = ModuleOutput(guards=[GuardResult(GuardCode.SUBSTRING_COLLISION, 0.99, "m1_lexicon")])
+        result = Pipeline(modules=[_Emit(out)], config=self.cfg).analyze("x")
+        self.assertEqual(result.guards, [])
+        self.assertTrue(any("names a different module" in n for n in result.notes))
+
+    def test_span_outside_text_is_dropped(self) -> None:
+        out = ModuleOutput(content=[ContentScore(ContentCode.A2, 0.9, "m3_encoder@raw", span=(0, 99))])
+        result = Pipeline(modules=[_Emit(out)], config=self.cfg).analyze("kisa")
+        self.assertEqual(result.content, [])
+
+    def test_decision_failure_does_not_crash(self) -> None:
+        broken = copy.deepcopy(self.cfg)
+        del broken["form"]  # apply_form always reads it
+        result = Pipeline(modules=[_Charsafe()], config=broken).analyze("x")
+        self.assertIsNone(result.verdict)
+        self.assertTrue(result.explanation.startswith("Karar verilemedi"))
+        self.assertTrue(any("decision layer failed" in n for n in result.notes))
+
+    def test_module_cannot_mutate_another_modules_signals(self) -> None:
+        from modules.m0_charsafe.module import CharSafeModule
+
+        class Vandal(BaseModule):
+            name = ModuleName.M2_DEOBF
+            provides = frozenset({"normalized_text"})
+
+            def _run(self, ctx: Context) -> ModuleOutput:
+                ctx.signals["m0_charsafe"]["offsets"].clear()
+                return ModuleOutput()
+
+        result = Pipeline(modules=[CharSafeModule(), Vandal()], config=self.cfg).analyze("merhaba")
+        self.assertEqual(result.signals["m0_charsafe"]["offsets"], [0, 1, 2, 3, 4, 5, 6])
+        self.assertTrue(any("[m2_deobf] AttributeError" in n for n in result.notes))
+
+    def test_nested_signal_payload_is_read_only(self) -> None:
+        frozen = run.deep_freeze({"a": {"b": [1, {"c": 2}]}})
+        with self.assertRaises(TypeError):
+            frozen["a"]["x"] = 1  # type: ignore[index]
+        with self.assertRaises(TypeError):
+            frozen["a"]["b"][1]["c"] = 3  # type: ignore[index]
+
+    def test_artifact_hash_covers_in_memory_config(self) -> None:
+        modules = [_Charsafe()]
+        changed = copy.deepcopy(self.cfg)
+        changed["categories"]["A1"]["threshold"] = 0.99
+        self.assertNotEqual(Pipeline(modules=modules, config=changed).artifact_hash,
+                            Pipeline(modules=modules, config=self.cfg).artifact_hash)
+        self.assertEqual(run.artifact_hash(self.cfg, modules), Pipeline(modules=modules, config=self.cfg).artifact_hash)
 
 
 if __name__ == "__main__":

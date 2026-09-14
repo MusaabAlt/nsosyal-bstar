@@ -16,6 +16,11 @@ Runs fully offline on CPU. No platform API, no network call at inference.
    to a single module and go in that module's own requirements file.
 7. Every module must be runnable, testable and measurable ALONE.
 
+Rule 2 covers imports between modules. Shared infrastructure - `contracts/`
+and `eval.harness` - is outside its scope: any module may import contracts, and
+a module's `eval.py` may import `eval.harness` and its own `module.py`, nothing
+else. The exact allow-lists live as data in `tests/test_architecture.py`.
+
 ## Axes (see contracts/codes.py)
 
 - Axis 1 Content: A1-A4 profanity, B1-B5 non-lexical abuse, C1-C5 implicit,

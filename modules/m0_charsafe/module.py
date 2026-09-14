@@ -1,7 +1,11 @@
 """m0_charsafe - character-level safety layer (REFERENCE MODULE).
 
 Catches:
-  * invisible characters (Unicode Cf / Cc) injected to split words -> ZERO_WIDTH
+  * invisible characters (Unicode Cf / Cc) and invisible filler letters
+    (Hangul fillers U+3164/U+115F/U+1160/U+FFA0, braille blank U+2800) -> ZERO_WIDTH
+  * combining-mark stuffing (U+0336 after every letter of "aptal") on Latin letters -> ZERO_WIDTH; decomposed
+    letters ("s" + U+0327) are canonically composed ("ş") and recorded
+  * fullwidth Latin letters and digits ("ａｐｔａｌ") -> HOMOGLYPH
   * cross-script homoglyphs (Cyrillic/Greek lookalikes inside Latin words) -> HOMOGLYPH
   * the Turkish I problem: 'I' lowercases to 'ı', 'İ' to 'i' -> DOTLESS_I evidence
 
@@ -9,13 +13,17 @@ Deliberately does NOT:
   * de-obfuscate leet, spacing, repeats, deasciified text (m2_deobf, parallel channel)
   * guess that an ASCII 'I' was meant as 'İ' ("Istanbul" -> "ıstanbul"). That is
     DEASCII, an interpretation, and interpretations belong to m2's parallel channel.
-  * apply NFKC. NFKC folds fullwidth/superscript forms but also rewrites
-    ligatures and compatibility digits; that is normalization, not safety.
+  * apply NFKC. NFKC folds fullwidth forms but also rewrites ligatures,
+    superscripts and compatibility digits; that is normalization, not safety.
+    Fullwidth Latin is mapped by an explicit table instead.
+  * strip combining marks from non-Latin letters (Arabic, Hebrew, Devanagari...
+    need them), or fullwidth punctuation (ordinary in CJK text).
   * score content, detect targets, or decide anything.
 
 Output: `charsafe_text`, `form` (one FormPattern per transformation run, spans in
-ORIGINAL offsets) and `signals["offsets"]`, mapping every charsafe character
-back to its original index so downstream spans can be reported on the input.
+ORIGINAL offsets) and signals: `offsets` (the original index of every charsafe
+character, so downstream spans can be reported on the input), `charsafe_changed`
+(True when any FormPattern was emitted), `invisible_removed`, `homoglyphs_mapped`.
 
 Plain case folding of letters other than I/İ emits no pattern: capitalization
 is not obfuscation and there is no FormCode for it. Only folds where Turkish
@@ -38,8 +46,19 @@ LAYOUT_CONTROLS = frozenset("\t\n\r")
 
 ZWJ = "\u200d"
 COMBINING_DOT_ABOVE = "\u0307"
+VARIATION_SELECTOR_15 = "\ufe0e"
 VARIATION_SELECTOR_16 = "\ufe0f"
 BOM = "\ufeff"
+
+# Letters (category Lo/So) that render as nothing. They are not Cf, so a
+# category test misses them, and they are a known way to split a word invisibly.
+INVISIBLE_FILLERS = frozenset("\u115f\u1160\u3164\uffa0\u2800")
+
+# Fullwidth forms of ASCII letters and digits. Mapped explicitly (not NFKC):
+# one meaning each, no language uses them as distinct letters. Fullwidth
+# punctuation is left alone because it is ordinary in CJK text.
+FULLWIDTH_OFFSET = 0xFEE0
+FULLWIDTH_RANGES = ((0xFF10, 0xFF19), (0xFF21, 0xFF3A), (0xFF41, 0xFF5A))
 
 TURKISH_LETTERS = frozenset("çğıöşüÇĞİÖŞÜâîûÂÎÛ")
 
@@ -75,6 +94,12 @@ CONF_HOMOGLYPH_MIXED_SCRIPT = 0.90  # Latin and lookalike in one token: no hones
 CONF_HOMOGLYPH_ALL_LOOKALIKE = 0.60  # could be a genuine short foreign word
 CONF_CASING_INNER = 0.90  # "sIk": capital I inside a lowercase word
 CONF_CASING_ORDINARY = 0.10  # "SIKINTI", "Istanbul": normal capitalization
+CONF_COMBINING_STUFFING = 0.90  # marks on Latin letters that compose to nothing
+CONF_CANONICAL_COMPOSITION = 0.05  # decomposed input (e.g. macOS), not an attack
+CONF_FULLWIDTH = 0.80  # no Turkish text needs fullwidth Latin
+
+# Marks that belong to emoji sequences (text/emoji presentation, keycap).
+EMOJI_MARKS = frozenset((chr(0xFE0E), chr(0xFE0F), chr(0x20E3)))
 
 Item = tuple[int, int, str]  # (orig_start, orig_end, char)
 
@@ -88,6 +113,8 @@ def _is_emoji_part(ch: str) -> bool:
 
 
 def _is_invisible(ch: str) -> bool:
+    if ch in INVISIBLE_FILLERS:
+        return True
     return unicodedata.category(ch) in ("Cf", "Cc") and ch not in LAYOUT_CONTROLS
 
 
@@ -125,7 +152,9 @@ class CharSafeModule(BaseModule):
         patterns: list[FormPattern] = []
 
         items = self._strip_invisible(text, patterns)
-        homoglyphs = self._map_confusables(text, items, patterns)
+        items = self._handle_combining_marks(items, patterns)
+        homoglyphs = self._map_fullwidth(items, patterns)
+        homoglyphs += self._map_confusables(text, items, patterns)
         items = self._turkish_lower(text, items, patterns)
 
         charsafe = "".join(ch for _, _, ch in items)
@@ -137,6 +166,7 @@ class CharSafeModule(BaseModule):
                 "invisible_removed": sum(p.span[1] - p.span[0] for p in patterns
                                          if p.code is FormCode.ZERO_WIDTH and p.span),
                 "homoglyphs_mapped": homoglyphs,
+                "charsafe_changed": bool(patterns),
             },
         )
 
@@ -180,6 +210,86 @@ class CharSafeModule(BaseModule):
             ))
             i = j
         return items
+
+    # -- pass 1b ------------------------------------------------------------
+    def _handle_combining_marks(self, items: list[Item], patterns: list[FormPattern]) -> list[Item]:
+        """Compose decomposed letters; strip marks stuffed onto Latin letters.
+
+        Marks are only stripped when the letter they sit on is Latin (or a
+        lookalike, or not a letter at all). Arabic, Hebrew, Devanagari and many
+        other scripts need their combining marks, so those are left alone.
+        """
+        out: list[Item] = []
+        composed: list[tuple[Item, str]] = []
+        stripped: list[Item] = []
+        last_base = ""
+        for item in items:
+            start, end, ch = item
+            if unicodedata.category(ch) not in ("Mn", "Me"):
+                out.append(item)
+                last_base = ch
+                continue
+            prev = out[-1][2] if out else ""
+            if ch == COMBINING_DOT_ABOVE and prev in ("I", "i"):
+                # Decomposed İ: the casing pass turns it into 'i'.
+                out.append(item)
+                continue
+            if ch in EMOJI_MARKS and last_base and not last_base.isalpha():
+                out.append(item)
+                continue
+            if prev and prev.isalpha():
+                nfc = unicodedata.normalize("NFC", prev + ch)
+                if len(nfc) == 1:
+                    # Canonical composition is lossless ("s" + U+0327 -> "ş").
+                    out[-1] = (out[-1][0], end, nfc)
+                    composed.append((item, nfc))
+                    continue
+            if last_base.isalpha() and not _is_latin(last_base) and last_base not in CONFUSABLES:
+                out.append(item)
+                continue
+            stripped.append(item)
+
+        if composed:
+            patterns.append(FormPattern(
+                code=FormCode.ZERO_WIDTH,
+                confidence=CONF_CANONICAL_COMPOSITION,
+                evidence=f"composed {len(composed)} decomposed letter(s) -> "
+                         f"{''.join(c for _, c in composed)} (canonical composition, lossless)",
+                span=(min(i[0] for i, _ in composed), max(i[1] for i, _ in composed)),
+                source=SOURCE,
+            ))
+        if stripped:
+            names = ", ".join(dict.fromkeys(_char_name(ch) for _, _, ch in stripped))
+            patterns.append(FormPattern(
+                code=FormCode.ZERO_WIDTH,
+                confidence=CONF_COMBINING_STUFFING,
+                evidence=f"removed {len(stripped)} combining mark(s) [{names}] stuffed onto Latin letters",
+                span=(min(i[0] for i in stripped), max(i[1] for i in stripped)),
+                source=SOURCE,
+            ))
+        return out
+
+    # -- pass 1c ------------------------------------------------------------
+    def _map_fullwidth(self, items: list[Item], patterns: list[FormPattern]) -> int:
+        mapped = 0
+        for token in _tokens(items):
+            wide = [k for k in token if any(lo <= ord(items[k][2]) <= hi for lo, hi in FULLWIDTH_RANGES)]
+            if not wide:
+                continue
+            before = "".join(items[k][2] for k in token)
+            for k in wide:
+                start, end, ch = items[k]
+                items[k] = (start, end, chr(ord(ch) - FULLWIDTH_OFFSET))
+            after = "".join(items[k][2] for k in token)
+            patterns.append(FormPattern(
+                code=FormCode.HOMOGLYPH,
+                confidence=CONF_FULLWIDTH,
+                evidence=f"'{before}' -> '{after}' ({len(wide)} fullwidth Latin letter/digit(s))",
+                span=(items[token[0]][0], items[token[-1]][1]),
+                source=SOURCE,
+            ))
+            mapped += len(wide)
+        return mapped
 
     # -- pass 2 -------------------------------------------------------------
     def _map_confusables(self, text: str, items: list[Item], patterns: list[FormPattern]) -> int:
@@ -231,6 +341,7 @@ class CharSafeModule(BaseModule):
         # 'i' + U+0307 leaves a stray combining dot that breaks every lexicon
         # lookup. So I and İ are handled explicitly before generic lowering.
         out: list[Item] = []
+        before: list[str] = []  # character each output item was folded from
         k, n = 0, len(items)
         while k < n:
             start, end, ch = items[k]
@@ -238,6 +349,7 @@ class CharSafeModule(BaseModule):
             if ch in ("I", "i") and nxt == COMBINING_DOT_ABOVE:
                 # Decomposed İ, or the residue of a non-Turkish lower("İ").
                 out.append((start, items[k + 1][1], "i"))
+                before.append(ch + nxt)
                 k += 2
                 continue
             if ch == "I":
@@ -249,15 +361,17 @@ class CharSafeModule(BaseModule):
                 if len(low) != 1:  # never let casing change the offset map
                     low = ch
             out.append((start, end, low))
+            before.append(ch)
             k += 1
 
         # Evidence pass: one pattern per token where Turkish rules diverged.
         for token in _tokens(out):
             first, last = out[token[0]][0], out[token[-1]][1]
             original = text[first:last]
-            if not any(c in "Iİ" or c == COMBINING_DOT_ABOVE for c in original):
+            folded_from = "".join(before[k] for k in token)
+            if not any(c in "Iİ" or c == COMBINING_DOT_ABOVE for c in folded_from):
                 continue
-            letters = [c for c in original if c.isalpha()]
+            letters = [c for c in folded_from if c.isalpha()]
             inner = any(c in "Iİ" for c in letters[1:]) and any(c.islower() for c in letters)
             patterns.append(FormPattern(
                 code=FormCode.DOTLESS_I,
