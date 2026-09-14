@@ -95,7 +95,7 @@ Must include at minimum:
 
 ## 8. Acceptance criteria
 
-- [ ] `SIKINTI` in any casing never produces a string containing `sik`. Dedicated unit test, named explicitly.
+- [ ] Every uppercase `I` maps to `ı`, so `SIKINTI` written with uppercase `I` never produces a string containing `sik`. Dedicated unit test, named explicitly: `test_sikinti_never_yields_profane_root`. Input typed with a lowercase dotted `i` is outside this criterion; m0 does not guess.
 - [ ] Zero modification on a clean pure-ASCII Turkish sentence.
 - [ ] Every transformation emits a `FormPattern` with non-null `evidence`.
 - [ ] p95 latency under **1 ms** per sample.
