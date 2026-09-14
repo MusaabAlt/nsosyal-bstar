@@ -28,9 +28,11 @@ The third one is not an attack; it is a bug that **creates false positives out o
 | Bidi override marks | letter repetition → M2 |
 | Cross-script look-alike letters | spacing/punctuation splits → M2 |
 | Turkish dotted/dotless casing errors | anything semantic → M3/M4 |
-| | accent normalisation (`áptal` → `aptal`) → M2 |
+| Styled Latin letters: fullwidth, mathematical, circled, squared, negative circled/squared, parenthesized, superscript and subscript letters, small capitals, regional indicators that are not flags (`HOMOGLYPH`) | accent normalisation (`áptal` → `aptal`) → M2 |
 
 M0 does **not** decide whether text is offensive. It has no opinion on content.
+
+**Known, tested limitation — words spelled from flag pairs.** Styled Latin letters, including regional indicator letters (🇦🇵🇹🇦🇱), are mapped to plain letters as `HOMOGLYPH`. A pair of regional indicators is also a flag (🇹🇷), which is ordinary in Turkish posts, so a run made only of valid region pairs is left untouched. Consequence: a word spelled entirely from valid flag pairs (for example `SI` + `KE`) passes m0 unmapped, because it is indistinguishable from a row of flags. An odd-length run, or one containing any pair that is not a region, is mapped. Accepted by the project owner; pinned by `test_word_spelled_only_from_valid_flag_pairs_passes` in `test_unit.py`, so a change in either direction is deliberate.
 
 ---
 
@@ -99,7 +101,7 @@ Must include at minimum:
 - [ ] Every uppercase `I` maps to `ı`, so `SIKINTI` written with uppercase `I` never produces a string containing `sik`. Dedicated unit test, named explicitly: `test_sikinti_never_yields_profane_root`. Input typed with a lowercase dotted `i` is outside this criterion; m0 does not guess.
 - [ ] Zero modification on a clean pure-ASCII Turkish sentence.
 - [ ] Every transformation emits a `FormPattern` with non-null `evidence`.
-- [ ] p95 latency under **1 ms** per sample.
+- [ ] p95 latency within the per-length budget in `decision/thresholds.yaml` (`budgets.module_latency_p95_ms.m0_charsafe`), which is authoritative. At the time of writing: ≤64 chars **0.25 ms**, ≤280 chars **1 ms**, ≤1000 chars **4 ms**, ≤5000 chars **25 ms**. These were measured on the development machine and are due for re-measurement on the demo machine; a single per-sample figure is not used because m0 is linear in input length.
 - [ ] Unit tests cover all three families plus empty / whitespace / very long input.
 - [ ] `eval/results/m0_charsafe.json` produced with the three detection rates and the damage rate.
 - [ ] Module never raises; errors are caught and reported in `notes`.

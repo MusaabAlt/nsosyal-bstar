@@ -25,13 +25,13 @@ This module exists for two reasons. First, it gives the decision layer a second 
 
 ## 3. Contract
 
-**Reads:** `ctx.text` **and** `ctx.normalized_text` — run on both, report both.
+**Reads:** `ctx.text` **and** `ctx.normalized_text` — run on both, report both. `ctx.signals["m6_target"]` — the target M6 publishes (`target_type`, `target_confidence`).
 
 **Writes:**
 - `out.signals["lexicon_hit"]` — bool, true if any legitimate match on either channel
 - `out.signals["lexicon_hit_raw"]` / `["lexicon_hit_norm"]` — per channel
-- `out.content` — scores for `A1`–`A4`
-- `out.guards` — `SUBSTRING_COLLISION`, `HOMONYM`
+- `out.content` — family-A profanity on the `A1` carrier (the decision layer assigns `A1`/`A2`/`A3` from M6's target, ADR-005), and `A4`
+- `out.guards` — `SUBSTRING_COLLISION`, `HOMONYM`, and `NON_HUMAN_TARGET`: raised on each of this module's family-A matches when M6's published `target_type` is `non_human`, with `score` = M6's `target_confidence` and `span` = that match's span (ADR-005)
 
 **Every match and every guard carries `span`** — the `(start, end)` of the exact substring of the original text that triggered it (`ContentScore.span`, `GuardResult.span`), plus `GuardResult.source = "m1_lexicon"`. A match or guard with no span is a contract violation: the decision layer scopes guards by span overlap (ADR-001), and without spans a collision guard on `amcam` could clear a real insult elsewhere in the same post.
 
@@ -103,7 +103,7 @@ The Turkish community repository `90pixel/kufur-filtresi` splits its list into t
 - [ ] Zero positives on the full trap list. Any regression fails the build.
 - [ ] Every `ContentScore` and every `GuardResult` emitted carries the span of the exact substring that triggered it (ADR-001). A unit test asserts `span is not None` on every output item and that `text[start:end]` is the matched root or colliding word.
 - [ ] Recall and FPR reported with CIs, on both the raw and normalized channels, separately.
-- [ ] `out.signals` always carries `lexicon_hit`, `lexicon_hit_raw` and `lexicon_hit_norm` as booleans, on every input including empty and no-match inputs. `decision/thresholds.yaml` resolves `threshold_when: {signal: m1_lexicon.lexicon_hit}` against it; if the signal is missing the decision layer silently falls back to the scalar threshold and the lexicon-free slice split is lost. A unit test asserts all three keys are present and boolean.
+- [ ] `out.signals` always carries `lexicon_hit`, `lexicon_hit_raw` and `lexicon_hit_norm` as booleans, on every input including empty and no-match inputs. The lexicon-hit / lexicon-free slice split is defined by it, and M4's stage 1b (`threshold_when: {signal: m1_lexicon.lexicon_hit}`, ADR-006) resolves against it; if the signal is missing the decision layer silently falls back to the scalar threshold and the slice split is lost. A unit test asserts all three keys are present and boolean.
 - [ ] `SUBSTRING_COLLISION` guard fires and is counted whenever a root is found but the boundary test rejects it.
 - [ ] Sacred-concept extension table committed, with a source for each added root.
 - [ ] `terlik` vs `karaliste` comparison committed.

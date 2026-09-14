@@ -33,7 +33,38 @@ Be careful with dataset identity — there are at least two distinct small Turki
 
 ---
 
-## 3. The originality angle — read this before you scope the work
+## 3. What it catches / does not catch
+
+| Catches | Does not catch |
+|---|---|
+| `D1` — abuse delivered through a literally positive sentence | implicit abuse with no polarity inversion → M4 |
+| Praise, enthusiasm or laughter used to humiliate a person | benign sarcasm aimed at objects, situations or events — this is the control set, not a miss |
+| | sarcasm detection as a general capability — occupied space, and not the contribution |
+| | humour, jokes and banter → out of scope, see below |
+| | who is being mocked → M6 |
+
+**Precedence rule: explicit content wins.** A sarcastic sentence that also
+contains a profane root is labelled with its A code, not D1. The content axis
+is single-label, and `A2` describes the post more usefully than `D1` does.
+`D1` is for abuse that has **no other way** to be caught. Write this into the
+guideline; without it, annotators will double-label and the confusion matrix
+between A and D will be unreadable.
+
+**Humour is deliberately excluded.** The reference functional test suite for
+hate speech left humour out because there was no consensus on how to judge it.
+This module does not attempt to succeed where that reference declined to try.
+`D1` is not "jokes that offend someone"; it is specifically polarity inversion
+used as a delivery mechanism for contempt toward a person.
+
+**Sincere praise is a hard negative, not an edge case.** A model that cannot
+separate `Zekânı hayranlıkla izliyorum` said sincerely from the same sentence
+said with contempt has learned nothing useful. This separation is what the
+control set measures, and it is why precision gates acceptance here rather than
+recall.
+
+---
+
+## 4. The originality angle — read this before you scope the work
 
 The main Turkish sarcasm corpus **deliberately excluded entries whose primary function was insult or profanity**. That means the intersection of *sarcastic* and *degrading* is untouched in Turkish.
 
@@ -41,7 +72,7 @@ So: you are not building "a Turkish sarcasm detector" — that space is occupied
 
 ---
 
-## 4. The labelling rule that keeps D1 from eating C
+## 5. The labelling rule that keeps D1 from eating C
 
 > A case is **D1 only if a literally positive element exists inside the sentence** — a compliment, an exclamation, laughter. That is polarity inversion.
 >
@@ -53,9 +84,13 @@ Related warning: the reference functional test suite for hate speech **deliberat
 
 ---
 
-## 5. Approach
+## 6. Approach
 
-Sequential transfer: pre-train on the sarcasm corpus, then fine-tune on the offensive task. Implemented as **m5's own model** with its own artifact, its own row in `artifacts/MANIFEST.md` and its own thresholds - not a head on the shared M3 encoder (ADR-003). A failed entry gate disables m5 with zero impact on m3. Latency is met with a small or distilled model; heavy dependencies go in `modules/m5_sarcasm/requirements.txt`.
+Sequential transfer: pre-train on the sarcasm corpus, then fine-tune on the offensive task. Implemented as **m5's own model** with its own artifact, its own row in `artifacts/MANIFEST.md` and its own thresholds in `decision/thresholds.yaml` - not a head on the shared M3 encoder (ADR-003). A failed entry gate disables m5 with zero impact on m3. Heavy dependencies go in `modules/m5_sarcasm/requirements.txt`.
+
+**m5 does not read m3 embeddings, and m3 does not publish them.** There is no shared encoder state between the two modules: m5 runs its own model on `ctx.text`, and no field of the contract carries hidden states or embeddings. A middle path - a separate m5 head on m3's representations - would bring back the artifact entanglement ADR-003 removed, and the contract cannot express it.
+
+**Constraint for the m5 owner: the model must be small or distilled.** A second full BERT-sized pass per channel doubles encoder latency and memory on CPU. Which model meets the `budgets.module_latency_p95_ms.m5_sarcasm` budget is not decided here; the m5 owner resolves it and records the choice and its measurement.
 
 The English reference for sarcasm-transfer into abuse detection is a preprint reporting a recall gain of roughly +9.7 points on an abuse benchmark. Treat that as a plausibility argument, not as a target.
 
@@ -63,7 +98,7 @@ Reported context effect in the Turkish sarcasm corpus is small — accuracy arou
 
 ---
 
-## 6. Contract
+## 7. Contract
 
 **Reads:** `ctx.text` (raw — sarcasm markers are often in the original punctuation and casing)
 
@@ -73,7 +108,7 @@ Reported context effect in the Turkish sarcasm corpus is small — accuracy arou
 
 ---
 
-## 7. The critical negative control
+## 8. The critical negative control
 
 Your precision guard is **benign sarcasm aimed at things, not people**:
 
@@ -86,7 +121,7 @@ A D1 head that fires on these is useless. This control set is mandatory and its 
 
 ---
 
-## 8. Forbidden — with reasons
+## 9. Forbidden — with reasons
 
 | Forbidden | Why |
 |---|---|
@@ -98,7 +133,7 @@ A D1 head that fires on these is useless. This control set is mandatory and its 
 
 ---
 
-## 9. Metrics this module must produce
+## 10. Metrics this module must produce
 
 - Recall on the D1 slice with CIs.
 - **Precision on the benign-sarcasm control set** — this number gates acceptance, not recall.
@@ -107,7 +142,50 @@ A D1 head that fires on these is useless. This control set is mandatory and its 
 
 ---
 
-## 10. Acceptance criteria
+## 11. Required fixtures
+
+`fixtures/cases.jsonl` — `{"id": ..., "text": ..., "expected": [...], "inversion_span": [start, end] | null}` (keys as read by `eval/harness.py`; `inversion_span` is not read by the harness and is asserted by this module's unit tests)
+
+**D1 positives.** Each one carries `inversion_span` marking the literally
+positive element that makes it D1. A positive with no marked inversion span
+fails the fixture check — if the annotator cannot point at the inversion, the
+polarity rule was not applied and the case is C, not D1.
+
+**Benign-sarcasm control set.** Sarcasm aimed at objects, weather, software,
+traffic, a match result. **Size comparable to the positive slice**, not a token
+handful. This set produces the precision number that gates acceptance, so an
+undersized control set means no acceptance.
+
+**Sincere-praise negatives.** Genuine compliments using the same vocabulary and
+the same punctuation patterns as the positives. This is the hardest negative
+class and the one most likely to be missing.
+
+**Boundary cases against C.** Implicit abuse with no positive element, asserted
+to produce no D1 score. These prove the polarity rule is implemented, not just
+written down.
+
+**Boundary cases against A.** Sarcastic sentences containing a profane root,
+asserted to carry the A code with D1 not assigned, per the precedence rule.
+
+**Raw-text sensitivity.** Fixtures where the sarcasm marker is in the original
+punctuation, casing or emoji — scare quotes, ellipsis, an exaggerated
+exclamation, `tabii ki`. Assert the module reads `ctx.text` and not the
+normalized channel: de-obfuscation strips exactly the signals this module
+depends on.
+
+**Reported speech.** A sarcastic line quoted by someone describing it, asserted
+not to fire. Quoting sarcasm is not producing it.
+
+**Gate record.** A committed file naming the dataset actually obtained — exact
+name, version, size, and the date access was granted or refused. Referenced by
+the acceptance checklist. If the gate failed, this file is what documents the
+dropped claim.
+
+**Edge inputs.** Empty string, whitespace, a single emoji, 5000 characters.
+
+---
+
+## 12. Acceptance criteria
 
 - [ ] Availability gate resolved and recorded, with the exact dataset name, version and size.
 - [ ] Polarity-inversion rule written into the annotation guideline.
@@ -119,6 +197,6 @@ A D1 head that fires on these is useless. This control set is mandatory and its 
 
 ---
 
-## 11. Definition of done
+## 13. Definition of done
 
 Either: the gate passed, the control set holds, and the numbers ship with their CIs and their exploratory label. Or: the gate failed and the D1 claim is formally dropped from the project, with the reason written in the report. Both are successful outcomes for this module.
