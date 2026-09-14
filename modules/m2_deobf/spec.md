@@ -58,7 +58,7 @@ Note that `DEASCII` is bidirectionally ambiguous: `sık` (tight/frequent) and `s
 
 **Writes:**
 - `out.normalized_text`
-- `out.form_patterns` — one per transformation, each with `evidence` and `span`
+- `out.form.patterns` — one per transformation, each with `evidence` and `span`
 
 **Never** writes content scores. **Never** replaces `ctx.text`.
 

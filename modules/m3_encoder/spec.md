@@ -11,11 +11,11 @@
 One Turkish BERT encoder, three classification heads on top, so CPU latency and memory stay at single-model cost while each family keeps its own head and its own threshold.
 
 ```
-                    ┌─ head_explicit    → A1..A4  (single-label)
-ctx.text      ──┐   │
-                ├─ BERTurk ─┼─ head_nonlexical → B1..B5  (MULTI-label)
-ctx.normalized ─┘   │
-                    └─ head_sarcasm     → D1
+                          ┌─ head_explicit    → A1..A4  (single-label)
+ctx.text            ──┐   │
+                      ├─ BERTurk ─┼─ head_nonlexical → B1..B5  (MULTI-label)
+ctx.normalized_text ──┘   │
+                          └─ head_sarcasm     → D1
 ```
 
 The encoder runs **twice per request**: once on the raw text, once on the normalized text from M2. Both score sets are reported. Fusion happens in the decision layer, not here.
@@ -36,7 +36,7 @@ Family A stays single-label because its codes differ by target, and target is re
 
 **Writes:**
 - `out.signals["raw_score"]`, `out.signals["norm_score"]` — the binary offensive probability per channel
-- `out.content_scores` — one `ContentScore` per code, `source = "m3_encoder"`
+- `out.content` — one `ContentScore` per code and channel, `source = "m3_encoder@raw"` or `"m3_encoder@normalized"`
 - `out.signals["artifact"]` — the artifact id that produced these scores
 
 **Never** sets `threshold` or `fired`. **Never** fuses the two channels.

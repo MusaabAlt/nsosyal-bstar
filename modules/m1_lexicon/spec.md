@@ -30,7 +30,7 @@ This module exists for two reasons. First, it gives the decision layer a second 
 **Writes:**
 - `out.signals["lexicon_hit"]` — bool, true if any legitimate match on either channel
 - `out.signals["lexicon_hit_raw"]` / `["lexicon_hit_norm"]` — per channel
-- `out.content_scores` — scores for `A1`–`A4`
+- `out.content` — scores for `A1`–`A4`
 - `out.guards` — `SUBSTRING_COLLISION`, `HOMONYM`
 
 **Never sets** `threshold` or `fired`.

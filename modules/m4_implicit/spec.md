@@ -52,9 +52,9 @@ The English reference for this protocol reports recall on veiled examples going 
 
 ## 4. Contract
 
-**Reads:** `ctx.text`, scores already in the result from M3, `ctx.signals`
+**Reads:** `ctx.text`, `ctx.signals` (M3's published scores are read from `ctx.signals["m3_encoder"]`; a module never sees the result)
 
-**Writes:** `out.content_scores` for `C1`–`C5`
+**Writes:** `out.content` for `C1`–`C5`
 
 **Never** sets `threshold` or `fired`.
 

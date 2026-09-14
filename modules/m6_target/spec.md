@@ -55,7 +55,7 @@ Doxing is more pattern than semantics, which makes it the one B-family category 
 
 **Writes:**
 - `out.target` — a `TargetResult` with `type`, `evidence`, `confidence`
-- `out.content_scores` — `B4` when doxing patterns fire
+- `out.content` — `B4` when doxing patterns fire
 - `out.guards` — `NON_HUMAN_TARGET`
 
 **Never** sets `threshold` or `fired`.

@@ -67,7 +67,7 @@ Reported context effect in the Turkish sarcasm corpus is small — accuracy arou
 
 **Reads:** `ctx.text` (raw — sarcasm markers are often in the original punctuation and casing)
 
-**Writes:** `out.content_scores` for `D1`
+**Writes:** `out.content` for `D1`
 
 **Never** sets `threshold` or `fired`.
 

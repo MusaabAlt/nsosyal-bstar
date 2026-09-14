@@ -39,7 +39,7 @@ M0 does **not** decide whether text is offensive. It has no opinion on content.
 
 **Writes:**
 - `out.charsafe_text` — the cleaned string
-- `out.form_patterns` — one `FormPattern` per transformation applied
+- `out.form.patterns` — one `FormPattern` per transformation applied
 - `out.signals["charsafe_changed"]` — bool
 
 **FormCodes this module may emit:** `ZERO_WIDTH`, `HOMOGLYPH`, `DOTLESS_I`
