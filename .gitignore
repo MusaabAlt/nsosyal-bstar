@@ -1,0 +1,8 @@
+# Root-level local folders only. diagnosis/.gitignore and AI/.gitignore govern
+# their own subtrees.
+.venv/
+.idea/
+.claude/
+__pycache__/
+demo_assets/
+other/

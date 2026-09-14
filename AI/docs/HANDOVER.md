@@ -144,9 +144,11 @@ Each row names where the decision is recorded.
 - Architecture tests for rules 2, 4 (thresholds and decision-field assignment), 6 and 7, span declarations and the entry-point convention.
 - 255 tests; 10 skipped behaviour tests that belong to unimplemented modules. The spec check warns (does not fail) that m2, m3, m4 and m6 have no section titled "Approach" and m5 has no "Research pointers".
 - Audit status: re-run `BASE_REF=$(git merge-base HEAD master) bash AI/scripts/check.sh` rather than trusting a
-  recorded result. Against `f73ede0` the `AI/contracts/` gate reports the three contract files changed on the
-  owner's explicit instruction (decision #65); every other gate, including "contract example current",
-  passed at hand-over.
+  recorded result. The base is `origin/master` (the script's default); against it at `b6a0e1f`, after the import
+  under `AI/`, every gate passed, including "contract example current" and the `AI/contracts/` gate. The earlier
+  base `f73ede0` no longer applies: that commit predates the `AI/` prefix, so its contracts sit at `contracts/`
+  and the gate run against it reports every contract file as added, not only the three changed on the owner's
+  explicit instruction (decision #65).
 
 **Stubbed (declare `stub = True`; every result is degraded, verdict `review`)**
 - m1_lexicon, m2_deobf, m3_encoder, m5_sarcasm (gated by its spec §2), m6_target.

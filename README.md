@@ -19,3 +19,29 @@ altındadır.
 
 Başlamak için önce [`AI/CLAUDE.md`](AI/CLAUDE.md), ardından
 [`AI/docs/HANDOVER.md`](AI/docs/HANDOVER.md) okunmalıdır.
+
+## Kurulum
+
+`AI/` ve `diagnosis/` farklı bağımlılıklar kullanır, bu yüzden her biri kendi sanal
+ortamını ister. Taze bir klonda **ikisi de** ayrı ayrı kurulmalıdır; birinin ortamı
+diğerinin testlerini çalıştırmaz. Python 3.11 veya üstü gerekir.
+
+`AI/` yalnızca pyyaml ister:
+
+```bash
+cd AI
+python -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt        # Windows: .venv\Scripts\python.exe
+.venv/bin/python -m unittest discover -p "test_*.py"
+```
+
+`diagnosis/` torch ve transformers ister; kurulumu çok daha büyüktür:
+
+```bash
+cd diagnosis
+python -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt        # Windows: .venv\Scripts\python.exe
+.venv/bin/python -m pytest tests/ -q
+```
+
+Her iki ortamın komutları kendi klasöründen çalıştırılır.
