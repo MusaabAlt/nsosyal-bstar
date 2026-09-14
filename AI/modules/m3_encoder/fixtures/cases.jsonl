@@ -1,0 +1,2 @@
+{"id": "m3-dev-0001", "text": "Bugün hava çok güzel", "context": {"charsafe_text": "bugün hava çok güzel"}, "expected": []}
+{"id": "m3-dev-0002", "text": "<DEV-SET ITEM: B2 threat without profanity>", "expected": ["B2"], "placeholder": true}

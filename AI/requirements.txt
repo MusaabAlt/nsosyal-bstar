@@ -1,0 +1,3 @@
+pyyaml>=6.0
+# Core dependency ONLY. Heavy dependencies (torch, transformers, onnxruntime,
+# scikit-learn) live in the requirements.txt of the single module that owns them.

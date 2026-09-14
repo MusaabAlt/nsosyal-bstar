@@ -1,0 +1,2 @@
+{"id": "m4-dev-0001", "text": "Komşularımızla birlikte bayramlaştık", "context": {"charsafe_text": "komşularımızla birlikte bayramlaştık"}, "expected": []}
+{"id": "m4-dev-0002", "text": "<DEV-SET ITEM: C1 stereotype>", "expected": ["C1"], "placeholder": true}

@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# IDE / OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Model and data artifacts: binaries are tracked by hash in artifacts/MANIFEST.md,
+# not committed.
+artifacts/**
+!artifacts/MANIFEST.md
+*.onnx
+*.bin
+*.safetensors
+*.pt
+
+# Raw datasets never enter the repo (licensing + personal data)
+data/
+
+# No eval result is committed before its protocol exists (eval/README.md).
+eval/results/*.json
+eval/results/*.tmp
+!eval/results/.gitkeep

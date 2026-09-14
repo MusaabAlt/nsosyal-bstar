@@ -1,0 +1,2 @@
+{"id": "m5-dev-0001", "text": "Harika, yine yağmur yağıyor", "context": {"charsafe_text": "harika, yine yağmur yağıyor"}, "expected": []}
+{"id": "m5-dev-0002", "text": "<DEV-SET ITEM: D1 degrading sarcasm>", "expected": ["D1"], "placeholder": true}

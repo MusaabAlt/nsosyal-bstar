@@ -1,0 +1,7 @@
+# Heavy dependencies owned by m3_encoder ONLY (CLAUDE.md rule 6). Not installed by the root requirements.
+onnxruntime
+tokenizers
+numpy
+# training only (offline):
+torch
+transformers

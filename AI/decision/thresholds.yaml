@@ -1,0 +1,153 @@
+# decision/thresholds.yaml
+#
+# The ONLY place in this repository where thresholds and actions live
+# (CLAUDE.md rule 4). Modules emit scores; this file turns scores into
+# decisions.
+#
+# !!! EVERY NUMBER IN THIS FILE IS A PLACEHOLDER !!!
+# Each value must be derived on the DEV split following
+# protocols/templates/threshold_derivation.md, never on test, and the derived
+# file must be registered in artifacts/MANIFEST.md with its hash. Actions are
+# placeholder POLICY and need sign-off, not tuning.
+
+artifact:
+  id: thresholds-v0.0.0-placeholder
+  status: placeholder          # placeholder | derived (validated)
+  derived_on: null             # dev split id + date; required when derived, null while placeholder
+
+fusion:
+  # Per content code, take the max score over channels and sources.
+  # The normalized channel (m2) can only ADD evidence; its cost is policed by
+  # budgets.clean_to_dirty_flip_rate below, measured on the trap list (m2 spec.md §8).
+  strategy: max
+  channels: [raw, normalized]
+
+form:
+  min_confidence: 0.50         # PLACEHOLDER - derive on dev
+
+family_a:
+  # ADR-005: A1/A2/A3 differ only by target. m1 and m3 report "profanity present" on
+  # the A1 carrier; the decision layer assigns the final code from m6's target before
+  # any threshold applies. A4 (sacred, concept-based) is not target-assigned.
+  target_min_confidence: 0.50      # PLACEHOLDER - below it the target counts as none
+  by_target:
+    none: A1                       # owner decision (ADR-005)
+    individual: A2                 # owner decision (ADR-005)
+    group: A3                      # owner decision (ADR-005)
+    non_human: A1                  # owner decision (ADR-005 amendment); m1's NON_HUMAN_TARGET
+                                   # guard can then suppress it (annotation guideline: insult
+                                   # at a film = CLEAN + NON_HUMAN_TARGET)
+
+categories:
+  # Each entry: `threshold` (scalar) + `action`. Optionally a signal-conditioned
+  # threshold, resolved against the published module signals at decision time:
+  #
+  #   XX:
+  #     threshold: 0.50            # fallback when the signal is absent
+  #     threshold_when:
+  #       signal: m1_lexicon.lexicon_hit   # "<module>.<signal key>", must be a bool
+  #       true: 0.50
+  #       false: 0.40
+  #     action: review
+  #
+  # The branch taken (true / false / fallback) is recorded per score in
+  # signals.decision.threshold_branches so every decision is auditable.
+  A1: {threshold: 0.50, action: nudge}     # PLACEHOLDER - derive on dev
+  A2: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
+  A3: {threshold: 0.50, action: block}     # PLACEHOLDER - derive on dev
+  A4: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
+  B1: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
+  B2: {threshold: 0.50, action: escalate}  # PLACEHOLDER - derive on dev
+  B3: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
+  B4: {threshold: 0.50, action: escalate}  # PLACEHOLDER - derive on dev
+  B5: {threshold: 0.50, action: block}     # PLACEHOLDER - derive on dev
+  C1: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
+  C2: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
+  C3: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
+  C4: {threshold: 0.50, action: escalate}  # PLACEHOLDER - derive on dev
+  C5: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
+  D1: {threshold: 0.50, action: nudge}     # PLACEHOLDER - derive on dev
+
+binary_offensive:
+  # Channel-level binary "offensive" probability published by m3_encoder
+  # (signals raw_score / norm_score). Owned by m4 (ADR-006).
+  # STAGE 1 (m4 spec.md §4): ONE global cost-derived threshold, exactly as measured -
+  # no lexicon lookup at inference.
+  # STAGE 1b is a variant, not in force: the same threshold conditioned on
+  # m1_lexicon.lexicon_hit via threshold_when. It replaces stage 1 only after being
+  # measured against it at equal coverage (ADR-006).
+  # Not suppressible by guards: it has no code and no span to scope a guard to.
+  channels:
+    raw: m3_encoder.raw_score
+    normalized: m3_encoder.norm_score
+  threshold: 0.50                  # PLACEHOLDER - stage 1 global cost-derived threshold, derive on dev
+  action: review                   # PLACEHOLDER policy
+
+fast_path:
+  # Stop after `requires` have run when some category clears its threshold by
+  # `margin` AND no guard collected so far is active. Every guard producer NOT
+  # listed in `requires` is skipped on the fast path - that is the trade-off.
+  #
+  # DISABLED until `margin` is derived on dev (protocols/templates/threshold_derivation.md):
+  # enabling a shortcut whose margin is a placeholder is a contradiction.
+  # `requires` = the guard producer (m1_lexicon) and its inputs (m0_charsafe, m2_deobf,
+  # and m6_target, whose published target m1 reads and family A is assigned from -
+  # ADR-005), so no configured guard and no target can be skipped by the fast path.
+  enabled: false
+  margin: 0.30                 # PLACEHOLDER - derive on dev
+  requires: [m0_charsafe, m2_deobf, m1_lexicon, m6_target]
+
+guards:
+  # threshold: minimum guard score to be active. suppresses: families (A-D)
+  # or individual codes whose `fired` flag an active guard clears.
+  # Only guards a spec contract names a producer for are configured, all from m1_lexicon
+  # (m1 spec.md §3). Under ADR-001 a guard only suppresses its own module's scores, so
+  # every entry here lists codes m1 produces.
+  #   SUBSTRING_COLLISION, HOMONYM
+  #   NON_HUMAN_TARGET - moved from m6 to m1 (ADR-005): m1 raises it on its own A-family
+  #   matches when m6's published target is non_human. A4 is not listed: sacred
+  #   profanity is concept-based, not target-based.
+  # A guard is added here only together with the spec contract that produces it.
+  SUBSTRING_COLLISION: {threshold: 0.50, suppresses: [A]}              # PLACEHOLDER
+  HOMONYM:             {threshold: 0.50, suppresses: [A]}              # PLACEHOLDER
+  NON_HUMAN_TARGET:    {threshold: 0.50, suppresses: [A1, A2, A3]}     # PLACEHOLDER
+
+# Evaluation order. The first active guard that covers a fired code is
+# credited with suppressing it (matters for explanations and audits).
+# Every configured guard must appear here (validated at load).
+guards_order:
+  - SUBSTRING_COLLISION
+  - HOMONYM
+  - NON_HUMAN_TARGET
+
+budgets:
+  # Read by eval/run_all.py (eval.harness.pipeline_budget_report).
+  # fpr_increase_on_clean is intentionally absent: it returns once a frozen baseline
+  # result exists to measure an FPR increase against (project owner decision).
+  clean_to_dirty_flip_rate: 0.01   # PLACEHOLDER - max share of traps the normalized channel flips to fired
+  latency_p95_ms: 150              # PLACEHOLDER - whole pipeline, CPU
+  module_latency_p95_ms:           # PLACEHOLDER - per module, CPU
+    m0_charsafe:                   # PLACEHOLDER - p95 ms by input length, {max chars: ms}; measured 2026-09-14
+      64: 0.25                     # PLACEHOLDER - re-measure on the demo machine
+      280: 1                       # PLACEHOLDER - re-measure on the demo machine
+      1000: 4                      # PLACEHOLDER - re-measure on the demo machine
+      5000: 25                     # PLACEHOLDER - re-measure on the demo machine
+    m1_lexicon: 5       # PLACEHOLDER - measure on the demo machine
+    m2_deobf: 10        # PLACEHOLDER - measure on the demo machine
+    m3_encoder: 80      # PLACEHOLDER - measure on the demo machine
+    m4_implicit: 20     # PLACEHOLDER - measure on the demo machine
+    m5_sarcasm: 20      # PLACEHOLDER - own model (ADR-003): small or distilled to fit
+    m6_target: 5        # PLACEHOLDER - measure on the demo machine
+
+thread:
+  # Axis 4: repetition is judged here only, never per post.
+  # Repetition is time-windowed, not bounded by a post count (project owner decision).
+  # Counted by pipeline/thread_counter.py per (sender_id, target_id), stamped with SERVER
+  # RECEIVE TIME (ADR-004); in memory only, resets on restart - demo scope, not production.
+  # Only OFFENSIVE posts count (decision/fusion.py post_is_offensive), never self-directed ones.
+  # The counter reads window_seconds only; min_repeats is compared here, in the decision layer.
+  enabled: true
+  window_seconds: 600              # PLACEHOLDER - not derived; an arbitrary value so the path runs
+  min_repeats: 3                   # PLACEHOLDER
+  same_target_required: true
+  action: escalate                 # PLACEHOLDER policy

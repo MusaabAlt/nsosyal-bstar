@@ -1,0 +1,23 @@
+{"id": "trap-001", "text": "goturmek", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-002", "text": "gotur", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-003", "text": "amac", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-004", "text": "amca", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-005", "text": "ambulans", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-006", "text": "amir", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-007", "text": "ampul", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-008", "text": "sikke", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-009", "text": "psikoloji", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-010", "text": "klasik", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-011", "text": "kerpic", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-012", "text": "götürmek", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-013", "text": "amaç", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-014", "text": "kerpiç", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-015", "text": "Amcam ambulansla hastaneye gitti", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-016", "text": "Klasik psikoloji kitabı aldım", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-017", "text": "Eski sikke koleksiyonu", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-018", "text": "Amir bey ampul istedi", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-019", "text": "SIKINTI", "must_not_fire": ["*"], "expect": {"charsafe_text": "sıkıntı"}, "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}}
+{"id": "trap-020", "text": "SIKINTI YOK", "must_not_fire": ["*"], "expect": {"charsafe_text": "sıkıntı yok"}, "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}}
+{"id": "trap-021", "text": "Sıkıntı", "must_not_fire": ["*"], "expect": {"charsafe_text": "sıkıntı"}, "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}}
+{"id": "trap-022", "text": "sIkIntI", "must_not_fire": ["*"], "expect": {"charsafe_text": "sıkıntı"}, "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}}
+{"id": "trap-023", "text": "SiKiNTi", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
