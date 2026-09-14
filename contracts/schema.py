@@ -6,7 +6,8 @@ OWNERSHIP SPLIT - the most important rule in this file:
     The decision layer fills threshold / fired (/ active / suppressed).
 
 A module that sets `threshold` or `fired` violates CLAUDE.md rule 4; the
-pipeline strips those values and records the violation in `notes`. Keeping
+decision layer resets those values before deciding (decision/fusion.py
+reset_decision_fields) and the violation is recorded in `notes`. Keeping
 the split in the data type (rather than in reviewer memory) means a stored
 result can be re-thresholded offline without re-running any model.
 

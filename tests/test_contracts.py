@@ -70,6 +70,25 @@ class SchemaTest(unittest.TestCase):
         self.assertEqual(data["content"][1]["code"], "B2")
         self.assertEqual(data["form"]["patterns"][0]["span"], [1, 2])
 
+    def test_example_regeneration_is_deterministic(self) -> None:
+        # ADR-003 amendment: run-dependent values are frozen so the contracts/ gate
+        # only trips on a real change; artifact_hash stays real.
+        from pipeline import contract_example
+        from pipeline.run import Pipeline
+
+        first = contract_example.render(contract_example.build_example())
+        second = contract_example.render(contract_example.build_example())
+        self.assertEqual(first, second)
+        example = json.loads(first)
+        sentinel = contract_example.LATENCY_SENTINEL_MS
+        self.assertEqual(example["latency_ms"], sentinel)
+        self.assertTrue(example["per_module_ms"])
+        self.assertEqual(set(example["per_module_ms"].values()), {sentinel})
+        self.assertEqual(example["artifact_hash"], Pipeline().artifact_hash)
+        module_example = contract_example.render(contract_example.build_module_example())
+        self.assertEqual(module_example, contract_example.render(contract_example.build_module_example()))
+        self.assertEqual(json.loads(module_example)["latency_ms"], sentinel)
+
     def test_example_fixture_matches_contract_shape(self) -> None:
         example = json.loads((FIXTURES / "analysis_result.example.json").read_text(encoding="utf-8"))
         self.assertEqual(set(example), set(AnalysisResult(text="").to_dict()))

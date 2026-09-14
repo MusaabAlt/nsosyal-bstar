@@ -1,8 +1,8 @@
 {
   "module": "m0_charsafe",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "ok": true,
-  "latency_ms": 0.07390000973828137,
+  "latency_ms": 0.0,
   "charsafe_text": "sıkıntı",
   "normalized_text": null,
   "form": {
@@ -25,7 +25,7 @@
   "guards": [],
   "thread": null,
   "signals": {
-    "offsets": [
+    "_offsets": [
       0,
       1,
       2,
@@ -34,8 +34,10 @@
       5,
       6
     ],
+    "offsets_identity": true,
     "invisible_removed": 0,
-    "homoglyphs_mapped": 0
+    "homoglyphs_mapped": 0,
+    "charsafe_changed": true
   },
   "notes": []
 }
