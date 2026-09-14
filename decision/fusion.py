@@ -45,6 +45,12 @@ def validate_config(cfg: dict[str, Any]) -> None:
                 "guards_order", "budgets", "thread"):
         if key not in cfg:
             raise ValueError(f"thresholds config missing section: {key}")
+    status, derived_on = cfg["artifact"].get("status"), cfg["artifact"].get("derived_on")
+    if status not in ("placeholder", "derived"):
+        raise ValueError(f"artifact.status must be placeholder or derived, got {status!r}")
+    if (status == "derived") != (derived_on is not None):
+        # A derived file must say where it was derived; a placeholder must not pretend to be.
+        raise ValueError(f"artifact.derived_on is {derived_on!r} but status is {status!r}")
     if cfg["fusion"]["strategy"] not in _STRATEGIES:
         raise ValueError(f"unknown fusion strategy: {cfg['fusion']['strategy']!r}")
     for code, entry in cfg["categories"].items():
@@ -63,6 +69,10 @@ def validate_config(cfg: dict[str, Any]) -> None:
         GuardCode(code)
         if code not in cfg["guards"]:
             raise ValueError(f"guards_order names {code} but guards has no entry for it")
+    unordered = set(cfg["guards"]) - set(cfg["guards_order"])
+    if unordered:
+        # A configured guard missing from guards_order would never be applied - silently.
+        raise ValueError(f"guards configured but not in guards_order: {sorted(unordered)}")
     valid_targets = {c.value for c in ContentCode} | {f.value for f in FAMILY.values()}
     for code, entry in cfg["guards"].items():
         GuardCode(code)

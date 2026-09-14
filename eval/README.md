@@ -3,7 +3,12 @@
 - `harness.py` — `ModuleEvaluator`: measures one module alone on its fixture,
   per code with bootstrap CIs, representation metrics, traps, latency.
 - `run_all.py` — every registered module on its own fixture.
-- `traps/traps.jsonl` — collision traps that must never fire.
+- `traps/traps.jsonl` — collision traps. Per trap:
+  - `must_not_fire`: content codes that must never fire (`"*"` = any), checked for every module;
+  - `expect`: output fields that must match exactly when the module produces them;
+  - `form` / `guards`: `{"modules": [...], "must": [...], "must_not": [...]}` on the form
+    patterns / guards a listed module emits (before thresholds). A `must` a stub cannot meet yet
+    is reported as pending, not as a regression. Module owners add their own cases here.
 - `testsuite/` — end-to-end gold set for the whole pipeline.
 - `results/` — output of the harness. **Not committed.**
 

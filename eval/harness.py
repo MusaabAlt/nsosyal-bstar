@@ -36,12 +36,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from contracts.codes import ContentCode, FormCode, GuardCode, TargetType
+from contracts.codes import ContentCode, FormCode, GuardCode, ModuleName, TargetType
 from contracts.module_api import Context, ModuleOutput
 from contracts.schema import AnalysisResult
 from decision import fusion
 from modules import registry
-from pipeline.run import Pipeline, artifact_hash, deep_freeze, safe_process, span_declarations
+from pipeline.run import (Pipeline, artifact_hash, build_modules_safely, deep_freeze, safe_process,
+                          span_declarations)
 
 ROOT = Path(__file__).resolve().parent.parent
 TRAPS_PATH = ROOT / "eval" / "traps" / "traps.jsonl"
@@ -295,13 +296,23 @@ class ModuleEvaluator:
         }
 
     def check_traps(self) -> dict[str, Any]:
-        """Collision traps must never fire. `must_not_fire: ["*"]` means no
-        content code at all; `expect` fields are checked when the module
-        produces them. Only content codes and expect fields are checked."""
+        """Traps assert what a module must and must not do on collision-prone text.
+
+        Trap fields (eval/README.md):
+          must_not_fire  content codes that must never FIRE, "*" = any (every module)
+          expect         output fields that must match exactly, when produced
+          form / guards  {"modules": [...], "must": [...], "must_not": [...]} on the
+                         codes a listed module EMITS (before thresholds), "*" = any
+
+        A "must" that a stub cannot meet yet is reported as pending, not as a
+        regression; a stub still has to respect every "must_not".
+        """
         if not self.traps_path.exists():
-            return {"n": 0, "regressions": 0, "failures": [], "note": "traps file missing"}
+            return {"n": 0, "regressions": 0, "failures": [], "pending": [], "note": "traps file missing"}
         traps = load_jsonl(self.traps_path)
-        failures = []
+        name = self.module.name.value
+        is_stub = bool(getattr(self.module, "stub", False))
+        failures, pending = [], []
         for trap in traps:
             out, result, _ = self.run_item(trap, latencies=self.trap_latencies)
             banned = set(trap.get("must_not_fire", ["*"]))
@@ -309,10 +320,26 @@ class ModuleEvaluator:
             hit = fired if "*" in banned else fired & banned
             problems = [f"fired {sorted(hit)}"] if hit else []
             problems += self._expect_failures(trap, out)
+            emitted = {"form": {p.code.value for p in result.form.patterns},
+                       "guards": {g.code.value for g in result.guards}}
+            waiting = []
+            for field_name, observed in emitted.items():
+                rule = trap.get(field_name)
+                if not rule or name not in rule.get("modules", []):
+                    continue
+                missing = sorted(set(rule.get("must", [])) - observed)
+                if missing:
+                    (waiting if is_stub else problems).append(f"{field_name}: expected {missing}")
+                forbidden = set(rule.get("must_not", []))
+                unwanted = sorted(observed if "*" in forbidden else observed & forbidden)
+                if unwanted:
+                    problems.append(f"{field_name}: must not emit {unwanted}")
             if problems:
                 failures.append({"id": trap.get("id"), "text": trap["text"], "problems": problems})
-        return {"n": len(traps), "regressions": len(failures), "failures": failures,
-                "checks": "content codes (must_not_fire) and expect fields"}
+            if waiting:
+                pending.append({"id": trap.get("id"), "text": trap["text"], "pending": waiting})
+        return {"n": len(traps), "regressions": len(failures), "failures": failures, "pending": pending,
+                "checks": "content codes (must_not_fire), expect fields, emitted form patterns and guards"}
 
     def write(self, report: dict[str, Any]) -> Path:
         self.results_dir.mkdir(parents=True, exist_ok=True)
@@ -334,7 +361,8 @@ def summarize(report: dict[str, Any]) -> str:
     lat = report["latency"]
     p95 = "n/a" if lat["fixture"]["p95_ms"] is None else f"{lat['fixture']['p95_ms']:.3f}ms"
     lines = [f"{report['module']}: scored={report['n_scored']} placeholder={report['n_placeholder']} "
-             f"traps={report['traps']['regressions']}/{report['traps']['n']} fixture_p95={p95} "
+             f"traps={report['traps']['regressions']}/{report['traps']['n']} "
+             f"pending={len(report['traps'].get('pending', []))} fixture_p95={p95} "
              f"within_budget={lat['within_budget']}"]
     for code, m in report["per_code"].items():
         if m["support"] or m["fp"]:
@@ -347,6 +375,63 @@ def summarize(report: dict[str, Any]) -> str:
         dmg = rep["damage_rate_on_clean"]
         lines.append(f"  damage_rate_on_clean({rep['field']})={_fmt(dmg)} n_clean={dmg['n_clean']}")
     return "\n".join(lines)
+
+
+class NoNormalizedChannel:
+    """Stands in for m2_deobf to measure what the normalized channel adds."""
+
+    def __init__(self) -> None:
+        self.name = ModuleName.M2_DEOBF
+        self.version = "disabled-for-measurement"
+        self.provides: frozenset[str] = frozenset()
+        self.emits_spans = False
+
+    def load(self) -> None:
+        return None
+
+    def process(self, ctx: Context) -> ModuleOutput:
+        return ModuleOutput()
+
+
+def pipeline_budget_report(config: dict[str, Any] | None = None, traps_path: Path = TRAPS_PATH,
+                           modules: list[Any] | None = None, texts: list[str] | None = None,
+                           runs: int = 3) -> dict[str, Any]:
+    """Pipeline-level budgets from thresholds.yaml.
+
+    clean_to_dirty_flip_rate (m2 spec.md §6): share of traps with no fired content
+    code when the normalized channel is disabled but a fired code when it is on.
+    latency_p95_ms: whole-pipeline p95 over the trap texts and every module fixture.
+    """
+    cfg = config if config is not None else fusion.load_config()
+    modules = modules if modules is not None else build_modules_safely()
+    with_channel = Pipeline(modules=modules, config=cfg)
+    without_channel = Pipeline(modules=[NoNormalizedChannel() if m.name is ModuleName.M2_DEOBF else m
+                                        for m in modules], config=cfg)
+    traps = load_jsonl(traps_path)
+    flips = [t.get("id") for t in traps
+             if not without_channel.analyze(t["text"]).fired() and with_channel.analyze(t["text"]).fired()]
+    flip_budget = cfg["budgets"]["clean_to_dirty_flip_rate"]
+    flip_rate = _ratio(len(flips), len(traps))
+
+    if texts is None:
+        texts = [t["text"] for t in traps]
+        for entry in registry.PIPELINE_ORDER:
+            fixture = default_fixture(entry.name.value)
+            if fixture.exists():
+                texts += [i["text"] for i in load_jsonl(fixture) if not i.get("placeholder")]
+    latencies = [with_channel.analyze(text).latency_ms for _ in range(runs) for text in texts]
+    latency_budget = cfg["budgets"]["latency_p95_ms"]
+    p95 = percentile(latencies, 95)
+    return {
+        "clean_to_dirty_flip_rate": {
+            "value": flip_rate, "flipped_trap_ids": flips, "n_traps": len(traps), "budget": flip_budget,
+            "within_budget": None if flip_rate is None else flip_rate <= flip_budget,
+        },
+        "pipeline_latency": {
+            "n": len(latencies), "p50_ms": percentile(latencies, 50), "p95_ms": p95, "budget_p95_ms": latency_budget,
+            "within_budget": None if p95 is None else p95 <= latency_budget,
+        },
+    }
 
 
 def default_fixture(module_name: str) -> Path:

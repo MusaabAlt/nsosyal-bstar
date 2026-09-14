@@ -1,15 +1,18 @@
-"""Evaluate every registered module on its own dev fixture.
+"""Evaluate every registered module on its own fixture, then the pipeline budgets.
 
 python -m eval.run_all [--n-boot N]
 
-Exit code 1 if any module has a trap regression.
+Exit code 1 if any module has a trap regression, or the pipeline exceeds
+budgets.clean_to_dirty_flip_rate or budgets.latency_p95_ms.
 """
 from __future__ import annotations
 
 import argparse
 import sys
 
-from eval.harness import ModuleEvaluator, default_fixture, summarize
+import json
+
+from eval.harness import RESULTS_DIR, ModuleEvaluator, default_fixture, pipeline_budget_report, summarize
 from modules import registry
 
 
@@ -28,7 +31,16 @@ def main(argv: list[str] | None = None) -> int:
         evaluator.write(report)
         regressions += report["traps"]["regressions"]
         print(summarize(report))
-    return 1 if regressions else 0
+
+    budgets = pipeline_budget_report()
+    flip, lat = budgets["clean_to_dirty_flip_rate"], budgets["pipeline_latency"]
+    print(f"pipeline: clean_to_dirty_flip_rate={flip['value']} (budget {flip['budget']}, within={flip['within_budget']}) "
+          f"p95={lat['p95_ms']:.2f}ms over {lat['n']} runs (budget {lat['budget_p95_ms']}ms, "
+          f"within={lat['within_budget']})")
+    RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+    (RESULTS_DIR / "pipeline.json").write_text(json.dumps(budgets, indent=2) + "\n", encoding="utf-8")
+    over_budget = flip["within_budget"] is False or lat["within_budget"] is False
+    return 1 if regressions or over_budget else 0
 
 
 if __name__ == "__main__":

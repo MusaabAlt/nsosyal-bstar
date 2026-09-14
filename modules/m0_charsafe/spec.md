@@ -28,6 +28,7 @@ The third one is not an attack; it is a bug that **creates false positives out o
 | Bidi override marks | letter repetition → M2 |
 | Cross-script look-alike letters | spacing/punctuation splits → M2 |
 | Turkish dotted/dotless casing errors | anything semantic → M3/M4 |
+| | accent normalisation (`áptal` → `aptal`) → M2 |
 
 M0 does **not** decide whether text is offensive. It has no opinion on content.
 

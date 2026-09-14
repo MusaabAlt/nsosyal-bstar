@@ -50,14 +50,14 @@ class _Spy(BaseModule):
     def _run(self, ctx: Context) -> ModuleOutput:
         self.seen.append(ctx)
         # Also returns an undeclared field, which must be dropped.
-        return ModuleOutput(guards=[GuardResult(GuardCode.NEGATION, 0.1, "m3_encoder")], normalized_text="sneaky")
+        return ModuleOutput(guards=[GuardResult(GuardCode.HOMONYM, 0.1, "m3_encoder")], normalized_text="sneaky")
 
 
 class PipelineTest(unittest.TestCase):
     def setUp(self) -> None:
         self.cfg = copy.deepcopy(fusion.load_config())
         self.cfg["categories"]["A3"].update(threshold=0.5, action="block")
-        self.cfg["guards"]["NEGATION"]["threshold"] = 0.5
+        self.cfg["guards"]["HOMONYM"]["threshold"] = 0.5
         self.cfg["fast_path"].update(enabled=True, margin=0.3, requires=["m0_charsafe", "m1_lexicon"])
 
     def test_default_pipeline_on_clean_sentence(self) -> None:
@@ -242,12 +242,33 @@ class RobustnessTest(unittest.TestCase):
             provides = frozenset({"normalized_text"})
 
             def _run(self, ctx: Context) -> ModuleOutput:
-                ctx.signals["m0_charsafe"]["offsets"].clear()
+                ctx.signals["m0_charsafe"]["_offsets"].clear()
                 return ModuleOutput()
 
-        result = Pipeline(modules=[CharSafeModule(), Vandal()], config=self.cfg).analyze("merhaba")
-        self.assertEqual(result.signals["m0_charsafe"]["offsets"], [0, 1, 2, 3, 4, 5, 6])
+        class Reader(BaseModule):
+            name = ModuleName.M1_LEXICON
+            provides = frozenset({"content"})
+            emits_spans = False
+            seen: list = []
+
+            def _run(self, ctx: Context) -> ModuleOutput:
+                Reader.seen.append(list(ctx.signals["m0_charsafe"]["_offsets"]))
+                return ModuleOutput()
+
+        result = Pipeline(modules=[CharSafeModule(), Vandal(), Reader()], config=self.cfg).analyze("merhaba")
+        self.assertEqual(Reader.seen, [[0, 1, 2, 3, 4, 5, 6]])
         self.assertTrue(any("[m2_deobf] AttributeError" in n for n in result.notes))
+
+    def test_internal_signals_stay_out_of_the_response(self) -> None:
+        from modules.m0_charsafe.module import CharSafeModule
+
+        long_post = "Bu bir test cumlesi " * 250
+        result = Pipeline(modules=[CharSafeModule()], config=self.cfg).analyze(long_post)
+        self.assertNotIn("_offsets", result.signals["m0_charsafe"])
+        self.assertTrue(result.signals["m0_charsafe"]["offsets_identity"])
+        short = Pipeline(modules=[CharSafeModule()], config=self.cfg).analyze("Bu bir test cumlesi")
+        size = lambda r: len(json.dumps(r.to_dict()["signals"]["m0_charsafe"]))
+        self.assertEqual(size(result), size(short))
 
     def test_nested_signal_payload_is_read_only(self) -> None:
         frozen = run.deep_freeze({"a": {"b": [1, {"c": 2}]}})

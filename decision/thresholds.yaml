@@ -12,13 +12,13 @@
 
 artifact:
   id: thresholds-v0.0.0-placeholder
-  status: placeholder          # placeholder | derived
-  derived_on: null             # dev split id + date once derived
+  status: placeholder          # placeholder | derived (validated)
+  derived_on: null             # dev split id + date; required when derived, null while placeholder
 
 fusion:
   # Per content code, take the max score over channels and sources.
   # The normalized channel (m2) can only ADD evidence; its cost is policed by
-  # budgets.clean_to_dirty_flip_rate below, measured on dev.
+  # budgets.clean_to_dirty_flip_rate below, measured on the trap list (m2 spec.md §6).
   strategy: max
   channels: [raw, normalized]
 
@@ -77,55 +77,47 @@ fast_path:
   #
   # DISABLED until `margin` is derived on dev (protocols/templates/threshold_derivation.md):
   # enabling a shortcut whose margin is a placeholder is a contradiction.
-  # m3_encoder is required so its counter-speech guards (QUOTE_COUNTERSPEECH,
-  # METADISCUSSION, NEGATION) can never be skipped by the fast path.
+  # `requires` = every guard producer (m1_lexicon, m6_target) and their inputs
+  # (m0_charsafe, m2_deobf), so no configured guard can be skipped by the fast path.
   enabled: false
   margin: 0.30                 # PLACEHOLDER - derive on dev
-  requires: [m0_charsafe, m2_deobf, m1_lexicon, m6_target, m3_encoder]
+  requires: [m0_charsafe, m2_deobf, m1_lexicon, m6_target]
 
 guards:
   # threshold: minimum guard score to be active. suppresses: families (A-D)
   # or individual codes whose `fired` flag an active guard clears.
+  # Only guards a spec contract names a producer for are configured:
+  #   m1_lexicon spec.md §3: SUBSTRING_COLLISION, HOMONYM
+  #   m6_target  spec.md §5: NON_HUMAN_TARGET
+  # A guard is added here only together with the spec contract that produces it.
   SUBSTRING_COLLISION: {threshold: 0.50, suppresses: [A]}              # PLACEHOLDER
   HOMONYM:             {threshold: 0.50, suppresses: [A]}              # PLACEHOLDER
-  QUOTE_COUNTERSPEECH: {threshold: 0.50, suppresses: [A, B, C, D]}     # PLACEHOLDER
-  METADISCUSSION:      {threshold: 0.50, suppresses: [A, B, C, D]}     # PLACEHOLDER
-  NEGATION:            {threshold: 0.50, suppresses: [B, C]}           # PLACEHOLDER
   NON_HUMAN_TARGET:    {threshold: 0.50, suppresses: [A2, B1, B2]}     # PLACEHOLDER
-  SELF_DIRECTED:       {threshold: 0.50, suppresses: [A2, B1]}         # PLACEHOLDER
-  DUAL_REGISTER:       {threshold: 0.50, suppresses: [A1]}             # PLACEHOLDER
-  FRIENDLY_BANTER:     {threshold: 0.50, suppresses: [A1, A2, B1, D1]} # PLACEHOLDER
 
 # Evaluation order. The first active guard that covers a fired code is
 # credited with suppressing it (matters for explanations and audits).
+# Every configured guard must appear here (validated at load).
 guards_order:
   - SUBSTRING_COLLISION
   - HOMONYM
-  - QUOTE_COUNTERSPEECH
-  - METADISCUSSION
-  - NEGATION
   - NON_HUMAN_TARGET
-  - SELF_DIRECTED
-  - DUAL_REGISTER
-  - FRIENDLY_BANTER
 
 budgets:
-  clean_to_dirty_flip_rate: 0.01   # PLACEHOLDER - max share of clean dev items the normalized channel flips
-  fpr_increase_on_clean: 0.005     # PLACEHOLDER - max absolute FPR increase a change may cause
+  # Read by eval/run_all.py (eval.harness.pipeline_budget_report).
+  clean_to_dirty_flip_rate: 0.01   # PLACEHOLDER - max share of traps the normalized channel flips to fired
   latency_p95_ms: 150              # PLACEHOLDER - whole pipeline, CPU
   module_latency_p95_ms:           # PLACEHOLDER - per module, CPU
     m0_charsafe: 1                 # PLACEHOLDER - spec.md acceptance: p95 under 1 ms
-    m1_lexicon: 5
-    m2_deobf: 10
-    m3_encoder: 80
-    m4_implicit: 20
-    m5_sarcasm: 20
-    m6_target: 5
+    m1_lexicon: 5       # PLACEHOLDER - measure on the demo machine
+    m2_deobf: 10        # PLACEHOLDER - measure on the demo machine
+    m3_encoder: 80      # PLACEHOLDER - measure on the demo machine
+    m4_implicit: 20     # PLACEHOLDER - measure on the demo machine
+    m5_sarcasm: 20      # PLACEHOLDER - measure on the demo machine
+    m6_target: 5        # PLACEHOLDER - measure on the demo machine
 
 thread:
   # Axis 4: repetition is judged here only, never per post.
   enabled: true
-  window_posts: 20                 # PLACEHOLDER
   min_repeats: 3                   # PLACEHOLDER
   same_target_required: true
   action: escalate                 # PLACEHOLDER policy

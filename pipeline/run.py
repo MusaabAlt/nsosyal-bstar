@@ -7,7 +7,8 @@ The pipeline enforces the module contract at runtime:
   * malformed output items (wrong types, NaN/inf scores, invalid spans, a
     `source` naming another module) are dropped with a note - a NaN score is
     an error, never an implicit "clean"
-  * each module sees a deep read-only copy of earlier modules' signals
+  * each module sees a deep read-only copy of earlier modules' signals;
+    "_"-prefixed signal keys are internal and never reach the response
   * nothing a module does - failing to construct, load, run, or returning
     garbage - crashes the request
   * SPANS (ADR-001): a module declaring `emits_spans = True` - or declaring
@@ -172,6 +173,13 @@ def _source_problem(source: Any, name: str, required: bool) -> str | None:
     return None
 
 
+def public_signals(payload: Any) -> Any:
+    """A module's signal payload without its internal ("_"-prefixed) keys."""
+    if isinstance(payload, dict):
+        return {k: v for k, v in payload.items() if not str(k).startswith("_")}
+    return payload
+
+
 def span_declarations(modules: list[Any]) -> dict[str, bool]:
     """Module name -> whether its scores/guards must carry spans (undeclared = True)."""
     return {m.name.value: getattr(m, "emits_spans", None) is not False for m in modules}
@@ -249,7 +257,10 @@ class Pipeline:
                 result.notes.append(f"[pipeline] fast path after {module.name.value}; skipped: {skipped}")
                 break
 
-        result.signals.update(signals)
+        # Keys starting with "_" are internal: passed to later modules through
+        # ctx.signals but kept out of the response, so its size does not grow
+        # with the post (e.g. m0's per-character `_offsets`).
+        result.signals.update({name: public_signals(payload) for name, payload in signals.items()})
         result.signals["channels"] = {"charsafe_text": charsafe_text, "normalized_text": normalized_text}
         result.signals["pipeline"] = {"degraded": list(degraded.values()),
                                       "emits_spans": span_declarations(self.modules)}

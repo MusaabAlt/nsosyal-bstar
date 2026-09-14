@@ -102,5 +102,82 @@ class HarnessTest(unittest.TestCase):
         self.assertEqual(report["traps"]["regressions"], 0)
 
 
+class TrapFormatTest(unittest.TestCase):
+    def setUp(self) -> None:
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        self.fixture = self.dir / "fixture.jsonl"
+        self.fixture.write_text(json.dumps({"id": "1", "text": "x", "expected": []}) + "\n", encoding="utf-8")
+
+    def tearDown(self) -> None:
+        self.tmp.cleanup()
+
+    def traps(self, module: BaseModule, items: list[dict]) -> dict:
+        path = self.dir / "traps.jsonl"
+        path.write_text("".join(json.dumps(i) + "\n" for i in items), encoding="utf-8")
+        return ModuleEvaluator(module, self.fixture, traps_path=path, results_dir=self.dir, n_boot=10).check_traps()
+
+    def test_form_must_and_must_not_are_checked_for_listed_modules(self) -> None:
+        items = [
+            {"id": "t1", "text": "a zw b", "form": {"modules": ["m0_charsafe"], "must": ["ZERO_WIDTH"]}},
+            {"id": "t2", "text": "a b", "form": {"modules": ["m0_charsafe"], "must": ["ZERO_WIDTH"]}},
+            {"id": "t3", "text": "zw", "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}},
+            {"id": "t4", "text": "zw", "form": {"modules": ["m2_deobf"], "must_not": ["*"]}},
+        ]
+        report = self.traps(_Rewriter(), items)
+        self.assertEqual([f["id"] for f in report["failures"]], ["t2", "t3"])
+
+    def test_stub_must_is_pending_but_must_not_still_applies(self) -> None:
+        class StubLexicon(_Lexicon):
+            stub = True
+
+        items = [
+            {"id": "t1", "text": "amca", "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}},
+            {"id": "t2", "text": "kotu", "must_not_fire": ["*"]},
+        ]
+        report = self.traps(StubLexicon(), items)
+        self.assertEqual([p["id"] for p in report["pending"]], ["t1"])
+        self.assertEqual([f["id"] for f in report["failures"]], ["t2"])
+
+    def test_implemented_module_missing_a_must_is_a_regression(self) -> None:
+        items = [{"id": "t1", "text": "amca", "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}]
+        report = self.traps(_Lexicon(), items)
+        self.assertEqual(report["regressions"], 1)
+        self.assertEqual(report["pending"], [])
+
+
+class PipelineBudgetTest(unittest.TestCase):
+    def test_flip_rate_counts_traps_only_the_normalized_channel_fires_on(self) -> None:
+        from contracts.codes import ContentCode, ModuleName
+        from eval.harness import pipeline_budget_report
+
+        class Deobf(BaseModule):
+            name = ModuleName.M2_DEOBF
+            provides = frozenset({"normalized_text"})
+            emits_spans = False
+
+            def _run(self, ctx: Context) -> ModuleOutput:
+                return ModuleOutput(normalized_text=ctx.text.replace("4", "a"))
+
+        class Lexicon(BaseModule):
+            name = ModuleName.M1_LEXICON
+            provides = frozenset({"content"})
+            emits_spans = False
+
+            def _run(self, ctx: Context) -> ModuleOutput:
+                hit = ctx.normalized_text is not None and "amca" in ctx.normalized_text
+                return ModuleOutput(content=[ContentScore(ContentCode.A1, 0.99, "m1_lexicon@normalized")] if hit else [])
+
+        with tempfile.TemporaryDirectory() as tmp:
+            traps = Path(tmp) / "traps.jsonl"
+            traps.write_text("".join(json.dumps(t) + chr(10) for t in (
+                {"id": "t1", "text": "amc4"}, {"id": "t2", "text": "iyi"})), encoding="utf-8")
+            report = pipeline_budget_report(traps_path=traps, modules=[Deobf(), Lexicon()], texts=["iyi"], runs=1)
+        flip = report["clean_to_dirty_flip_rate"]
+        self.assertEqual((flip["flipped_trap_ids"], flip["value"], flip["n_traps"]), (["t1"], 0.5, 2))
+        self.assertFalse(flip["within_budget"])
+        self.assertEqual(report["pipeline_latency"]["n"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -44,6 +44,31 @@ class DecisionTest(unittest.TestCase):
         with self.assertRaises(ValueError):
             fusion.validate_config(bad)
 
+    def test_artifact_status_and_derived_on_must_agree(self) -> None:
+        self.assertEqual((self.base_cfg["artifact"]["status"], self.base_cfg["artifact"]["derived_on"]),
+                         ("placeholder", None))
+        for status, derived_on in (("derived", None), ("placeholder", "dev-2026-09"), ("final", None)):
+            bad = copy.deepcopy(self.cfg)
+            bad["artifact"].update(status=status, derived_on=derived_on)
+            with self.subTest(status=status, derived_on=derived_on), self.assertRaises(ValueError):
+                fusion.validate_config(bad)
+        good = copy.deepcopy(self.cfg)
+        good["artifact"].update(status="derived", derived_on="dev-2026-09")
+        fusion.validate_config(good)
+
+    def test_unread_keys_are_gone(self) -> None:
+        self.assertNotIn("window_posts", self.base_cfg["thread"])
+        self.assertNotIn("fpr_increase_on_clean", self.base_cfg["budgets"])
+
+    def test_configured_guard_missing_from_order_fails_loudly(self) -> None:
+        bad = copy.deepcopy(self.cfg)
+        bad["guards"]["NEGATION"] = {"threshold": 0.5, "suppresses": ["B"]}
+        with self.assertRaises(ValueError):
+            fusion.validate_config(bad)
+
+    def test_only_spec_produced_guards_are_configured(self) -> None:
+        self.assertEqual(set(self.base_cfg["guards"]), {"SUBSTRING_COLLISION", "HOMONYM", "NON_HUMAN_TARGET"})
+
     def test_clean_when_nothing_scores(self) -> None:
         result = fusion.decide(AnalysisResult(text="x"), self.cfg)
         self.assertIs(result.verdict, Action.CLEAN)
@@ -150,8 +175,8 @@ class DecisionTest(unittest.TestCase):
         self.assertFalse(result.guards[0].active)
 
     def test_clean_explanation_names_suppressing_guard(self) -> None:
-        result = AnalysisResult(text="x", content=[score("A1", 0.9, "m3_encoder@raw")],
-                                guards=[GuardResult(GuardCode.QUOTE_COUNTERSPEECH, 0.9, "m3_encoder@raw")])
+        result = AnalysisResult(text="x", content=[score("A2", 0.9, "m6_target@raw")],
+                                guards=[GuardResult(GuardCode.NON_HUMAN_TARGET, 0.9, "m6_target")])
         fusion.decide(result, self.cfg)
         self.assertIs(result.verdict, Action.CLEAN)
         self.assertIn("bastırıldı", result.explanation)
@@ -243,7 +268,8 @@ class DecisionTest(unittest.TestCase):
 
     def test_fast_path_disabled_by_default_until_margin_derived(self) -> None:
         self.assertFalse(self.base_cfg["fast_path"]["enabled"])
-        self.assertIn("m3_encoder", self.base_cfg["fast_path"]["requires"])
+        # Every configured guard producer (m1, m6) and their inputs; m3 produces no guard.
+        self.assertEqual(self.base_cfg["fast_path"]["requires"], ["m0_charsafe", "m2_deobf", "m1_lexicon", "m6_target"])
         self.assertFalse(fusion.fast_path_hit([score("A3", 0.99)], [], self.base_cfg))
 
     def test_fast_path_hit(self) -> None:

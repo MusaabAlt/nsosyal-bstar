@@ -15,7 +15,7 @@ Fill one copy per derivation. Output: a reviewed change to
 
 ## 3. Objective (decided BEFORE looking at curves)
 - Operating point rule (e.g. max recall s.t. FPR <= x, or precision CI lower bound >= y): 
-- Budgets that must hold: clean_to_dirty_flip_rate, fpr_increase_on_clean, latency_p95_ms
+- Budgets that must hold: clean_to_dirty_flip_rate, latency_p95_ms, module_latency_p95_ms
 
 ## 4. Procedure
 - Score source: `eval/results/<module>.json` from commit: 

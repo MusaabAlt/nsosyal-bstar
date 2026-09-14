@@ -9,7 +9,7 @@ from contracts.codes import FormCode, ModuleName
 from contracts.module_api import Context, ModuleOutput
 from contracts.schema import ContentScore, GuardResult
 from modules.m0_charsafe.module import (CONF_CASING_INNER, CONF_CASING_ORDINARY, CONF_COMBINING_STUFFING,
-                                        CONF_FULLWIDTH, CONF_HOMOGLYPH_ALL_LOOKALIKE,
+                                        CONF_STYLED_LATIN, CONF_HOMOGLYPH_ALL_LOOKALIKE,
                                         CONF_HOMOGLYPH_MIXED_SCRIPT, CONF_INVISIBLE_BOUNDARY,
                                         CONF_INVISIBLE_INSIDE_WORD, CONF_INVISIBLE_LEADING_BOM,
                                         CharSafeModule)
@@ -93,7 +93,7 @@ class CharSafeTest(unittest.TestCase):
         ctx = Context(text=text)
         out = self.module.process(ctx)
         self.assertEqual(ctx.text, text)
-        offsets = out.signals["offsets"]
+        offsets = out.signals["_offsets"]
         self.assertEqual(len(offsets), len(out.charsafe_text))
         self.assertEqual(sorted(offsets), offsets)
         self.assertNotIn(2, offsets)  # the ZWSP position has no output char
@@ -103,7 +103,7 @@ class CharSafeTest(unittest.TestCase):
         out = self.run_m0("")
         self.assertEqual(out.charsafe_text, "")
         self.assertEqual(out.form.patterns, [])
-        self.assertEqual(out.signals["offsets"], [])
+        self.assertEqual(out.signals["_offsets"], [])
 
     def test_whitespace_only(self) -> None:
         out = self.run_m0(" \t\n ")
@@ -115,7 +115,7 @@ class CharSafeTest(unittest.TestCase):
         out = self.run_m0(text)
         self.assertEqual(len(text), 5000)
         self.assertEqual(out.charsafe_text, text.lower())
-        self.assertEqual(len(out.signals["offsets"]), 5000)
+        self.assertEqual(len(out.signals["_offsets"]), 5000)
         self.assertEqual(out.form.patterns, [])
 
     def test_sikinti_never_yields_profane_root(self) -> None:
@@ -203,7 +203,7 @@ class CharSafeTest(unittest.TestCase):
     def test_decomposed_dotted_i(self) -> None:
         out = self.run_m0("I" + COMBINING_DOT + "yi")
         self.assertEqual(out.charsafe_text, "iyi")
-        self.assertEqual(out.signals["offsets"], [0, 2, 3])
+        self.assertEqual(out.signals["_offsets"], [0, 2, 3])
 
     def test_inner_capital_i_is_high_confidence(self) -> None:
         out = self.run_m0("sIkIntI")
@@ -225,13 +225,45 @@ class CharSafeTest(unittest.TestCase):
         self.assertEqual(out.charsafe_text, "aptal")
         [pattern] = out.form.patterns
         self.assertIs(pattern.code, FormCode.HOMOGLYPH)
-        self.assertEqual(pattern.confidence, CONF_FULLWIDTH)
+        self.assertEqual(pattern.confidence, CONF_STYLED_LATIN)
         self.assertEqual(pattern.span, (0, 5))
 
     def test_fullwidth_capital_i_follows_turkish_casing(self) -> None:
         out = self.run_m0(chr(0xFF33) + chr(0xFF29) + "KINTI")
         self.assertEqual(out.charsafe_text, "sıkıntı")
         self.assertIn(FormCode.DOTLESS_I, self.codes(out))
+
+    def test_mathematical_circled_and_small_capital_letters_are_mapped(self) -> None:
+        cases = {
+            "mathematical bold": "".join(chr(0x1D41A + ord(c) - ord("a")) for c in "aptal"),
+            "mathematical italic capital": "".join(chr(0x1D434 + ord(c) - ord("A")) for c in "APTAL"),
+            "circled": "".join(chr(0x24D0 + ord(c) - ord("a")) for c in "aptal"),
+            "small capitals": "".join(chr(cp) for cp in (0x1D00, 0x1D18, 0x1D1B, 0x1D00, 0x029F)),
+        }
+        for style, text in cases.items():
+            with self.subTest(style=style):
+                out = self.run_m0(text)
+                self.assertEqual(out.charsafe_text, "aptal")
+                self.assertEqual(self.codes(out), [FormCode.HOMOGLYPH])
+                self.assertEqual(out.form.patterns[0].confidence, CONF_STYLED_LATIN)
+
+    def test_small_capital_i_follows_turkish_casing(self) -> None:
+        out = self.run_m0("s" + chr(0x026A) + "k" + chr(0x026A) + "nt" + chr(0x026A))
+        self.assertEqual(out.charsafe_text, "sıkıntı")
+
+    def test_mathematical_greek_is_not_mapped_to_latin(self) -> None:
+        text = chr(0x1D6C2)  # MATHEMATICAL BOLD SMALL ALPHA
+        self.assertEqual(self.run_m0(text).charsafe_text, text)
+
+    def test_accents_are_not_normalised_by_m0(self) -> None:
+        # Accent normalisation belongs to m2 (spec.md §2).
+        self.assertEqual(self.run_m0("\u00e1ptal").charsafe_text, "\u00e1ptal")
+
+    def test_offsets_are_internal_and_summarised(self) -> None:
+        out = self.run_m0("ap\u200btal")
+        self.assertEqual(out.signals["_offsets"], [0, 1, 3, 4, 5])
+        self.assertFalse(out.signals["offsets_identity"])
+        self.assertTrue(self.run_m0("bu bir test").signals["offsets_identity"])
 
     def test_fullwidth_punctuation_is_left_alone(self) -> None:
         text = "\u4f60\u597d\uff01"
@@ -246,7 +278,7 @@ class CharSafeTest(unittest.TestCase):
         [pattern] = out.form.patterns
         self.assertIs(pattern.code, FormCode.ZERO_WIDTH)
         self.assertEqual(pattern.confidence, CONF_COMBINING_STUFFING)
-        self.assertEqual(out.signals["offsets"], [0, 2, 4, 6, 8])
+        self.assertEqual(out.signals["_offsets"], [0, 2, 4, 6, 8])
 
     def test_decomposed_turkish_letter_is_composed_not_stripped(self) -> None:
         out = self.run_m0("s\u0327ahane")

@@ -5,7 +5,9 @@ Catches:
     (Hangul fillers U+3164/U+115F/U+1160/U+FFA0, braille blank U+2800) -> ZERO_WIDTH
   * combining-mark stuffing (U+0336 after every letter of "aptal") on Latin letters -> ZERO_WIDTH; decomposed
     letters ("s" + U+0327) are canonically composed ("ş") and recorded
-  * fullwidth Latin letters and digits ("ａｐｔａｌ") -> HOMOGLYPH
+  * styled Latin letters -> HOMOGLYPH: fullwidth ("ａｐｔａｌ"), mathematical
+    alphanumerics (bold/italic/script... U+1D400-U+1D7FF), circled (U+24B6-U+24E9)
+    and small capitals (U+1D00 block and friends)
   * cross-script homoglyphs (Cyrillic/Greek lookalikes inside Latin words) -> HOMOGLYPH
   * the Turkish I problem: 'I' lowercases to 'ı', 'İ' to 'i' -> DOTLESS_I evidence
 
@@ -18,12 +20,17 @@ Deliberately does NOT:
     Fullwidth Latin is mapped by an explicit table instead.
   * strip combining marks from non-Latin letters (Arabic, Hebrew, Devanagari...
     need them), or fullwidth punctuation (ordinary in CJK text).
+  * normalise accents ("áptal" -> "aptal"): accent normalisation belongs to m2
+    (spec.md §2); m0 only composes canonically equivalent sequences.
   * score content, detect targets, or decide anything.
 
 Output: `charsafe_text`, `form` (one FormPattern per transformation run, spans in
-ORIGINAL offsets) and signals: `offsets` (the original index of every charsafe
-character, so downstream spans can be reported on the input), `charsafe_changed`
-(True when any FormPattern was emitted), `invisible_removed`, `homoglyphs_mapped`.
+ORIGINAL offsets) and signals: `charsafe_changed` (True when any FormPattern was
+emitted), `invisible_removed`, `homoglyphs_mapped`, `offsets_identity` (True when
+every charsafe character sits at its original index) and the internal `_offsets`
+(original index of every charsafe character). `_offsets` grows with the post, so
+it is internal: downstream modules read it through ctx.signals, the pipeline
+keeps it out of the response.
 
 Plain case folding of letters other than I/İ emits no pattern: capitalization
 is not obfuscation and there is no FormCode for it. Only folds where Turkish
@@ -40,7 +47,7 @@ from contracts.schema import FormPattern, FormResult
 SOURCE = ModuleName.M0_CHARSAFE.value
 
 # Layout controls are Cc but carry structure (line breaks separate quoted text
-# from replies - QUOTE_COUNTERSPEECH depends on it). Deleting them would also
+# from replies, which downstream readers of the raw text rely on). Deleting them would also
 # glue words together and CREATE collisions ("kerpic\nsikke" -> "kerpicsikke").
 LAYOUT_CONTROLS = frozenset("\t\n\r")
 
@@ -59,6 +66,15 @@ INVISIBLE_FILLERS = frozenset("\u115f\u1160\u3164\uffa0\u2800")
 # punctuation is left alone because it is ordinary in CJK text.
 FULLWIDTH_OFFSET = 0xFEE0
 FULLWIDTH_RANGES = ((0xFF10, 0xFF19), (0xFF21, 0xFF3A), (0xFF41, 0xFF5A))
+
+# Styled Latin with a single-letter compatibility decomposition. Folded one
+# character at a time with NFKC, and only when the result is one Latin/Turkish
+# letter or digit - never NFKC over the whole text (see "does NOT" above).
+STYLED_NFKC_RANGES = ((0x1D400, 0x1D7FF, "mathematical"), (0x24B6, 0x24E9, "circled"))
+
+# Small capitals have no decomposition, so they need a table. Small capital I
+# maps to capital I, which the Turkish casing pass then folds to dotless i.
+SMALL_CAPITALS: dict[str, str] = {"\u1d00": "a", "\u0299": "b", "\u1d04": "c", "\u1d05": "d", "\u1d07": "e", "\ua730": "f", "\u0262": "g", "\u029c": "h", "\u026a": "I", "\u1d0a": "j", "\u1d0b": "k", "\u029f": "l", "\u1d0d": "m", "\u0274": "n", "\u1d0f": "o", "\u1d18": "p", "\u0280": "r", "\ua731": "s", "\u1d1b": "t", "\u1d1c": "u", "\u1d20": "v", "\u1d21": "w", "\u028f": "y", "\u1d22": "z"}
 
 TURKISH_LETTERS = frozenset("çğıöşüÇĞİÖŞÜâîûÂÎÛ")
 
@@ -96,7 +112,7 @@ CONF_CASING_INNER = 0.90  # "sIk": capital I inside a lowercase word
 CONF_CASING_ORDINARY = 0.10  # "SIKINTI", "Istanbul": normal capitalization
 CONF_COMBINING_STUFFING = 0.90  # marks on Latin letters that compose to nothing
 CONF_CANONICAL_COMPOSITION = 0.05  # decomposed input (e.g. macOS), not an attack
-CONF_FULLWIDTH = 0.80  # no Turkish text needs fullwidth Latin
+CONF_STYLED_LATIN = 0.80  # no Turkish text needs fullwidth, mathematical, circled or small-capital Latin
 
 # Marks that belong to emoji sequences (text/emoji presentation, keycap).
 EMOJI_MARKS = frozenset((chr(0xFE0E), chr(0xFE0F), chr(0x20E3)))
@@ -156,16 +172,18 @@ class CharSafeModule(BaseModule):
 
         items = self._strip_invisible(text, patterns)
         items = self._handle_combining_marks(items, patterns)
-        homoglyphs = self._map_fullwidth(items, patterns)
+        homoglyphs = self._map_styled_latin(items, patterns)
         homoglyphs += self._map_confusables(text, items, patterns)
         items = self._turkish_lower(text, items, patterns)
 
         charsafe = "".join(ch for _, _, ch in items)
+        offsets = [start for start, _, _ in items]
         return ModuleOutput(
             charsafe_text=charsafe,
             form=FormResult(patterns=patterns),
             signals={
-                "offsets": [start for start, _, _ in items],
+                "_offsets": offsets,
+                "offsets_identity": all(index == start for index, start in enumerate(offsets)),
                 "invisible_removed": sum(p.span[1] - p.span[0] for p in patterns
                                          if p.code is FormCode.ZERO_WIDTH and p.span),
                 "homoglyphs_mapped": homoglyphs,
@@ -273,25 +291,43 @@ class CharSafeModule(BaseModule):
         return out
 
     # -- pass 1c ------------------------------------------------------------
-    def _map_fullwidth(self, items: list[Item], patterns: list[FormPattern]) -> int:
+    @staticmethod
+    def _styled_to_latin(ch: str) -> tuple[str, str] | None:
+        """(plain character, style) for a styled Latin letter/digit, else None."""
+        cp = ord(ch)
+        if any(lo <= cp <= hi for lo, hi in FULLWIDTH_RANGES):
+            return chr(cp - FULLWIDTH_OFFSET), "fullwidth"
+        for lo, hi, style in STYLED_NFKC_RANGES:
+            if lo <= cp <= hi:
+                folded = unicodedata.normalize("NFKC", ch)
+                # Mathematical Greek folds to Greek, not Latin: leave it alone.
+                if len(folded) == 1 and ((folded.isascii() and folded.isalnum()) or folded in TURKISH_LETTERS):
+                    return folded, style
+                return None
+        if ch in SMALL_CAPITALS:
+            return SMALL_CAPITALS[ch], "small capital"
+        return None
+
+    def _map_styled_latin(self, items: list[Item], patterns: list[FormPattern]) -> int:
         mapped = 0
         for token in _tokens(items):
-            wide = [k for k in token if any(lo <= ord(items[k][2]) <= hi for lo, hi in FULLWIDTH_RANGES)]
-            if not wide:
+            styled = [(k, hit) for k in token if (hit := self._styled_to_latin(items[k][2]))]
+            if not styled:
                 continue
             before = "".join(items[k][2] for k in token)
-            for k in wide:
-                start, end, ch = items[k]
-                items[k] = (start, end, chr(ord(ch) - FULLWIDTH_OFFSET))
+            for k, (plain, _) in styled:
+                start, end, _ = items[k]
+                items[k] = (start, end, plain)
             after = "".join(items[k][2] for k in token)
+            styles = ", ".join(dict.fromkeys(style for _, (_, style) in styled))
             patterns.append(FormPattern(
                 code=FormCode.HOMOGLYPH,
-                confidence=CONF_FULLWIDTH,
-                evidence=f"'{before}' -> '{after}' ({len(wide)} fullwidth Latin letter/digit(s))",
+                confidence=CONF_STYLED_LATIN,
+                evidence=f"'{before}' -> '{after}' ({len(styled)} styled Latin character(s): {styles})",
                 span=(items[token[0]][0], items[token[-1]][1]),
                 source=SOURCE,
             ))
-            mapped += len(wide)
+            mapped += len(styled)
         return mapped
 
     # -- pass 2 -------------------------------------------------------------

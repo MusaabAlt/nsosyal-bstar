@@ -51,6 +51,13 @@ stub's docstring, TODOs or skipped tests. spec.md is the only source of truth.
 7. **Thresholds.** If the module needs new numbers, derive them on dev following
    `protocols/templates/threshold_derivation.md` and edit
    `decision/thresholds.yaml` in a separate, reviewed change.
+
+Protocol templates in `protocols/templates/`, each used before the number it governs exists:
+- `annotation_guideline.md` - before labelling any fixture or evaluation slice;
+- `experiment_protocol.md` - before running a change you intend to report (hypothesis,
+  success criteria and ablations written first);
+- `threshold_derivation.md` - before deriving any value in `decision/thresholds.yaml`;
+- `error_analysis.md` - after each evaluation, before proposing the next change.
 8. **Run `scripts/check.sh`** before opening the merge request.
 
 ## Acceptance checklist (must pass before merge)
@@ -67,7 +74,7 @@ stub's docstring, TODOs or skipped tests. spec.md is the only source of truth.
       (`latency.within_budget == true`), and the pipeline stays within
       `budgets.latency_p95_ms`.
 - [ ] If the module adds a normalized-channel signal: `clean_to_dirty_flip_rate`
-      and `fpr_increase_on_clean` within budget.
+      within budget (`python -m eval.run_all` reports it).
 - [ ] `spec.md` is filled and matches the implementation.
 - [ ] New artifacts registered in `artifacts/MANIFEST.md`.
 - [ ] No edit to `contracts/` unless explicitly requested.
