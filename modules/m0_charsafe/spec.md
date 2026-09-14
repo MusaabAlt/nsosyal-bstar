@@ -1,55 +1,118 @@
-# m0_charsafe - character-level safety layer
+# M0 — Character Safety
 
-Type: **representation** | Status: Implemented (reference module).
+**Type:** representation (not a detector)
+**Owner:** _assign_
+**Status:** reference implementation — copy its shape, not its rules
 
-## Purpose
+---
 
-Give every downstream module a text in which invisible characters, cross-script lookalikes and the Turkish I casing problem can no longer hide or create a match. This is the reference implementation of the module contract.
+## 1. Objective
 
-## What it catches
+Stop the text from lying at the character level before any model sees it.
 
-- Unicode Cf/Cc characters (zero-width space/joiner, soft hyphen, bidi marks, BOM, control bytes) -> ZERO_WIDTH, with higher confidence when they split a word.
-- Cyrillic/Greek lookalikes inside Latin tokens, or tokens made only of lookalikes -> HOMOGLYPH.
-- Turkish casing: I -> ı, İ -> i, decomposed I/i + U+0307 -> i -> DOTLESS_I evidence (high confidence only for a capital I inside a lowercase word).
+Three attack families are in scope:
 
-## What it deliberately does NOT catch
+1. **Invisible characters** — zero-width space/joiner, bidirectional overrides, control characters. The text looks identical to a human and is completely different to a tokenizer.
+2. **Homoglyphs** — a Cyrillic `а` inside a Latin word. Visually identical, different codepoint, so every lexicon and every tokenizer misses it.
+3. **The Turkish casing bug** — most Unicode software uppercases `ı` to `I` but lowercases `I` to `i` unless the locale is Turkish. This silently changes the letter and the round trip is lost.
 
-- Leet, spacing, punctuation splits, repeats, deasciified text: interpretation, belongs to m2_deobf's parallel channel.
-- ASCII 'I' meant as 'İ' ("Istanbul"): that is DEASCII, m2's job; m0 applies Turkish rules literally.
-- NFKC folding (fullwidth, ligatures): normalization, not safety.
-- Genuine foreign-script words ("мир"): left untouched.
-- Any content, target, guard or decision.
+The third one is not an attack; it is a bug that **creates false positives out of clean text**. `SIKINTI` ("trouble") lowercased with English rules becomes `sikinti`, which contains a profane root. This is the single most important thing this module prevents.
 
-## Input / output contract
+---
 
-- Declares `provides = {`charsafe_text`, `form`}`; anything else it returns is dropped by the pipeline.
-- Input: `ctx.text` (original).
-- Output: `charsafe_text`; `form.patterns` (ZERO_WIDTH, HOMOGLYPH, DOTLESS_I; spans in ORIGINAL offsets); `signals = {offsets, invisible_removed, homoglyphs_mapped}` where `offsets[i]` is the original index of `charsafe_text[i]`.
-- Never sets `threshold`, `fired`, `active` or `suppressed`; never mutates `ctx.text`.
+## 2. What it catches / does not catch
 
-## Approach and tools
+| Catches | Does not catch |
+|---|---|
+| Zero-width and control characters | leetspeak (`s4l4k`) → M2 |
+| Bidi override marks | letter repetition → M2 |
+| Cross-script look-alike letters | spacing/punctuation splits → M2 |
+| Turkish dotted/dotless casing errors | anything semantic → M3/M4 |
 
-- Pass 1: strip maximal runs of Cf/Cc except \t \n \r; keep a ZWJ that joins emoji parts; one pattern per run.
-- Pass 2: only if a non-ASCII, non-Turkish letter exists, map a small hand-checked confusables table per token, and only for mixed-script tokens or tokens made entirely of lookalikes.
-- Pass 3: Turkish-aware lowercasing; one DOTLESS_I pattern per token where Turkish and default rules diverge.
-- Standard library only (`unicodedata`). Offsets tracked through every pass.
+M0 does **not** decide whether text is offensive. It has no opinion on content.
 
-## Forbidden shortcuts
+---
 
-- **`str.lower()` / `casefold()`** - turns SIKINTI into sikinti (a profanity-prefix collision) and İ into i + U+0307, breaking lexicon lookups.
-- **Full Unicode confusables.txt** - maps letters of real languages and can touch Turkish letters; the table must stay small and visual-twin only.
-- **Mapping confusables in pure-ASCII text or pure foreign-script tokens** - cannot contain an attack by construction / rewrites honest foreign words.
-- **Deleting \n, \t, \r** - glues words into new collisions and destroys quote structure needed by QUOTE_COUNTERSPEECH.
-- **Unidecode / NFKD accent stripping** - erases ç ğ ı ö ş ü, i.e. turns Turkish into deasciified text and creates collisions.
+## 3. Contract
 
-## Metric
+**Reads:** `ctx.text` (never mutated)
 
-Recall/precision/FPR over {ZERO_WIDTH, HOMOGLYPH, DOTLESS_I} with bootstrap CIs; exact-match rate of `charsafe_text` on items with `expect`; trap regressions; p50/p95 latency. Produced by `python -m modules.m0_charsafe.eval` into `eval/results/m0_charsafe.json`.
+**Writes:**
+- `out.charsafe_text` — the cleaned string
+- `out.form_patterns` — one `FormPattern` per transformation applied
+- `out.signals["charsafe_changed"]` — bool
 
-## Acceptance criteria
+**FormCodes this module may emit:** `ZERO_WIDTH`, `HOMOGLYPH`, `DOTLESS_I`
 
-- `charsafe_text` exact match = 1.0 on the dev fixture.
-- Zero trap regressions, including SIKINTI casing traps.
-- p95 latency within `budgets.module_latency_p95_ms.m0_charsafe`.
-- `len(signals.offsets) == len(charsafe_text)` for every item.
-- Unit tests pass; `spec.md` is up to date; see the checklist in CONTRIBUTING.md.
+Every `FormPattern` must carry `evidence`. A transformation that leaves no evidence is a contract violation — a decision must always be traceable back to the input.
+
+---
+
+## 4. Approach
+
+Run in this exact order:
+
+**Step 1 — invisible characters.** Delete every character whose Unicode general category is `Cf` or `Cc`. Use `unicodedata.category()`. Record how many were removed as evidence.
+
+**Step 2 — homoglyphs, conditionally.** Only run this if the text contains at least one non-ASCII character. Map a small, curated confusables table. Start from the Unicode confusables file and keep only single-character, cross-script mappings for the Latin letters used in Turkish.
+
+**Step 3 — Turkish-aware lowercase.** Map `I` → `ı` and `İ` → `i` explicitly before calling `.lower()`.
+
+---
+
+## 5. Forbidden — with reasons
+
+| Forbidden | Why |
+|---|---|
+| Multi-character confusables like `rn` → `m` | Documented UTS#39 trap. It corrupts legitimate ASCII words and turns clean text into garbage. |
+| Running confusables on pure-ASCII text | Nothing to fix; all downside, no upside. |
+| Plain `.lower()` without Turkish mapping | Creates the `SIKINTI` → `sikinti` false positive. |
+| Unconditional NFKC normalization | Collapses distinctions the Turkish alphabet relies on. If used at all, gate it behind the non-ASCII check and log it. |
+| Silent transformation | Every change emits a `FormPattern`. |
+
+---
+
+## 6. Metrics this module must produce
+
+- **Detection rate per family**: what fraction of injected zero-width / homoglyph / casing cases are caught. Report the three separately, never as one average.
+- **Damage rate on clean text**: fraction of clean Turkish inputs where `charsafe_text != text.lower()` in a way that changes a word. Target: zero.
+- **Latency**: p50 and p95 in ms, measured on the demo machine.
+
+---
+
+## 7. Required fixtures
+
+`fixtures/cases.jsonl` — one JSON object per line: `{"text": ..., "expect_patterns": [...], "expect_clean": true|false}`
+
+Must include at minimum:
+- `SIKINTI`, `IŞIK`, `İSTANBUL` in mixed casing
+- a word with an injected zero-width space in the middle
+- a word with one Cyrillic letter substituted
+- 20+ clean Turkish sentences that must come out unchanged
+- an empty string, a single space, and a 5000-character string
+
+---
+
+## 8. Acceptance criteria
+
+- [ ] `SIKINTI` in any casing never produces a string containing `sik`. Dedicated unit test, named explicitly.
+- [ ] Zero modification on a clean pure-ASCII Turkish sentence.
+- [ ] Every transformation emits a `FormPattern` with non-null `evidence`.
+- [ ] p95 latency under **1 ms** per sample.
+- [ ] Unit tests cover all three families plus empty / whitespace / very long input.
+- [ ] `eval/results/m0_charsafe.json` produced with the three detection rates and the damage rate.
+- [ ] Module never raises; errors are caught and reported in `notes`.
+
+---
+
+## 9. Research pointers
+
+- Boucher et al., *Bad Characters: Imperceptible NLP Attacks*, IEEE S&P 2022 — the source for invisible-character and reordering attacks.
+- Unicode UTS#39 confusables data file.
+- The Turkish dotted/dotless I problem is documented as a defect in IBM Base Services and PostgreSQL; search those for concrete failure reports.
+
+---
+
+## 10. Definition of done
+
+The module runs, the tests pass, the eval file exists, and a teammate who did not write it can read this spec plus the docstring and explain why the confusables step is conditional.

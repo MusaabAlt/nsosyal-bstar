@@ -45,10 +45,5 @@ class ImplicitModuleBehaviourTest(unittest.TestCase):
         raise NotImplementedError
 
 
-    @unittest.skip("TODO: m4_implicit detection not implemented")
-    def test_identity_term_swap_does_not_move_scores(self) -> None:
-        raise NotImplementedError
-
-
 if __name__ == "__main__":
     unittest.main()

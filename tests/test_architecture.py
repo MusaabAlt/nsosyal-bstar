@@ -25,9 +25,10 @@ CORE_THIRD_PARTY = {"yaml"}
 DIST_TO_IMPORT = {"pyyaml": "yaml", "scikit-learn": "sklearn", "onnxruntime": "onnxruntime"}
 THRESHOLD_NAME = re.compile(r"(threshold|margin|cutoff|min_confidence)", re.IGNORECASE)
 MODULE_FILES = ("__init__.py", "module.py", "spec.md", "test_unit.py", "eval.py")
-SPEC_SECTIONS = ("## Purpose", "## What it catches", "## What it deliberately does NOT catch",
-                 "## Input / output contract", "## Approach and tools", "## Forbidden shortcuts",
-                 "## Metric", "## Acceptance criteria")
+# The sections every real spec shares (modules/README.md). Specs number their
+# sections differently, so headings are matched without the "N. " prefix.
+SPEC_SECTIONS = ("Objective", "Contract", "Forbidden — with reasons",
+                 "Metrics this module must produce", "Acceptance criteria", "Definition of done")
 
 
 def python_files(*dirs: str, include_tests: bool = True) -> list[Path]:
@@ -143,8 +144,10 @@ class ArchitectureTest(unittest.TestCase):
                 self.assertTrue((mdir / filename).exists(), f"{mdir.name}/{filename} missing")
             self.assertTrue((mdir / "fixtures").is_dir(), f"{mdir.name}/fixtures missing")
             spec = (mdir / "spec.md").read_text(encoding="utf-8")
+            headings = {re.sub(r"^\d+\.\s*", "", line[3:].strip())
+                        for line in spec.splitlines() if line.startswith("## ")}
             for section in SPEC_SECTIONS:
-                self.assertIn(section, spec, f"{mdir.name}/spec.md lacks '{section}'")
+                self.assertIn(section, headings, f"{mdir.name}/spec.md lacks section '{section}'")
 
     def test_registry_classes_match_names(self) -> None:
         for entry in registry.REGISTRY:
