@@ -1,4 +1,0 @@
-# Heavy dependencies owned by m5_sarcasm ONLY (CLAUDE.md rule 6). Not installed by the root requirements.
-numpy
-# offline training only:
-torch

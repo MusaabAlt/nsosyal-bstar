@@ -1,16 +1,17 @@
-"""m3_encoder - shared BERTurk encoder with three heads. STUB: contract only, no detection logic yet.
+"""m3_encoder - one BERTurk encoder, three heads. STUB: contract only, no detection logic yet.
 
-Catches (once implemented):
-  * Content head: A1-A4 and B1-B5 multi-label scores, including abuse without lexicon words.
-  * Target head: individual / group / non_human / none.
-  * Guard head: NEGATION, QUOTE_COUNTERSPEECH, METADISCUSSION scores.
+Catches (once implemented, see spec.md):
+  * head_explicit    -> A1-A4 (single-label)
+  * head_nonlexical  -> B1-B5 (multi-label)
+  * head_sarcasm     -> D1
+  * channel-level binary offensive probability in signals raw_score / norm_score
 
 Deliberately does NOT:
-  * C1-C5 (m4) and D1 (m5) - they consume this module's embeddings from signals.
-  * Obfuscation description (m0/m2).
-  * Thresholds on any head.
+  * resolve the target (m6_target owns Axis 3)
+  * fuse the raw and normalized channels (decision layer)
+  * set threshold or fired
 
-See spec.md for approach, named tools and forbidden shortcuts.
+See spec.md for base model, allowed/banned datasets and forbidden shortcuts.
 """
 from __future__ import annotations
 
@@ -21,14 +22,17 @@ from contracts.module_api import BaseModule, Context, ModuleOutput
 class EncoderModule(BaseModule):
     name = ModuleName.M3_ENCODER
     version = "0.0.0"
-    provides = frozenset({"content", "target", "guards"})
+    provides = frozenset({"content", "guards"})
 
     def _load(self) -> None:
-        # TODO(load): load the quantized ONNX model + tokenizer from artifacts/ (local files only, HF_HUB_OFFLINE=1), verify sha256 against artifacts/MANIFEST.md.
+        # TODO(load): load the fine-tuned dbmdz/bert-base-turkish-cased artifact from artifacts/ (local files only),
+        # verify its sha256 against artifacts/MANIFEST.md; the artifact carries its own thresholds file.
         return None
 
     def _run(self, ctx: Context) -> ModuleOutput:
-        # TODO(approach): encode raw channel (and normalized if different) once each; content/target/guard heads on the shared pooled output; tag sources @raw/@normalized; publish embeddings in signals for m4/m5.
-        # TODO(forbidden): per-head encoders, hub downloads, lowercasing, in-module thresholds, silent truncation.
+        # TODO(approach): encode ctx.text and ctx.normalized_text; three heads; one ContentScore per code and
+        # channel with source m3_encoder@raw / m3_encoder@normalized; signals raw_score, norm_score, artifact.
+        # TODO(forbidden): setting threshold/fired, fusing channels, banned datasets, quantized/exported
+        # artifacts with another artifact's thresholds.
         # The stub says so explicitly instead of returning a silent empty result.
         return ModuleOutput(notes=["stub: detection not implemented"])

@@ -1,4 +1,0 @@
-# Heavy dependencies owned by m4_implicit ONLY (CLAUDE.md rule 6). Not installed by the root requirements.
-numpy
-# offline calibration only:
-scikit-learn
