@@ -12,14 +12,14 @@ from eval.harness import ModuleEvaluator, code_space, summarize
 
 
 class _Lexicon(BaseModule):
-    """Fires A2 whenever the text contains 'kotu'."""
+    """Reports family-A profanity (the A1 carrier, ADR-005) whenever the text contains 'kotu'."""
 
     name = ModuleName.M1_LEXICON
     provides = frozenset({"content"})
 
     def _run(self, ctx: Context) -> ModuleOutput:
         if "kotu" in ctx.text:
-            return ModuleOutput(content=[ContentScore(ContentCode.A2, 0.99, "m1_lexicon@raw", span=(0, 4))])
+            return ModuleOutput(content=[ContentScore(ContentCode.A1, 0.99, "m1_lexicon@raw", span=(0, 4))])
         return ModuleOutput()
 
 
@@ -51,24 +51,24 @@ class HarnessTest(unittest.TestCase):
         path.write_text("".join(json.dumps(i, ensure_ascii=False) + "\n" for i in items), encoding="utf-8")
         return path
 
-    def evaluate(self, module: BaseModule, items: list[dict]) -> dict:
+    def evaluate(self, module: BaseModule, items: list[dict], latency_repeats: int = 5) -> dict:
         evaluator = ModuleEvaluator(module, self.fixture(items), traps_path=self.traps,
-                                    results_dir=self.dir, n_boot=200)
+                                    results_dir=self.dir, n_boot=200, latency_repeats=latency_repeats)
         return evaluator.evaluate()
 
     def test_metrics_are_per_code_never_pooled(self) -> None:
         report = self.evaluate(_Lexicon(), [
-            {"id": "1", "text": "kotu adam", "expected": ["A2"]},
+            {"id": "1", "text": "kotu adam", "expected": ["A1"]},
             {"id": "2", "text": "iyi adam", "expected": []},
-            {"id": "3", "text": "kotu", "expected": ["A3"]},
+            {"id": "3", "text": "kotu", "expected": ["A4"]},
         ])
         self.assertNotIn("metrics", report)
-        a2, a3 = report["per_code"]["A2"], report["per_code"]["A3"]
-        self.assertEqual((a2["tp"], a2["fp"], a2["fn"], a2["tn"]), (1, 1, 0, 1))
-        self.assertEqual((a3["tp"], a3["fp"], a3["fn"], a3["tn"]), (0, 0, 1, 2))
+        a1, a4 = report["per_code"]["A1"], report["per_code"]["A4"]
+        self.assertEqual((a1["tp"], a1["fp"], a1["fn"], a1["tn"]), (1, 1, 0, 1))
+        self.assertEqual((a4["tp"], a4["fp"], a4["fn"], a4["tn"]), (0, 0, 1, 2))
         for key in ("recall", "precision", "f1", "fpr"):
-            self.assertIn("ci_low", a2[key])
-        self.assertIn("A2", summarize(report))
+            self.assertIn("ci_low", a1[key])
+        self.assertIn("A1", summarize(report))
 
     def test_code_list_is_fixed_so_fpr_denominator_does_not_move(self) -> None:
         items = [{"id": str(i), "text": "iyi", "expected": []} for i in range(4)]
@@ -97,9 +97,19 @@ class HarnessTest(unittest.TestCase):
     def test_trap_latency_is_separate_from_fixture_latency(self) -> None:
         report = self.evaluate(_Lexicon(), [{"id": "1", "text": "iyi", "expected": []},
                                             {"id": "2", "text": "iyi", "expected": []}])
-        self.assertEqual(report["latency"]["fixture"]["n"], 2)
-        self.assertEqual(report["latency"]["traps"]["n"], 1)
+        self.assertEqual((report["latency"]["fixture"]["n_items"], report["latency"]["fixture"]["n"]), (2, 10))
+        self.assertEqual((report["latency"]["traps"]["n_items"], report["latency"]["traps"]["n"]), (1, 5))
         self.assertEqual(report["traps"]["regressions"], 0)
+
+    def test_latency_is_repeated_and_the_repeat_count_is_recorded(self) -> None:
+        # One run per item reported as "p95" is not a p95 (owner decision).
+        report = self.evaluate(_Lexicon(), [{"id": "1", "text": "iyi", "expected": []}], latency_repeats=7)
+        latency = report["latency"]
+        self.assertEqual(latency["repeats"], 7)
+        self.assertEqual((latency["clean"]["n_items"], latency["clean"]["n"]), (1, 7))
+        for bad in (0, -1, True, 2.5):
+            with self.subTest(repeats=bad), self.assertRaises(ValueError):
+                ModuleEvaluator(_Lexicon(), self.fixture([]), traps_path=self.traps, latency_repeats=bad)
 
 
 class TrapFormatTest(unittest.TestCase):
@@ -172,11 +182,11 @@ class PipelineBudgetTest(unittest.TestCase):
             traps = Path(tmp) / "traps.jsonl"
             traps.write_text("".join(json.dumps(t) + chr(10) for t in (
                 {"id": "t1", "text": "amc4"}, {"id": "t2", "text": "iyi"})), encoding="utf-8")
-            report = pipeline_budget_report(traps_path=traps, modules=[Deobf(), Lexicon()], texts=["iyi"], runs=1)
+            report = pipeline_budget_report(traps_path=traps, modules=[Deobf(), Lexicon()], texts=["iyi"], runs=2)
+            self.assertEqual((report["pipeline_latency"]["repeats"], report["pipeline_latency"]["n"]), (2, 2))
         flip = report["clean_to_dirty_flip_rate"]
         self.assertEqual((flip["flipped_trap_ids"], flip["value"], flip["n_traps"]), (["t1"], 0.5, 2))
         self.assertFalse(flip["within_budget"])
-        self.assertEqual(report["pipeline_latency"]["n"], 1)
 
 
 class LatencyBudgetTest(unittest.TestCase):
@@ -190,6 +200,21 @@ class LatencyBudgetTest(unittest.TestCase):
         self.assertTrue(report["within_budget"])
         self.assertFalse(latency_budget([5.0], [900], {1000: 4})["within_budget"])
         self.assertEqual(latency_budget([0.5], [10], 1), {"budget_p95_ms": 1, "within_budget": True})
+
+    def test_budget_gates_clean_input_and_publishes_adversarial(self) -> None:
+        from eval.harness import latency_class, latency_report
+
+        self.assertEqual([latency_class(i) for i in ({"expect_clean": True, "expected": ["X"]},
+                                                     {"expect_clean": False}, {"expected": []},
+                                                     {"expect_patterns": ["HOMOGLYPH"]})],
+                         ["clean", "adversarial", "clean", "adversarial"])
+        report = latency_report([0.1, 9.0], [10, 10], ["clean", "adversarial"], {64: 1})
+        self.assertEqual(report["budget_applies_to"], "clean")
+        self.assertTrue(report["within_budget"])           # the overrun does not fail the budget...
+        self.assertTrue(report["adversarial_over_budget"])  # ...and is not hidden either
+        self.assertEqual((report["clean"]["n"], report["adversarial"]["n"]), (1, 1))
+        self.assertFalse(report["adversarial"]["within_budget"])
+        self.assertIsNone(latency_report([0.1], [10], ["clean"], {64: 1})["adversarial_over_budget"])
 
     def test_invalid_band_key_fails_config_validation(self) -> None:
         import copy

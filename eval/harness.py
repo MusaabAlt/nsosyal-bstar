@@ -22,7 +22,15 @@ Reporting rules (modules/README.md):
     so a code's FPR denominator never moves with what happened to be predicted;
   * representation modules also report capture rate per pattern and damage rate
     on clean text;
-  * fixture-run and trap-run latency are reported separately.
+  * fixture-run and trap-run latency are reported separately;
+  * latency is TIMED REPEATEDLY: every fixture and trap item runs
+    `latency_repeats` extra times after its scored run, and p50/p95 are taken
+    over all those timings. One run per item reported as "p95" is not a p95.
+    The repeat count is recorded in the results next to the numbers;
+  * latency budgets apply to CLEAN input (owner decision). Adversarial input is
+    measured and reported alongside in its own column, with the same bands; an
+    overrun there is a published finding (`adversarial_over_budget`), never
+    hidden and never folded into `within_budget`.
 """
 from __future__ import annotations
 
@@ -92,23 +100,85 @@ def code_space(module: Any) -> list[str]:
     return codes
 
 
-def latency_budget(latencies: list[float], lengths: list[int], budget: Any) -> dict[str, Any]:
+def latency_budget(latencies: list[float], lengths: list[int], budget: Any,
+                   items: list[int] | None = None) -> dict[str, Any]:
     """Compare fixture latency with a scalar budget, or with per-length bands
-    {max_chars: p95_ms}: each item counts in the smallest band that holds it."""
+    {max_chars: p95_ms}: each timing counts in the smallest band that holds its
+    item. `n` counts timings; `n_items` (when `items` is given) counts items."""
     if budget is None or not isinstance(budget, dict):
         p95 = percentile(latencies, 95)
         return {"budget_p95_ms": budget,
                 "within_budget": None if budget is None or p95 is None else p95 <= budget}
     bands, lower = [], -1
     for max_chars in sorted(budget):
-        sample = [ms for ms, n in zip(latencies, lengths) if lower < n <= max_chars]
+        in_band = [k for k, n in enumerate(lengths) if lower < n <= max_chars]
+        sample = [latencies[k] for k in in_band]
         p95 = percentile(sample, 95)
-        bands.append({"max_chars": max_chars, "n": len(sample), "p95_ms": p95, "budget_p95_ms": budget[max_chars],
-                      "within_budget": None if p95 is None else p95 <= budget[max_chars]})
+        band = {"max_chars": max_chars, "n": len(sample), "p95_ms": p95, "budget_p95_ms": budget[max_chars],
+                "within_budget": None if p95 is None else p95 <= budget[max_chars]}
+        if items is not None:
+            band["n_items"] = len({items[k] for k in in_band})
+        bands.append(band)
         lower = max_chars
     checked = [b["within_budget"] for b in bands if b["within_budget"] is not None]
     return {"budget_bands": bands, "unbudgeted_n": sum(1 for n in lengths if n > lower),
             "within_budget": all(checked) if checked else None}
+
+
+# Timings per item. High enough for a stable p95 per band even when a band holds a
+# single item; override with --latency-repeats (or LATENCY_REPEATS in scripts/check.sh).
+# A measurement setting like --n-boot, not decision config: it lives here rather than
+# in decision/thresholds.yaml so changing it never changes artifact_hash.
+DEFAULT_LATENCY_REPEATS = 200
+
+
+def _checked_repeats(repeats: int) -> int:
+    if isinstance(repeats, bool) or not isinstance(repeats, int) or not range(repeats):
+        raise ValueError(f"latency repeats must be a positive integer, got {repeats!r}")
+    return repeats
+
+
+# How a fixture item is classed for latency. Clean is what the budget covers.
+LATENCY_CLASSES = {
+    "clean": "expect_clean is true; or, when an item has no expect_clean, it has no gold codes",
+    "adversarial": "every other scored fixture item (gold codes present, or expect_clean false)",
+}
+
+
+def latency_class(item: dict[str, Any]) -> str:
+    if "expect_clean" in item:
+        return "clean" if item["expect_clean"] else "adversarial"
+    gold = item.get("expected", item.get("expect_patterns", []))
+    return "adversarial" if gold else "clean"
+
+
+def latency_report(latencies: list[float], lengths: list[int], classes: list[str], budget: Any,
+                   items: list[int] | None = None) -> dict[str, Any]:
+    """Fixture latency split into clean and adversarial columns, each with the
+    budget bands. Only the clean column decides `within_budget`. `items` gives the
+    item index of every timing, so each column and band reports `n_items` next to
+    `n` (timings)."""
+    items = items if items is not None else list(range(len(latencies)))
+    columns: dict[str, Any] = {}
+    for name in LATENCY_CLASSES:
+        sample = [(ms, n, i) for ms, n, c, i in zip(latencies, lengths, classes, items) if c == name]
+        ms_list = [ms for ms, _, _ in sample]
+        columns[name] = {"n_items": len({i for _, _, i in sample}), "n": len(sample),
+                         "p50_ms": percentile(ms_list, 50), "p95_ms": percentile(ms_list, 95),
+                         **latency_budget(ms_list, [n for _, n, _ in sample], budget, [i for _, _, i in sample])}
+    adversarial_within = columns["adversarial"]["within_budget"]
+    return {
+        "budget_applies_to": "clean",
+        "classes": LATENCY_CLASSES,
+        **columns,
+        "within_budget": columns["clean"]["within_budget"],
+        "adversarial_over_budget": None if adversarial_within is None else not adversarial_within,
+    }
+
+
+def _band_text(band: dict[str, Any]) -> str:
+    p95 = "n/a" if band["p95_ms"] is None else f"{band['p95_ms']:.3f}ms"
+    return f"<={band['max_chars']}:items={band.get('n_items', '?')},timings={band['n']},p95={p95}"
 
 
 def tr_fold(text: str) -> str:
@@ -141,7 +211,8 @@ class Cells:
 class ModuleEvaluator:
     def __init__(self, module: Any, fixture_path: Path, traps_path: Path = TRAPS_PATH,
                  config: dict[str, Any] | None = None, results_dir: Path = RESULTS_DIR,
-                 n_boot: int = 1000, ci: float = 0.95, seed: int = 20240901) -> None:
+                 n_boot: int = 1000, ci: float = 0.95, seed: int = 20240901,
+                 latency_repeats: int = DEFAULT_LATENCY_REPEATS) -> None:
         self.module = module
         self.fixture_path = Path(fixture_path)
         self.traps_path = Path(traps_path)
@@ -152,7 +223,11 @@ class ModuleEvaluator:
         self.seed = seed
         self.fixture_latencies: list[float] = []
         self.fixture_lengths: list[int] = []
+        self.fixture_classes: list[str] = []
+        self.fixture_items: list[int] = []
         self.trap_latencies: list[float] = []
+        self.trap_items: list[int] = []
+        self.latency_repeats = _checked_repeats(latency_repeats)
         self.module.load()
 
     # -- running ----------------------------------------------------------------
@@ -167,11 +242,18 @@ class ModuleEvaluator:
             trace_id=str(item.get("id", "")),
         )
         out = safe_process(self.module, ctx)
+        # The scored run above doubles as a warm-up; only the repeats are timed.
+        timings = [safe_process(self.module, ctx).latency_ms for _ in range(self.latency_repeats)]
         if latencies is None:
-            self.fixture_latencies.append(out.latency_ms)
-            self.fixture_lengths.append(len(item["text"]))
+            index = len(set(self.fixture_items))
+            self.fixture_latencies += timings
+            self.fixture_lengths += [len(item["text"])] * len(timings)
+            self.fixture_classes += [latency_class(item)] * len(timings)
+            self.fixture_items += [index] * len(timings)
         else:
-            latencies.append(out.latency_ms)
+            index = len(set(self.trap_items))
+            latencies += timings
+            self.trap_items += [index] * len(timings)
         result = AnalysisResult(text=item["text"])
         Pipeline._merge(result, out, self.module)
         # Same signal view the pipeline gives the decision layer, so signal-
@@ -309,11 +391,15 @@ class ModuleEvaluator:
                        "failures": expect_failures},
             "traps": traps,
             "latency": {
-                "fixture": {"n": len(self.fixture_latencies), "p50_ms": percentile(self.fixture_latencies, 50),
-                            "p95_ms": fixture_p95},
-                "traps": {"n": len(self.trap_latencies), "p50_ms": percentile(self.trap_latencies, 50),
+                "repeats": self.latency_repeats,
+                "unit": "ms per timing; each item timed `repeats` times after its scored run",
+                "fixture": {"n_items": len(set(self.fixture_items)), "n": len(self.fixture_latencies),
+                            "p50_ms": percentile(self.fixture_latencies, 50), "p95_ms": fixture_p95},
+                "traps": {"n_items": len(set(self.trap_items)), "n": len(self.trap_latencies),
+                          "p50_ms": percentile(self.trap_latencies, 50),
                           "p95_ms": percentile(self.trap_latencies, 95)},
-                **latency_budget(self.fixture_latencies, self.fixture_lengths, budget),
+                **latency_report(self.fixture_latencies, self.fixture_lengths, self.fixture_classes, budget,
+                                 self.fixture_items),
             },
             "module_errors": module_errors,
         }
@@ -385,8 +471,12 @@ def summarize(report: dict[str, Any]) -> str:
     p95 = "n/a" if lat["fixture"]["p95_ms"] is None else f"{lat['fixture']['p95_ms']:.3f}ms"
     lines = [f"{report['module']}: scored={report['n_scored']} placeholder={report['n_placeholder']} "
              f"traps={report['traps']['regressions']}/{report['traps']['n']} "
-             f"pending={len(report['traps'].get('pending', []))} fixture_p95={p95} "
-             f"within_budget={lat['within_budget']}"]
+             f"pending={len(report['traps'].get('pending', []))} fixture_p95={p95} x{lat['repeats']} "
+             f"within_budget(clean)={lat['within_budget']} adversarial_over_budget={lat['adversarial_over_budget']}"]
+    for name in LATENCY_CLASSES:
+        bands = " ".join(_band_text(b) for b in lat[name].get("budget_bands", []))
+        if bands:
+            lines.append(f"  latency[{name}] {bands}")
     for code, m in report["per_code"].items():
         if m["support"] or m["fp"]:
             lines.append(f"  {code:<22} support={m['support']:<3} recall={_fmt(m['recall'])} "
@@ -418,10 +508,10 @@ class NoNormalizedChannel:
 
 def pipeline_budget_report(config: dict[str, Any] | None = None, traps_path: Path = TRAPS_PATH,
                            modules: list[Any] | None = None, texts: list[str] | None = None,
-                           runs: int = 3) -> dict[str, Any]:
+                           runs: int = DEFAULT_LATENCY_REPEATS) -> dict[str, Any]:
     """Pipeline-level budgets from thresholds.yaml.
 
-    clean_to_dirty_flip_rate (m2 spec.md §6): share of traps with no fired content
+    clean_to_dirty_flip_rate (m2 spec.md §8): share of traps with no fired content
     code when the normalized channel is disabled but a fired code when it is on.
     latency_p95_ms: whole-pipeline p95 over the trap texts and every module fixture.
     """
@@ -442,7 +532,7 @@ def pipeline_budget_report(config: dict[str, Any] | None = None, traps_path: Pat
             fixture = default_fixture(entry.name.value)
             if fixture.exists():
                 texts += [i["text"] for i in load_jsonl(fixture) if not i.get("placeholder")]
-    latencies = [with_channel.analyze(text).latency_ms for _ in range(runs) for text in texts]
+    latencies = [with_channel.analyze(text).latency_ms for _ in range(_checked_repeats(runs)) for text in texts]
     latency_budget = cfg["budgets"]["latency_p95_ms"]
     p95 = percentile(latencies, 95)
     return {
@@ -451,6 +541,7 @@ def pipeline_budget_report(config: dict[str, Any] | None = None, traps_path: Pat
             "within_budget": None if flip_rate is None else flip_rate <= flip_budget,
         },
         "pipeline_latency": {
+            "repeats": runs, "n_texts": len(texts),
             "n": len(latencies), "p50_ms": percentile(latencies, 50), "p95_ms": p95, "budget_p95_ms": latency_budget,
             "within_budget": None if p95 is None else p95 <= latency_budget,
         },
@@ -458,20 +549,23 @@ def pipeline_budget_report(config: dict[str, Any] | None = None, traps_path: Pat
 
 
 def default_fixture(module_name: str) -> Path:
-    base = ROOT / "modules" / module_name / "fixtures"
-    return base / "cases.jsonl" if (base / "cases.jsonl").exists() else base / "dev.jsonl"
+    # One name for every module (CONTRIBUTING.md, the specs): fixtures/cases.jsonl.
+    return ROOT / "modules" / module_name / "fixtures" / "cases.jsonl"
 
 
 def main_for(module_name: str, argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog=f"python -m modules.{module_name}.eval")
     parser.add_argument("--fixture", default=str(default_fixture(module_name)))
     parser.add_argument("--n-boot", type=int, default=1000)
+    parser.add_argument("--latency-repeats", type=int, default=DEFAULT_LATENCY_REPEATS,
+                        help="timings per item for latency p50/p95 (recorded in the results)")
     parser.add_argument("--no-write", action="store_true")
     args = parser.parse_args(argv)
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
-    evaluator = ModuleEvaluator(registry.build(module_name), Path(args.fixture), n_boot=args.n_boot)
+    evaluator = ModuleEvaluator(registry.build(module_name), Path(args.fixture), n_boot=args.n_boot,
+                                latency_repeats=args.latency_repeats)
     report = evaluator.evaluate()
     print(summarize(report))
     if not args.no_write:

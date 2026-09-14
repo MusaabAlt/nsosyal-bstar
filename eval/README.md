@@ -2,6 +2,10 @@
 
 - `harness.py` — `ModuleEvaluator`: measures one module alone on its fixture,
   per code with bootstrap CIs, representation metrics, traps, latency.
+  Latency is timed repeatedly (`--latency-repeats`, default 200 timings per item;
+  `LATENCY_REPEATS` in scripts/check.sh) and the repeat count is recorded in the
+  results next to every p50/p95. Budgets gate clean input; adversarial input is
+  reported alongside.
 - `run_all.py` — every registered module on its own fixture.
 - `traps/traps.jsonl` — collision traps. Per trap:
   - `must_not_fire`: content codes that must never fire (`"*"` = any), checked for every module;

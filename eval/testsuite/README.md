@@ -1,7 +1,7 @@
 # eval/testsuite
 
 End-to-end gold set for the WHOLE pipeline (all axes), as opposed to the
-per-module `modules/<name>/fixtures/dev.jsonl`.
+per-module `modules/<name>/fixtures/cases.jsonl`.
 
 - `dev.jsonl` - used for threshold derivation and error analysis.
 - `test.jsonl` - held out. Not in the repository; loaded from a path given at
