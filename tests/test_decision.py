@@ -241,8 +241,13 @@ class DecisionTest(unittest.TestCase):
         fusion.decide(result, self.cfg)
         self.assertFalse(result.thread.fired)
 
+    def test_fast_path_disabled_by_default_until_margin_derived(self) -> None:
+        self.assertFalse(self.base_cfg["fast_path"]["enabled"])
+        self.assertIn("m3_encoder", self.base_cfg["fast_path"]["requires"])
+        self.assertFalse(fusion.fast_path_hit([score("A3", 0.99)], [], self.base_cfg))
+
     def test_fast_path_hit(self) -> None:
-        self.cfg["fast_path"]["margin"] = 0.3
+        self.cfg["fast_path"].update(enabled=True, margin=0.3)
         self.assertTrue(fusion.fast_path_hit([score("A3", 0.85)], [], self.cfg))
         self.assertFalse(fusion.fast_path_hit([score("A3", 0.7)], [], self.cfg))
         guard = GuardResult(GuardCode.HOMONYM, 0.9, "m1")

@@ -19,6 +19,9 @@ from contracts.module_api import BaseModule, Context, ModuleOutput
 class SarcasmModule(BaseModule):
     name = ModuleName.M5_SARCASM
     version = "0.0.0"
+    # Not part of the contract: tells the pipeline this module has no detection logic yet,
+    # so its silence must not be read as evidence (remove when implemented).
+    stub = True
     provides = frozenset({"content", "guards"})
 
     def _load(self) -> None:

@@ -51,7 +51,10 @@ by the pipeline.
 - [ ] `python -m unittest discover -p "test_*.py"` passes, including
       `tests/test_architecture.py`.
 - [ ] `eval/results/<name>.json` is produced by the current code and contains
-      recall / precision / FPR **with bootstrap confidence intervals**.
+      recall / precision / F1 / FPR **per code, with bootstrap confidence
+      intervals** (plus capture rate per pattern and damage rate for
+      representation modules). It is committed only once its protocol exists
+      in `protocols/` (see `eval/README.md`).
 - [ ] **Zero trap regressions** (`traps.regressions == 0`).
 - [ ] p95 latency within `budgets.module_latency_p95_ms.<name>`
       (`latency.within_budget == true`), and the pipeline stays within

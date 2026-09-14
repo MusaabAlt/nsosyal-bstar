@@ -57,6 +57,10 @@ def resolve(result: AnalysisResult, cfg: dict[str, Any]) -> tuple[Action, Conten
 def explain(result: AnalysisResult, verdict: Action, driver: ContentScore | str | None) -> str:
     """Exactly one Turkish sentence for the end user / moderator UI."""
     if verdict is Action.CLEAN:
+        stubs = result.signals.get("pipeline", {}).get("stub_modules") or []
+        if stubs:
+            return (f"Kesin sonuç değil: {', '.join(stubs)} henüz uygulanmadığı için içerik yalnızca kısmen "
+                    f"denetlendi ve eşiği aşan bir kategori bulunmaması içeriğin temiz olduğu anlamına gelmez.")
         for guard in result.guards:
             if guard.suppressed:
                 code = guard.suppressed[0]

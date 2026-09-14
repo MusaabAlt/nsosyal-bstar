@@ -19,6 +19,9 @@ from contracts.module_api import BaseModule, Context, ModuleOutput
 class ImplicitModule(BaseModule):
     name = ModuleName.M4_IMPLICIT
     version = "0.0.0"
+    # Not part of the contract: tells the pipeline this module has no detection logic yet,
+    # so its silence must not be read as evidence (remove when implemented).
+    stub = True
     provides = frozenset({"content"})
 
     def _load(self) -> None:

@@ -9,7 +9,7 @@ from __future__ import annotations
 import argparse
 import sys
 
-from eval.harness import ROOT, ModuleEvaluator, summarize
+from eval.harness import ModuleEvaluator, default_fixture, summarize
 from modules import registry
 
 
@@ -22,7 +22,7 @@ def main(argv: list[str] | None = None) -> int:
 
     regressions = 0
     for entry in registry.REGISTRY:
-        fixture = ROOT / "modules" / entry.name.value / "fixtures" / "dev.jsonl"
+        fixture = default_fixture(entry.name.value)
         evaluator = ModuleEvaluator(registry.load_class(entry)(), fixture, n_boot=args.n_boot)
         report = evaluator.evaluate()
         evaluator.write(report)

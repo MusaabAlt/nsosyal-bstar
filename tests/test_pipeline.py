@@ -78,6 +78,22 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(ctx.charsafe_text, "abc")
         self.assertIn("m0_charsafe", ctx.signals)
 
+    def test_stub_modules_are_named_and_clean_is_not_confident(self) -> None:
+        result = Pipeline().analyze("Bu bir test cumlesi")
+        stubs = ["m2_deobf", "m1_lexicon", "m6_target", "m3_encoder", "m4_implicit", "m5_sarcasm"]
+        self.assertEqual(result.signals["pipeline"]["stub_modules"], stubs)
+        self.assertTrue(result.notes[0].startswith("[pipeline] STUB modules"))
+        for name in stubs:
+            self.assertIn(name, result.notes[0])
+            self.assertIn(name, result.explanation)
+        self.assertTrue(result.explanation.startswith("Kesin sonuç değil"))
+
+    def test_no_stub_caveat_without_stubs(self) -> None:
+        result = Pipeline(modules=[_Charsafe()], config=self.cfg).analyze("x")
+        self.assertEqual(result.signals["pipeline"]["stub_modules"], [])
+        self.assertFalse(any("STUB" in n for n in result.notes))
+        self.assertFalse(result.explanation.startswith("Kesin sonuç değil"))
+
     def test_undeclared_fields_are_dropped(self) -> None:
         result = Pipeline(modules=[_Spy()], config=self.cfg).analyze("x")
         self.assertIsNone(result.signals["channels"]["normalized_text"])

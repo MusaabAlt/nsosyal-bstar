@@ -87,6 +87,12 @@ class Pipeline:
 
         result.signals.update(signals)
         result.signals["channels"] = {"charsafe_text": charsafe_text, "normalized_text": normalized_text}
+        stubs = [m.name.value for m in self.modules if getattr(m, "stub", False)]
+        result.signals["pipeline"] = {"stub_modules": stubs}
+        if stubs:
+            # A screenshot of a "clean" verdict must not pass for a real result.
+            result.notes.insert(0, f"[pipeline] STUB modules with no detection logic (their silence is not "
+                                   f"evidence): {', '.join(stubs)}")
         fusion.decide(result, self.config)
         result.latency_ms = (time.perf_counter() - start) * 1000.0
         return result
