@@ -27,7 +27,8 @@ class _Scorer(BaseModule):
         self.decision_fields = decision_fields
 
     def _run(self, ctx: Context) -> ModuleOutput:
-        return ModuleOutput(content=[ContentScore(ContentCode.A3, self.value, "m1_lexicon@raw",
+        # A1 is the family-A carrier (ADR-005); with no target it is decided as A1.
+        return ModuleOutput(content=[ContentScore(ContentCode.A1, self.value, "m1_lexicon@raw",
                                                   **self.decision_fields)])
 
 
@@ -56,7 +57,7 @@ class _Spy(BaseModule):
 class PipelineTest(unittest.TestCase):
     def setUp(self) -> None:
         self.cfg = copy.deepcopy(fusion.load_config())
-        self.cfg["categories"]["A3"].update(threshold=0.5, action="block")
+        self.cfg["categories"]["A1"].update(threshold=0.5, action="block")
         self.cfg["guards"]["HOMONYM"]["threshold"] = 0.5
         self.cfg["fast_path"].update(enabled=True, margin=0.3, requires=["m0_charsafe", "m1_lexicon"])
 
@@ -64,7 +65,7 @@ class PipelineTest(unittest.TestCase):
         text = "Bu bir test cumlesi"
         result = Pipeline().analyze(text)
         self.assertEqual(result.text, text)
-        # Six stub modules: the judgement is incomplete, so never clean (Phase 9).
+        # Five stub modules: the judgement is incomplete, so never clean (Phase 9).
         self.assertIs(result.verdict, Action.REVIEW)
         self.assertEqual(len(result.per_module_ms), 7)
         self.assertNotIn("channels", result.signals)  # bounded response (decision 17)
@@ -82,7 +83,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_stub_modules_are_degraded_and_named(self) -> None:
         result = Pipeline().analyze("Bu bir test cumlesi")
-        stubs = ["m2_deobf", "m1_lexicon", "m6_target", "m3_encoder", "m4_implicit", "m5_sarcasm"]
+        stubs = ["m2_deobf", "m6_target", "m1_lexicon", "m3_encoder", "m5_sarcasm"]  # registry order; m4 is not a stub
         degraded = result.signals["pipeline"]["degraded"]
         self.assertEqual([d["module"] for d in degraded], stubs)
         self.assertTrue(all(d["kinds"] == ["stub"] for d in degraded))
@@ -362,7 +363,7 @@ class DegradationTest(unittest.TestCase):
                                   "m3_encoder", "invalid_output")
 
     def test_severe_verdict_stands_but_says_incomplete(self) -> None:
-        self.cfg["categories"]["A3"].update(threshold=0.5, action="block")
+        self.cfg["categories"]["A1"].update(threshold=0.5, action="block")
 
         class Stub(_Charsafe):
             stub = True
@@ -386,7 +387,7 @@ class _SpanLexicon(BaseModule):
 
     def _run(self, ctx: Context) -> ModuleOutput:
         return ModuleOutput(
-            content=[ContentScore(ContentCode.A2, 0.99, "m1_lexicon@raw", span=self.score_span)],
+            content=[ContentScore(ContentCode.A1, 0.99, "m1_lexicon@raw", span=self.score_span)],
             guards=[GuardResult(GuardCode.SUBSTRING_COLLISION, 0.99, "m1_lexicon", evidence="'am' inside 'amcam'",
                                 span=self.guard_span)])
 
@@ -398,7 +399,7 @@ class SpanEnforcementTest(unittest.TestCase):
 
     def setUp(self) -> None:
         self.cfg = copy.deepcopy(fusion.load_config())
-        self.cfg["categories"]["A2"]["action"] = "block"
+        self.cfg["categories"]["A1"]["action"] = "block"
 
     def analyze(self, score_span, guard_span) -> AnalysisResult:
         return Pipeline(modules=[_Charsafe(), _SpanLexicon(score_span, guard_span)], config=self.cfg).analyze(self.TEXT)

@@ -3,7 +3,9 @@ one AnalysisResult, honours the fast path, then hands off to the decision layer.
 
 The pipeline enforces the module contract at runtime:
   * fields a module did not declare in `provides` are dropped (rule 5)
-  * threshold / fired / active set by a module are cleared (rule 4)
+  * threshold / fired / active set by a module are REPORTED here and reset by
+    the decision layer (decision/fusion.py reset_decision_fields), the only
+    place that assigns decision-owned fields (rule 4)
   * malformed output items (wrong types, NaN/inf scores, invalid spans, a
     `source` naming another module) are dropped with a note - a NaN score is
     an error, never an implicit "clean"
@@ -20,7 +22,13 @@ The pipeline enforces the module contract at runtime:
     is listed in signals.pipeline.degraded with its reasons, and the decision
     layer never returns clean for a degraded result (policy, Phase 9).
 
-CLI:  python -m pipeline.run "metin" [--compact] [--trace-id ID]
+CLI:  python -m pipeline.run "metin" ["metin2" ...] [--compact] [--trace-id ID]
+                                 [--thread '{"sender_id": "u1", "target_id": "u2"}']
+      With --thread, every text is one post from sender to target, observed in
+      order by the in-memory repetition counter (pipeline/thread_counter.py,
+      ADR-004). Only posts the decision layer finds offensive are counted, and
+      never a self-directed one. The counter lives in this process only, so the
+      texts of one invocation are the whole history.
 """
 from __future__ import annotations
 
@@ -41,6 +49,7 @@ from contracts.schema import (AnalysisResult, ContentScore, FormPattern, FormRes
                               ThreadSignal)
 from decision import fusion
 from modules import registry
+from pipeline.thread_counter import ThreadBlock, ThreadCounter
 
 _IMMUTABLE_SCALARS = (str, int, float, bool, bytes, type(None))
 
@@ -202,9 +211,18 @@ class Pipeline:
                 except Exception as exc:
                     self.modules.append(UnavailableModule(module.name, f"load failed: {type(exc).__name__}: {exc}"))
         self.artifact_hash = artifact_hash(self.config, self.modules)
+        # Axis 4 counting state for callers that pass a thread block (CLI, API).
+        # In memory, per Pipeline instance: it resets on restart (ADR-004).
+        self.thread_counter = ThreadCounter(self.config["thread"])
 
     def analyze(self, text: str, thread: ThreadSignal | None = None,
-                trace_id: str | None = None) -> AnalysisResult:
+                trace_id: str | None = None, thread_block: ThreadBlock | None = None) -> AnalysisResult:
+        """`thread` is a ready ThreadSignal (tests, harness); `thread_block` asks the
+        in-memory counter to count this post (ADR-004). Not both."""
+        if thread is not None and thread_block is not None:
+            raise ValueError("pass either a ThreadSignal or a thread block, not both")
+        # Server receive time, taken before any work (ADR-004).
+        received_at = self.thread_counter.now() if thread_block is not None else None
         start = time.perf_counter()
         result = AnalysisResult(
             text=text,
@@ -251,7 +269,7 @@ class Pipeline:
 
             remaining = self.modules[index + 1:]
             if remaining and required <= ran and fusion.fast_path_hit(result.content, result.guards,
-                                                                     self.config, signals):
+                                                                     self.config, signals, result.target):
                 result.fast_path = True
                 skipped = ", ".join(m.name.value for m in remaining)
                 result.notes.append(f"[pipeline] fast path after {module.name.value}; skipped: {skipped}")
@@ -270,7 +288,14 @@ class Pipeline:
             summary = ", ".join(f"{d['module']} ({'/'.join(d['kinds'])})" for d in degraded.values())
             result.notes.insert(0, f"[pipeline] DEGRADED - judgement incomplete, clean is not reachable: {summary}")
         try:
-            fusion.decide(result, self.config)
+            fusion.decide_post(result, self.config)
+            if thread_block is not None:
+                # Only offensive posts are repeats; the decision layer said whether this one is.
+                result.thread = self.thread_counter.observe(thread_block, received_at,
+                                                            fusion.post_is_offensive(result))
+                if thread_block.self_directed:
+                    result.notes.append("[pipeline] thread: sender and target are the same; not counted")
+            fusion.conclude(result, self.config)
         except Exception as exc:
             result.verdict = None
             result.explanation = "Karar verilemedi: karar katmanında bir hata oluştu, içerik değerlendirilmedi."
@@ -328,7 +353,8 @@ class Pipeline:
                         pattern.source = pattern.source or name
                         result.form.patterns.append(pattern)
                 if out.form.active:
-                    result.notes.append(f"[pipeline] {name} set form.active (decision-owned); cleared")
+                    # Not merged: result.form.active is filled by the decision layer only.
+                    result.notes.append(f"[pipeline] {name} set form.active (decision-owned); not merged")
 
         if allowed("content"):
             for i, score in enumerate(out.content):
@@ -346,8 +372,7 @@ class Pipeline:
                     continue
                 if score.threshold is not None or score.fired is not None:
                     result.notes.append(f"[pipeline] {name} set threshold/fired on {score.code.value} "
-                                        f"(decision-owned); cleared")
-                    score.threshold, score.fired = None, None
+                                        f"(decision-owned); the decision layer resets it")
                 result.content.append(score)
 
         if allowed("guards"):
@@ -366,9 +391,8 @@ class Pipeline:
                     continue
                 guard.source = guard.source or name
                 if guard.threshold is not None or guard.active is not None or guard.suppressed:
-                    result.notes.append(f"[pipeline] {name} set decision fields on guard "
-                                        f"{guard.code.value}; cleared")
-                    guard.threshold, guard.active, guard.suppressed = None, None, []
+                    result.notes.append(f"[pipeline] {name} set decision-owned fields on guard "
+                                        f"{guard.code.value}; the decision layer resets them")
                 result.guards.append(guard)
 
         if allowed("target") and out.target is not None:
@@ -387,7 +411,9 @@ class Pipeline:
             if not isinstance(out.thread, ThreadSignal) or not isinstance(out.thread.repeat_count, int):
                 drop("thread", "not a ThreadSignal with an int repeat_count")
             else:
-                out.thread.threshold, out.thread.fired = None, None
+                if out.thread.threshold is not None or out.thread.fired is not None:
+                    result.notes.append(f"[pipeline] {name} set threshold/fired on thread "
+                                        f"(decision-owned); the decision layer resets it")
                 result.thread = out.thread
 
         result.notes.extend(f"[pipeline] {name}: {problem}" for problem in problems)
@@ -398,16 +424,30 @@ class Pipeline:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m pipeline.run", description=__doc__.splitlines()[0])
-    parser.add_argument("text", help="text to analyse")
+    parser.add_argument("text", nargs="+", help="text to analyse; several texts are analysed in order")
     parser.add_argument("--compact", action="store_true", help="single-line JSON")
-    parser.add_argument("--trace-id", default=None)
+    parser.add_argument("--trace-id", default=None, help="trace id (only with a single text)")
+    parser.add_argument("--thread", default=None, metavar="JSON",
+                        help='thread block {"sender_id", "target_id", "thread_id"?}; no timestamp: '
+                             "posts are stamped with receive time (ADR-004)")
     args = parser.parse_args(argv)
+    if args.trace_id is not None and len(args.text) > 1:
+        parser.error("--trace-id identifies one result; pass a single text")
+    block: ThreadBlock | None = None
+    if args.thread is not None:
+        try:
+            block = ThreadBlock.from_dict(json.loads(args.thread))
+        except ValueError as exc:  # json.JSONDecodeError is a ValueError
+            parser.error(f"--thread: {exc}")
 
     # Windows consoles default to a legacy code page that cannot print Turkish.
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
-    result = Pipeline().analyze(args.text, trace_id=args.trace_id)
-    print(json.dumps(result.to_dict(), ensure_ascii=False, indent=None if args.compact else 2))
+    pipeline = Pipeline()
+    results = [pipeline.analyze(text, trace_id=args.trace_id, thread_block=block).to_dict()
+               for text in args.text]
+    payload = results[0] if len(results) == 1 else results
+    print(json.dumps(payload, ensure_ascii=False, indent=None if args.compact else 2))
     return 0
 
 

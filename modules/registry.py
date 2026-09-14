@@ -11,11 +11,14 @@ Order rationale:
   m0_charsafe  first: every other module reads its charsafe_text.
   m2_deobf     before m1: the lexicon runs on BOTH channels (m1 spec.md §3), so
                the parallel normalized channel must exist first.
-  m1_lexicon   guard producer (SUBSTRING_COLLISION, HOMONYM) and fast-path input.
-  m6_target    guard producer (NON_HUMAN_TARGET) and target owner; cheap, runs
-               before the encoder.
-  m3_encoder   expensive; publishes its scores in signals (m4 spec.md §4).
-  m4_implicit  reads M3's published scores from ctx.signals.
+  m6_target    target owner; publishes the target in its signals, which m1 reads
+               to raise NON_HUMAN_TARGET (ADR-005), so it runs before m1. Cheap,
+               reads only ctx.text.
+  m1_lexicon   guard producer (SUBSTRING_COLLISION, HOMONYM, NON_HUMAN_TARGET) and
+               fast-path input.
+  m3_encoder   expensive; three heads (A, B, C); publishes its binary scores in
+               signals (m3 spec.md §4).
+  m4_implicit  reads what m3 publishes in ctx.signals (m4 spec.md §5, ADR-006).
   m5_sarcasm   D1, its own model and artifact (ADR-003); independent of m3.
 """
 from __future__ import annotations
@@ -37,8 +40,8 @@ class RegistryEntry:
 PIPELINE_ORDER: tuple[RegistryEntry, ...] = (
     RegistryEntry(ModuleName.M0_CHARSAFE, "modules.m0_charsafe.module:CharSafeModule"),
     RegistryEntry(ModuleName.M2_DEOBF, "modules.m2_deobf.module:DeobfModule"),
-    RegistryEntry(ModuleName.M1_LEXICON, "modules.m1_lexicon.module:LexiconModule"),
     RegistryEntry(ModuleName.M6_TARGET, "modules.m6_target.module:TargetModule"),
+    RegistryEntry(ModuleName.M1_LEXICON, "modules.m1_lexicon.module:LexiconModule"),
     RegistryEntry(ModuleName.M3_ENCODER, "modules.m3_encoder.module:EncoderModule"),
     RegistryEntry(ModuleName.M4_IMPLICIT, "modules.m4_implicit.module:ImplicitModule"),
     RegistryEntry(ModuleName.M5_SARCASM, "modules.m5_sarcasm.module:SarcasmModule"),

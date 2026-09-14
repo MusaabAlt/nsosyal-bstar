@@ -1,6 +1,8 @@
 """Decision layer: the only code allowed to compare a score with a threshold.
 
 Steps, in order:
+  0. reset decision-owned fields; assign the final family-A code (A1/A2/A3)
+     from m6's target (ADR-005) - modules report profanity, never its target
   1. set threshold + fired on every per-module, per-channel score
   2. apply guards as SUPPRESSORS, in guards_order, scoped per ADR-001
      (same module; overlapping spans when both carry one)
@@ -18,13 +20,14 @@ config never fires and is reported in notes - it does not silently pass.
 """
 from __future__ import annotations
 
+import math
 from pathlib import Path
 from typing import Any, Mapping
 
 import yaml
 
-from contracts.codes import FAMILY, Action, ContentCode, GuardCode, ModuleName
-from contracts.schema import AnalysisResult, ContentScore, FormResult, GuardResult, ThreadSignal
+from contracts.codes import FAMILY, Action, ContentCode, GuardCode, ModuleName, TargetType
+from contracts.schema import AnalysisResult, ContentScore, FormResult, GuardResult, TargetResult, ThreadSignal
 from decision import actions
 
 DEFAULT_CONFIG_PATH = Path(__file__).with_name("thresholds.yaml")
@@ -41,7 +44,7 @@ def load_config(path: str | Path | None = None) -> dict[str, Any]:
 
 def validate_config(cfg: dict[str, Any]) -> None:
     """Fail loudly at load time rather than mis-deciding at inference time."""
-    for key in ("artifact", "fusion", "form", "categories", "fast_path", "guards",
+    for key in ("artifact", "fusion", "form", "family_a", "categories", "fast_path", "guards",
                 "guards_order", "budgets", "thread"):
         if key not in cfg:
             raise ValueError(f"thresholds config missing section: {key}")
@@ -89,7 +92,51 @@ def validate_config(cfg: dict[str, Any]) -> None:
             if max_chars is not None and (not isinstance(max_chars, int) or isinstance(max_chars, bool)):
                 raise ValueError(f"latency budget for {name}: band key {max_chars!r} must be a max character count")
             float(ms)
+    family_a = cfg["family_a"]
+    float(family_a["target_min_confidence"])
+    by_target = family_a["by_target"]
+    if set(by_target) != {t.value for t in TargetType}:
+        raise ValueError(f"family_a.by_target must map every target type, got {sorted(by_target)}")
+    for target, code in by_target.items():
+        if ContentCode(code) not in TARGETED_A:
+            raise ValueError(f"family_a.by_target.{target} must be A1, A2 or A3, got {code!r}")
     Action(cfg["thread"]["action"])
+    window = cfg["thread"].get("window_seconds")
+    if isinstance(window, bool) or not isinstance(window, (int, float)) or not math.isfinite(window) or window <= 0:
+        raise ValueError(f"thread.window_seconds must be a positive number of seconds, got {window!r}")
+
+
+# -- 0b. family A by target (ADR-005) ----------------------------------------
+# A1/A2/A3 differ only by target. Modules report "profanity present" on the A1
+# carrier; the final code is assigned here from m6's target, never by a module.
+# A4 is concept-based (m1) and is not touched.
+TARGETED_A = frozenset({ContentCode.A1, ContentCode.A2, ContentCode.A3})
+
+
+def family_a_code(target: TargetResult | None, cfg: dict[str, Any]) -> tuple[ContentCode, dict[str, Any]]:
+    """The A code every A1-A3 score takes for this post, and its audit record.
+    A target below family_a.target_min_confidence, or no target at all, counts as none."""
+    rule = cfg["family_a"]
+    min_confidence = float(rule["target_min_confidence"])
+    seen = target.type if target is not None else TargetType.NONE
+    used = seen if target is not None and target.confidence >= min_confidence else TargetType.NONE
+    code = ContentCode(rule["by_target"][used.value])
+    return code, {"target": seen.value, "confidence": None if target is None else target.confidence,
+                  "min_confidence": min_confidence, "resolved_as": used.value, "code": code.value}
+
+
+def resolve_family_a(scores: list[ContentScore], target: TargetResult | None, cfg: dict[str, Any],
+                     notes: list[str]) -> dict[str, Any] | None:
+    if not any(s.code in TARGETED_A for s in scores):
+        return None
+    code, record = family_a_code(target, cfg)
+    for score in scores:
+        if score.code in TARGETED_A:
+            if score.code is not ContentCode.A1:
+                notes.append(f"[decision] {score.source} emitted {score.code.value}; family A codes are "
+                             f"assigned from the target (ADR-005), recoded to {code.value}")
+            score.code = code
+    return record
 
 
 # -- 1. channel fusion ------------------------------------------------------
@@ -284,18 +331,25 @@ def apply_guards(content: list[ContentScore], guards: list[GuardResult],
 
 
 # -- 5. thread --------------------------------------------------------------
-def apply_thread(thread: ThreadSignal | None, cfg: dict[str, Any]) -> None:
+def apply_thread(thread: ThreadSignal | None, cfg: dict[str, Any], post_offensive: bool) -> None:
+    """The thread rule fires only on an OFFENSIVE post (owner decision, ADR-004).
+
+    Escalation is an action on THIS post. Repetition raises the severity of an
+    offensive post; it never creates severity where the post itself has none,
+    so a clean message is not escalated on the strength of earlier ones - that
+    would be acting on the person rather than the content."""
     if thread is None:
         return
     rule = cfg["thread"]
     thread.threshold = int(rule["min_repeats"])
     target_ok = thread.same_target is True or not rule["same_target_required"]
-    thread.fired = bool(rule["enabled"]) and thread.repeat_count >= thread.threshold and target_ok
+    thread.fired = (bool(rule["enabled"]) and post_offensive
+                    and thread.repeat_count >= thread.threshold and target_ok)
 
 
 # -- fast path ----------------------------------------------------------------
 def fast_path_hit(content: list[ContentScore], guards: list[GuardResult], cfg: dict[str, Any],
-                  signals: Mapping[str, Any] | None = None) -> bool:
+                  signals: Mapping[str, Any] | None = None, target: TargetResult | None = None) -> bool:
     """True when the evidence so far is decisive enough to skip the remaining
     modules. The pipeline checks that `fast_path.requires` have run."""
     fast = cfg["fast_path"]
@@ -304,18 +358,80 @@ def fast_path_hit(content: list[ContentScore], guards: list[GuardResult], cfg: d
     if any(guard_is_active(g, cfg) for g in guards):
         return False
     margin = float(fast["margin"])
-    for score in fuse_channels(content, cfg):
-        entry = cfg["categories"].get(score.code.value)
-        if entry is not None and score.score >= resolve_threshold(entry, signals)[0] + margin:
+    # Nothing is decided yet, so decision-owned fields on these scores are
+    # ignored: the best raw score per code is compared, whatever `fired` says.
+    best: dict[ContentCode, float] = {}
+    a_code = family_a_code(target, cfg)[0]
+    for score in content:
+        if score.code is not ContentCode.CLEAN:
+            code = a_code if score.code in TARGETED_A else score.code  # same assignment as decide_post
+            best[code] = max(score.score, best.get(code, score.score))
+    for code, value in best.items():
+        entry = cfg["categories"].get(code.value)
+        if entry is not None and value >= resolve_threshold(entry, signals)[0] + margin:
             return True
     return False
 
 
-# -- entry point --------------------------------------------------------------
+# -- 0. reset ---------------------------------------------------------------
+def reset_decision_fields(result: AnalysisResult) -> list[str]:
+    """Clear every decision-owned field before deciding (CLAUDE.md rule 4).
+
+    Whoever built `result` - the pipeline, the eval harness, a test, a direct
+    caller - may have left values in fields only this file assigns. They are
+    never trusted: each is reset here and recomputed below, so deciding twice
+    gives the same answer. Returns one line per offending source, for notes.
+    """
+    found: dict[str, set[str]] = {}
+
+    def saw(source: str, what: str) -> None:
+        found.setdefault(source or "<unknown source>", set()).add(what)
+
+    for score in result.content:
+        if score.threshold is not None or score.fired is not None:
+            saw(module_of(score.source), f"threshold/fired on {score.code.value}")
+        score.threshold, score.fired = None, None
+    for guard in result.guards:
+        if guard.threshold is not None or guard.active is not None or guard.suppressed:
+            saw(module_of(guard.source), f"threshold/active/suppressed on guard {guard.code.value}")
+        guard.threshold, guard.active, guard.suppressed = None, None, []
+    if result.form.active:
+        saw("<form>", "form.active")
+    result.form.active = []
+    if result.thread is not None:
+        if result.thread.threshold is not None or result.thread.fired is not None:
+            saw(result.thread.source, "threshold/fired on thread")
+        result.thread.threshold, result.thread.fired = None, None
+    return [f"[decision] {source} set decision-owned {', '.join(sorted(whats))}; reset before deciding"
+            for source, whats in found.items()]
+
+
+# -- entry points -------------------------------------------------------------
 def decide(result: AnalysisResult, cfg: dict[str, Any]) -> AnalysisResult:
-    """Fill every decision-owned field of `result` in place and return it."""
+    """Fill every decision-owned field of `result` in place and return it.
+
+    Equivalent to `decide_post` then `conclude`. A caller that must act on the
+    post-level decision before the thread rule (the repetition counter only
+    counts offensive posts) calls the two stages itself."""
+    decide_post(result, cfg)
+    return conclude(result, cfg)
+
+
+def post_is_offensive(result: AnalysisResult) -> bool:
+    """After `decide_post`: did the post itself fire - a content code that
+    survived the guards, or the binary offensive score? Form patterns never
+    count (obfuscation is not content), and neither does degradation: an
+    incomplete judgement is not a finding of abuse."""
+    binary = result.signals.get("decision", {}).get("binary_offensive") or {}
+    return bool(result.fired()) or bool(binary.get("fired"))
+
+
+def decide_post(result: AnalysisResult, cfg: dict[str, Any]) -> AnalysisResult:
+    """Stages 0-4: reset, family A by target, thresholds, binary score, guards, channel fusion, form."""
+    result.notes.extend(reset_decision_fields(result))
     raw_scores = [s for s in result.content if s.code is not ContentCode.CLEAN]
     decision_signals = result.signals.setdefault("decision", {})
+    decision_signals["family_a"] = resolve_family_a(raw_scores, result.target, cfg, result.notes)
     decision_signals["threshold_branches"] = apply_thresholds(raw_scores, cfg, result.notes, result.signals)
     decision_signals["binary_offensive"] = apply_binary_offensive(cfg, result.signals, result.notes)
     apply_guards(raw_scores, result.guards, cfg, result.notes,
@@ -328,7 +444,16 @@ def decide(result: AnalysisResult, cfg: dict[str, Any]) -> AnalysisResult:
     ]
     result.content = fuse_channels(raw_scores, cfg)
     apply_form(result.form, cfg)
-    apply_thread(result.thread, cfg)
+    decision_signals["post_offensive"] = post_is_offensive(result)
+    return result
+
+
+def conclude(result: AnalysisResult, cfg: dict[str, Any]) -> AnalysisResult:
+    """Stage 5 and the verdict: thread rule, action, Turkish explanation."""
+    if result.thread is not None:
+        # The thread may have been attached after decide_post; it is reset here too.
+        result.thread.threshold, result.thread.fired = None, None
+    apply_thread(result.thread, cfg, post_is_offensive(result))
     verdict, driver = actions.resolve(result, cfg)
     result.verdict = verdict
     result.explanation = actions.explain(result, verdict, driver)

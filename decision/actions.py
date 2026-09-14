@@ -13,7 +13,7 @@ incomplete and why.
 """
 from __future__ import annotations
 
-from typing import Any, Iterable
+from typing import Any
 
 from contracts.codes import ACTION_PRECEDENCE, Action, tr_label
 from contracts.schema import AnalysisResult, ContentScore
@@ -38,10 +38,6 @@ _KIND_TR: dict[str, str] = {
 def severity(action: Action) -> int:
     """Lower is more severe."""
     return ACTION_PRECEDENCE.index(action)
-
-
-def most_severe(actions: Iterable[Action]) -> Action:
-    return min(actions, key=severity, default=Action.CLEAN)
 
 
 def action_for(score: ContentScore, cfg: dict[str, Any]) -> Action:
@@ -90,7 +86,9 @@ def _base_sentence(result: AnalysisResult, verdict: Action, driver: ContentScore
                         f"koruması nedeniyle bastırıldı, içerik temiz kabul edildi")
         return "İçerikte eşiği aşan saldırgan bir kategori bulunmadı"
     if driver == "thread" and result.thread is not None:
-        return f"Aynı başlıkta {result.thread.repeat_count} tekrar tespit edildiği için içerik {_VERB_TR[verdict]}"
+        # Counted per sender and target across threads (ADR-004), so no "aynı başlıkta".
+        return (f"Aynı gönderenin aynı hedefe yönelik {result.thread.repeat_count} saldırgan mesajı "
+                f"nedeniyle içerik {_VERB_TR[verdict]}")
     if driver == "binary_offensive":
         return f"İçerik genel saldırganlık skoru eşiği aştığı için {_VERB_TR[verdict]}"
     assert isinstance(driver, ContentScore)
