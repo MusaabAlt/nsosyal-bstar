@@ -141,9 +141,9 @@ print(f"[PASS] 4 - clone contains {MIN_COMMIT}\n")
 # results, they are gitignored, and --resume needs them to outlive a dropped session.
 # The split file is untouched by all of this: ROOT-relative, inside the clone, in git.
 os.environ['NSOSYAL_ENV']     = 'colab'
-os.environ['NSOSYAL_ROOT']    = REPO
+os.environ['NSOSYAL_ROOT']    = f'{REPO}/diagnosis'
 os.environ['NSOSYAL_DATA']    = f'{DRIVE}/data'
-os.environ['NSOSYAL_RESULTS'] = f'{REPO}/results'
+os.environ['NSOSYAL_RESULTS'] = f'{REPO}/diagnosis/results'
 os.environ['NSOSYAL_CKPT']    = f'{DRIVE}/checkpoints'
 
 # transformers is PINNED: phase 01's `>=4.40` silently resolved to 5.15.0, and a
@@ -165,7 +165,7 @@ if now != BASELINE:
 print("[PASS] 5 - transformers pinned, torch/sklearn asserted\n")
 
 # --- 6. the split travelled, and is LOADED not created --------------------
-sys.path.insert(0, REPO)
+sys.path.insert(0, f'{REPO}/diagnosis')
 import config
 from src import data_io
 SPLIT = config.SPLITS_DIR / 'split_seed42.json'
@@ -240,7 +240,7 @@ Cell 6 is also covered end-to-end by the repo's own gate, which additionally
 re-runs the 3,892/6,131 sanity check and the keyword-filter matrix row:
 
 ```python
-!cd /content/nsosyal-bstar && python phase01_baseline.py --stage preflight
+!cd /content/nsosyal-bstar/diagnosis && python phase01_baseline.py --stage preflight
 ```
 
 Expected: `lexicon-free OFF 3,892 / total OFF 6,131`, dev
@@ -253,12 +253,12 @@ not spend GPU time on a corpus or a tagger that has moved.
 ## Section 3 — run cells (launch only when a phase is open)
 
 **Phase 01 — baseline.** Writes the five output-contract files to
-`$REPO/results/01_baseline_berturk/` (canonical), then — only if the run
+`$REPO/diagnosis/results/01_baseline_berturk/` (canonical), then — only if the run
 succeeded — mirrors them to Drive and prints the destination and file list.
 Mock or partial output is never mirrored.
 
 ```python
-!cd /content/nsosyal-bstar && python phase01_baseline.py --stage train \
+!cd /content/nsosyal-bstar/diagnosis && python phase01_baseline.py --stage train \
     --mirror_dir /content/drive/MyDrive/nsosyal-bstar/results/01_baseline_berturk \
     2>&1 | tee /content/phase01.log
 ```
@@ -273,18 +273,18 @@ restored.
 effect to either:
 
 ```python
-!cd /content/nsosyal-bstar && python phase03_train_defense.py --variant raw \
+!cd /content/nsosyal-bstar/diagnosis && python phase03_train_defense.py --variant raw \
     --mirror_dir /content/drive/MyDrive/nsosyal-bstar/results/03_defense/run_raw \
     2>&1 | tee /content/p03_raw.log
 # then --variant 1a | 1a1b | 1a1b_d
-!cd /content/nsosyal-bstar && python phase03_compare.py
+!cd /content/nsosyal-bstar/diagnosis && python phase03_compare.py
 ```
 
 **Getting results into git.** `/content` is wiped when the session ends, so the
 canonical copy has to leave the clone or it dies with it:
 
 ```python
-!cd /content/nsosyal-bstar && git status --short results/
+!cd /content/nsosyal-bstar/diagnosis && git status --short results/
 ```
 
 `dev_predictions.csv` is gitignored by design (it contains corpus text); the

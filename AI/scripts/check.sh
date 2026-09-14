@@ -30,15 +30,20 @@ if ! git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
   echo "FAIL: not a git work tree - cannot verify contracts/ is unchanged (CLAUDE.md rule 1)" >&2
   exit 1
 fi
-base="${BASE_REF:-origin/main}"
-if ! git rev-parse --verify --quiet "$base^{commit}" > /dev/null; then
-  echo "FAIL: base ref '$base' not found - cannot verify contracts/ is unchanged." >&2
-  echo "      Fetch it (git fetch origin main) or set BASE_REF=<commit> explicitly." >&2
+# This project lives in a subdirectory (AI/) of a larger repository. Every git
+# call names the repository top level and the full contracts path explicitly, so
+# the gate never depends on the working directory git happens to resolve from.
+top="$(git rev-parse --show-toplevel)"
+contracts="$(git rev-parse --show-prefix)contracts/"
+base="${BASE_REF:-origin/master}"
+if ! git -C "$top" rev-parse --verify --quiet "$base^{commit}" > /dev/null; then
+  echo "FAIL: base ref '$base' not found - cannot verify $contracts is unchanged." >&2
+  echo "      Fetch it (git fetch origin master) or set BASE_REF=<commit> explicitly." >&2
   exit 1
 fi
-if ! git diff --quiet "$base" -- contracts/; then
-  echo "FAIL: contracts/ differs from $base - requires an explicit instruction and an ADR (CLAUDE.md rule 1)" >&2
-  git diff --stat "$base" -- contracts/ >&2
+if ! git -C "$top" diff --quiet "$base" -- "$contracts"; then
+  echo "FAIL: $contracts differs from $base - requires an explicit instruction and an ADR (CLAUDE.md rule 1)" >&2
+  git -C "$top" diff --stat "$base" -- "$contracts" >&2
   exit 1
 fi
 

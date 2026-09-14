@@ -4,7 +4,7 @@ Read `CLAUDE.md` first. This file turns its rules into a workflow.
 
 ## Setup
 
-Python 3.11 or newer. Run everything from the repository root.
+Python 3.11 or newer. Run everything from `AI/`.
 
 ```bash
 # 1. virtual environment
@@ -22,12 +22,12 @@ python -m modules.m0_charsafe.eval              # one module alone -> eval/resul
 python -m eval.run_all                          # every module on its fixture + pipeline budgets
 
 # 4. pre-merge check, with an explicit base to compare contracts/ against
-BASE_REF=$(git merge-base HEAD main) bash scripts/check.sh
+BASE_REF=$(git merge-base HEAD master) bash scripts/check.sh
 ```
 
 `scripts/check.sh` needs a base ref. Without `BASE_REF` it compares against
-`origin/main`; this repository has no remote, so that ref does not exist and the
-check fails - on purpose, because it cannot prove `contracts/` is unchanged. On
+`origin/master`; if that ref does not exist locally the check fails - on
+purpose, because it cannot prove `AI/contracts/` is unchanged. On
 Windows run it from Git Bash; it needs LF line endings (`.gitattributes`).
 
 ## Why every verdict is `review` today

@@ -6,22 +6,22 @@ Runs fully offline on CPU. No platform API, no network call at inference.
 
 ## Non-negotiable rules
 
-1. `contracts/` is FROZEN. Never edit it without an explicit instruction.
-2. A module NEVER imports another module. Only `pipeline/run.py` knows order.
+1. `AI/contracts/` is FROZEN. Never edit it without an explicit instruction.
+2. A module NEVER imports another module. Only `AI/pipeline/run.py` knows order.
 3. A module NEVER mutates the original text.
 4. A module NEVER applies a threshold and NEVER decides an action.
-   Thresholds live only in `decision/thresholds.yaml`.
+   Thresholds live only in `AI/decision/thresholds.yaml`.
 5. A module returns only its own part of the contract, as a `ModuleOutput`.
 6. Standard library only in the core. Heavy deps (torch, transformers) belong
    to a single module and go in that module's own requirements file.
 7. Every module must be runnable, testable and measurable ALONE.
 
-Rule 2 covers imports between modules. Shared infrastructure - `contracts/`
+Rule 2 covers imports between modules. Shared infrastructure - `AI/contracts/`
 and `eval.harness` - is outside its scope: any module may import contracts, and
 a module's `eval.py` may import `eval.harness` and its own `module.py`, nothing
-else. The exact allow-lists live as data in `tests/test_architecture.py`.
+else. The exact allow-lists live as data in `AI/tests/test_architecture.py`.
 
-## Axes (see contracts/codes.py)
+## Axes (see AI/contracts/codes.py)
 
 - Axis 1 Content: A1-A4 profanity, B1-B5 non-lexical abuse, C1-C5 implicit,
   D1 degrading sarcasm, CLEAN. One gold label per item.
@@ -43,7 +43,7 @@ else. The exact allow-lists live as data in `tests/test_architecture.py`.
 | m5_sarcasm  | detection      | D1, own model (ADR-003), sequential transfer from a sarcasm corpus |
 | m6_target   | signal         | target resolution (assigns A1/A2/A3 via the decision layer) + doxing patterns |
 
-Entry points: `modules/registry.py::PIPELINE_ORDER` is the single ordered list
+Entry points: `AI/modules/registry.py::PIPELINE_ORDER` is the single ordered list
 of modules. Each entry names the module CLASS by dotted path
 (`modules.<name>.module:<ClassName>`); modules do not expose a module-level
 instance. The pipeline constructs them, so a failing constructor degrades one
@@ -59,6 +59,8 @@ module instead of breaking import.
   parallel channel).
 
 ## Commands
+
+Run from `AI/`.
 
 - run:    `python -m pipeline.run "metin"`
 - tests:  `python -m unittest discover -p "test_*.py"`

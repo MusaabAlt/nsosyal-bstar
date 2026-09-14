@@ -12,6 +12,8 @@ placeholder until derived on dev.
 
 ## Quick start
 
+Run from `AI/`.
+
 ```bash
 python -m pip install -r requirements.txt      # pyyaml only
 python -m pipeline.run "Bu bir test cumlesi"   # prints the full contract JSON

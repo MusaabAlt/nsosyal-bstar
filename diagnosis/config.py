@@ -29,9 +29,9 @@ ENV = os.getenv("NSOSYAL_ENV", "local")
 if os.getenv("NSOSYAL_ROOT"):
     ROOT = Path(os.environ["NSOSYAL_ROOT"])
 elif ENV == "colab":
-    ROOT = Path("/content/nsosyal-bstar")
+    ROOT = Path("/content/nsosyal-bstar/diagnosis")
 elif ENV == "kaggle":
-    ROOT = Path("/kaggle/working/nsosyal-bstar")
+    ROOT = Path("/kaggle/working/nsosyal-bstar/diagnosis")
 else:
     ROOT = Path(__file__).resolve().parent
 
