@@ -6,6 +6,8 @@
     (or name bound to one) in a comparison, no literal bound to a threshold-like
     name, no float literal in a unittest ordering assertion; module eval.py and
     test_unit.py are scanned too
+  * rule 4 - decision-owned fields (threshold / fired / active / suppressed) are
+    assigned only in decision/fusion.py, with no exception (B2)
   * rule 6 - core imports only the standard library + pyyaml; a module may
     additionally import what its own requirements.txt declares
   * rule 7 - every module folder has the required layout and a complete spec.md
@@ -19,6 +21,7 @@ import ast
 import re
 import sys
 import unittest
+import warnings
 from pathlib import Path
 
 from modules import registry
@@ -33,8 +36,17 @@ THRESHOLD_NAME = re.compile(r"(threshold|margin|cutoff|min_confidence)", re.IGNO
 MODULE_FILES = ("__init__.py", "module.py", "spec.md", "test_unit.py", "eval.py")
 # The sections every real spec shares (modules/README.md). Specs number their
 # sections differently, so headings are matched without the "N. " prefix.
-SPEC_SECTIONS = ("Objective", "Contract", "Forbidden — with reasons",
-                 "Metrics this module must produce", "Acceptance criteria", "Definition of done")
+# REQUIRED: a spec missing one fails. RECOMMENDED: a spec missing one only warns -
+# m4's "What it must do" is a better title for its approach section than "Approach",
+# and prose is never edited to satisfy an automated check (owner decision).
+SPEC_SECTIONS = ("Objective", "What it catches / does not catch", "Contract", "Forbidden — with reasons",
+                 "Metrics this module must produce", "Required fixtures", "Acceptance criteria",
+                 "Definition of done")
+SPEC_RECOMMENDED_SECTIONS = ("Approach", "Research pointers")
+
+
+class SpecSectionWarning(UserWarning):
+    """A recommended spec section is absent. Reported, never a failure."""
 
 # Project imports allowed in module code (module.py, __init__.py, test_unit.py, ...):
 # the frozen contracts and the module's own package. "{own}" is the module folder.
@@ -53,6 +65,11 @@ OPERATIONAL_LIMITS = {"MAX_BODY_BYTES": "HTTP request body size limit in api/mai
 THRESHOLD_SCAN_DIRS = (*CORE_DIRS, "modules")
 
 UNITTEST_ORDERING_ASSERTS = {"assertLess", "assertLessEqual", "assertGreater", "assertGreaterEqual"}
+
+# Contract fields only the decision layer fills (contracts/schema.py "decision layer only").
+DECISION_OWNED_ATTRS = {"threshold", "fired", "active", "suppressed"}
+# The one file allowed to assign them. No other exception exists.
+DECISION_FIELD_OWNER = "decision/fusion.py"
 
 
 def python_files(*dirs: str) -> list[Path]:
@@ -163,6 +180,38 @@ def threshold_violations(source: str, rel: str) -> list[str]:
     return problems
 
 
+def decision_field_assignments(source: str, rel: str) -> list[str]:
+    """Attribute assignments to decision-owned fields, including tuple targets,
+    augmented assignment and in-place list mutation of `.suppressed`/`.active`."""
+    problems: list[str] = []
+
+    def check_target(target: ast.AST, lineno: int) -> None:
+        if isinstance(target, (ast.Tuple, ast.List)):
+            for element in target.elts:
+                check_target(element, lineno)
+        elif isinstance(target, ast.Attribute) and target.attr in DECISION_OWNED_ATTRS:
+            problems.append(f"{rel}:{lineno} assigns decision-owned .{target.attr}")
+
+    for node in ast.walk(ast.parse(source)):
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                check_target(target, node.lineno)
+        elif isinstance(node, (ast.AugAssign, ast.AnnAssign)):
+            check_target(node.target, node.lineno)
+        elif (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
+              and node.func.attr in {"append", "extend", "insert", "clear", "remove", "pop"}
+              and isinstance(node.func.value, ast.Attribute) and node.func.value.attr in DECISION_OWNED_ATTRS):
+            problems.append(f"{rel}:{node.lineno} mutates decision-owned .{node.func.value.attr}")
+    return problems
+
+
+def spec_section_gaps(spec: str) -> tuple[list[str], list[str]]:
+    """(missing required sections, missing recommended sections) for one spec."""
+    headings = {re.sub(r"^\d+\.\s*", "", line[3:].strip()) for line in spec.splitlines() if line.startswith("## ")}
+    return ([s for s in SPEC_SECTIONS if s not in headings],
+            [s for s in SPEC_RECOMMENDED_SECTIONS if s not in headings])
+
+
 def module_dirs() -> list[Path]:
     return sorted(p for p in (ROOT / "modules").iterdir() if p.is_dir() and re.match(r"m\d+_", p.name))
 
@@ -178,6 +227,14 @@ class ArchitectureTest(unittest.TestCase):
         problems = []
         for path in python_files(*THRESHOLD_SCAN_DIRS):
             problems += threshold_violations(path.read_text(encoding="utf-8"), str(path.relative_to(ROOT)))
+        self.assertEqual(problems, [])
+
+    def test_only_fusion_assigns_decision_owned_fields(self) -> None:
+        problems = []
+        for path in python_files(*THRESHOLD_SCAN_DIRS):
+            rel = path.relative_to(ROOT).as_posix()
+            if rel != DECISION_FIELD_OWNER:
+                problems += decision_field_assignments(path.read_text(encoding="utf-8"), rel)
         self.assertEqual(problems, [])
 
     def test_core_is_stdlib_plus_pyyaml(self) -> None:
@@ -216,11 +273,11 @@ class ArchitectureTest(unittest.TestCase):
             for filename in MODULE_FILES:
                 self.assertTrue((mdir / filename).exists(), f"{mdir.name}/{filename} missing")
             self.assertTrue((mdir / "fixtures").is_dir(), f"{mdir.name}/fixtures missing")
-            spec = (mdir / "spec.md").read_text(encoding="utf-8")
-            headings = {re.sub(r"^\d+\.\s*", "", line[3:].strip())
-                        for line in spec.splitlines() if line.startswith("## ")}
-            for section in SPEC_SECTIONS:
-                self.assertIn(section, headings, f"{mdir.name}/spec.md lacks section '{section}'")
+            required, recommended = spec_section_gaps((mdir / "spec.md").read_text(encoding="utf-8"))
+            self.assertEqual(required, [], f"{mdir.name}/spec.md lacks required section(s)")
+            if recommended:
+                warnings.warn(f"{mdir.name}/spec.md lacks recommended section(s): {', '.join(recommended)}",
+                              SpecSectionWarning, stacklevel=1)
 
     def test_every_module_declares_whether_it_emits_spans(self) -> None:
         # ADR-001: the no-span fallback exists only for an explicit emits_spans = False.
@@ -229,7 +286,9 @@ class ArchitectureTest(unittest.TestCase):
             with self.subTest(module=entry.name.value):
                 self.assertIn("emits_spans", vars(cls))
                 self.assertIsInstance(cls.emits_spans, bool)
-        self.assertTrue(registry.load_class(registry.PIPELINE_ORDER[2]).emits_spans)  # m1_lexicon
+        by_name = {entry.name.value: registry.load_class(entry) for entry in registry.PIPELINE_ORDER}
+        self.assertTrue(by_name["m1_lexicon"].emits_spans)
+        self.assertTrue(by_name["m6_target"].emits_spans)
 
     def test_entry_point_convention(self) -> None:
         # CLAUDE.md "Entry points": PIPELINE_ORDER names classes; no module-level instance.
@@ -241,6 +300,11 @@ class ArchitectureTest(unittest.TestCase):
                          if isinstance(t, ast.Name) and t.id == "MODULE"]
             self.assertEqual(instances, [], f"{mdir.name}/module.py defines a module-level MODULE")
 
+    def test_m6_runs_before_m1(self) -> None:
+        # m1 reads m6's published target to raise NON_HUMAN_TARGET (ADR-005).
+        order = [entry.name.value for entry in registry.PIPELINE_ORDER]
+        self.assertLess(order.index("m6_target"), order.index("m1_lexicon"))
+
     def test_registry_classes_match_names(self) -> None:
         for entry in registry.PIPELINE_ORDER:
             cls = registry.load_class(entry)
@@ -250,6 +314,24 @@ class ArchitectureTest(unittest.TestCase):
 
 class ArchitectureRuleSelfTest(unittest.TestCase):
     """Proves the allowances are enforced, not merely declared."""
+
+    def test_decision_field_scan_catches_every_assignment_form(self) -> None:
+        for bad in ("score.fired = True\n", "s.threshold, s.fired = None, None\n", "g.suppressed.append(c)\n",
+                    "form.active = []\n", "t.threshold += 1\n", "out.thread.fired: bool = False\n"):
+            with self.subTest(source=bad):
+                self.assertNotEqual(decision_field_assignments(bad, "x.py"), [])
+        for ok in ("if score.fired is not None:\n    pass\n", "x = ContentScore(c, 0.1, 's', fired=None)\n",
+                   "active = [g for g in guards]\n"):
+            with self.subTest(source=ok):
+                self.assertEqual(decision_field_assignments(ok, "x.py"), [])
+
+    def test_spec_sections_required_fail_recommended_warn(self) -> None:
+        full = "\n".join(f"## {i}. {s}" for i, s in enumerate(SPEC_SECTIONS + SPEC_RECOMMENDED_SECTIONS, 1))
+        self.assertEqual(spec_section_gaps(full), ([], []))
+        no_approach = full.replace("Approach", "What it must do")
+        self.assertEqual(spec_section_gaps(no_approach), ([], ["Approach"]))
+        no_fixtures = full.replace("## 6. Required fixtures", "## 6. Fixtures")
+        self.assertEqual(spec_section_gaps(no_fixtures)[0], ["Required fixtures"])
 
     def test_eval_entrypoint_allow_list(self) -> None:
         allowed = ("from eval.harness import main_for\n"
