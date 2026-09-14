@@ -79,7 +79,7 @@ class Pipeline:
             ran.add(module.name.value)
 
             remaining = self.modules[index + 1:]
-            if remaining and required <= ran and fusion.fast_path_hit(result.content, result.guards, self.config):
+            if remaining and required <= ran and fusion.fast_path_hit(result.content, result.guards, self.config, signals):
                 result.fast_path = True
                 skipped = ", ".join(m.name.value for m in remaining)
                 result.notes.append(f"[pipeline] fast path after {module.name.value}; skipped: {skipped}")

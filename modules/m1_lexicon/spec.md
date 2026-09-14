@@ -103,6 +103,7 @@ The Turkish community repository `90pixel/kufur-filtresi` splits its list into t
 - [ ] Zero positives on the full trap list. Any regression fails the build.
 - [ ] Every `ContentScore` and every `GuardResult` emitted carries the span of the exact substring that triggered it (ADR-001). A unit test asserts `span is not None` on every output item and that `text[start:end]` is the matched root or colliding word.
 - [ ] Recall and FPR reported with CIs, on both the raw and normalized channels, separately.
+- [ ] `out.signals` always carries `lexicon_hit`, `lexicon_hit_raw` and `lexicon_hit_norm` as booleans, on every input including empty and no-match inputs. `decision/thresholds.yaml` resolves `threshold_when: {signal: m1_lexicon.lexicon_hit}` against it; if the signal is missing the decision layer silently falls back to the scalar threshold and the lexicon-free slice split is lost. A unit test asserts all three keys are present and boolean.
 - [ ] `SUBSTRING_COLLISION` guard fires and is counted whenever a root is found but the boundary test rejects it.
 - [ ] Sacred-concept extension table committed, with a source for each added root.
 - [ ] `terlik` vs `karaliste` comparison committed.

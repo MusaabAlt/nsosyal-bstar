@@ -26,6 +26,19 @@ form:
   min_confidence: 0.50         # PLACEHOLDER - derive on dev
 
 categories:
+  # Each entry: `threshold` (scalar) + `action`. Optionally a signal-conditioned
+  # threshold, resolved against the published module signals at decision time:
+  #
+  #   XX:
+  #     threshold: 0.50            # fallback when the signal is absent
+  #     threshold_when:
+  #       signal: m1_lexicon.lexicon_hit   # "<module>.<signal key>", must be a bool
+  #       true: 0.50
+  #       false: 0.40
+  #     action: review
+  #
+  # The branch taken (true / false / fallback) is recorded per score in
+  # signals.decision.threshold_branches so every decision is auditable.
   A1: {threshold: 0.50, action: nudge}     # PLACEHOLDER - derive on dev
   A2: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
   A3: {threshold: 0.50, action: block}     # PLACEHOLDER - derive on dev
@@ -41,6 +54,21 @@ categories:
   C4: {threshold: 0.50, action: escalate}  # PLACEHOLDER - derive on dev
   C5: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
   D1: {threshold: 0.50, action: nudge}     # PLACEHOLDER - derive on dev
+
+binary_offensive:
+  # Channel-level binary "offensive" probability published by m3_encoder
+  # (signals raw_score / norm_score). This is where the project's cost-derived
+  # threshold lives: it depends on the lexicon-free slice, hence threshold_when.
+  # Not suppressible by guards: it has no code and no span to scope a guard to.
+  channels:
+    raw: m3_encoder.raw_score
+    normalized: m3_encoder.norm_score
+  threshold: 0.50                  # PLACEHOLDER - derive on dev (fallback when lexicon_hit is absent)
+  threshold_when:
+    signal: m1_lexicon.lexicon_hit
+    true: 0.50                     # PLACEHOLDER - derive on dev (lexicon-hit slice)
+    false: 0.50                    # PLACEHOLDER - derive on dev (lexicon-free slice, cost-derived)
+  action: review                   # PLACEHOLDER policy
 
 fast_path:
   # Stop after `requires` have run when some category clears its threshold by

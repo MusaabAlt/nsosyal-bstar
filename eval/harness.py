@@ -116,6 +116,10 @@ class ModuleEvaluator:
         self.latencies.append(out.latency_ms)
         result = AnalysisResult(text=item["text"])
         Pipeline._merge(result, out, self.module)
+        # Same signal view the pipeline gives the decision layer, so signal-
+        # conditioned thresholds resolve identically in eval and at inference.
+        result.signals.update(extra.get("signals", {}))
+        result.signals[self.module.name.value] = out.signals
         fusion.decide(result, self.config)
         predicted = {s.code.value for s in result.fired()}
         predicted |= {c.value for c in result.form.active}

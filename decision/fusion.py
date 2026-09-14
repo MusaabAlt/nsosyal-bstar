@@ -19,7 +19,7 @@ config never fires and is reported in notes - it does not silently pass.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Mapping
 
 import yaml
 
@@ -50,7 +50,15 @@ def validate_config(cfg: dict[str, Any]) -> None:
     for code, entry in cfg["categories"].items():
         ContentCode(code)
         Action(entry["action"])
-        float(entry["threshold"])
+        _validate_threshold_entry(f"categories.{code}", entry)
+    binary = cfg.get("binary_offensive")
+    if binary is not None:
+        Action(binary["action"])
+        _validate_threshold_entry("binary_offensive", binary)
+        for channel, path in binary["channels"].items():
+            if channel not in cfg["fusion"]["channels"]:
+                raise ValueError(f"binary_offensive.channels: unknown channel {channel!r}")
+            _split_signal_path(path)
     for code in cfg["guards_order"]:
         GuardCode(code)
         if code not in cfg["guards"]:
@@ -90,16 +98,97 @@ def fuse_channels(scores: list[ContentScore], cfg: dict[str, Any]) -> list[Conte
     return fused
 
 
+# -- signal-conditioned thresholds -------------------------------------------
+def _split_signal_path(path: str) -> tuple[str, str]:
+    module, sep, key = str(path).partition(".")
+    if not sep or not module or not key:
+        raise ValueError(f"signal path must be '<module>.<key>', got {path!r}")
+    ModuleName(module)
+    return module, key
+
+
+def _branch_value(when: dict[Any, Any], branch: bool) -> Any:
+    # YAML 1.1 parses unquoted `true:` / `false:` keys as booleans; accept both forms.
+    if branch in when:
+        return when[branch]
+    return when[str(branch).lower()]
+
+
+def _validate_threshold_entry(where: str, entry: dict[str, Any]) -> None:
+    float(entry["threshold"])
+    when = entry.get("threshold_when")
+    if when is None:
+        return
+    _split_signal_path(when["signal"])
+    for branch in (True, False):
+        try:
+            float(_branch_value(when, branch))
+        except KeyError as exc:
+            raise ValueError(f"{where}.threshold_when is missing the {str(branch).lower()} branch") from exc
+
+
+def lookup_signal(signals: Mapping[str, Any] | None, path: str) -> Any:
+    """Value at "<module>.<key>" in published module signals, or None if absent."""
+    module, key = _split_signal_path(path)
+    payload = (signals or {}).get(module)
+    return payload.get(key) if isinstance(payload, Mapping) else None
+
+
+def resolve_threshold(entry: dict[str, Any], signals: Mapping[str, Any] | None) -> tuple[float, dict[str, Any]]:
+    """Scalar threshold, or the threshold_when branch selected by a boolean
+    signal. Returns (threshold, audit record)."""
+    when = entry.get("threshold_when")
+    if when is None:
+        return float(entry["threshold"]), {"branch": "scalar", "signal": None, "signal_value": None}
+    value = lookup_signal(signals, when["signal"])
+    if isinstance(value, bool):
+        return (float(_branch_value(when, value)),
+                {"branch": str(value).lower(), "signal": when["signal"], "signal_value": value})
+    return float(entry["threshold"]), {"branch": "fallback", "signal": when["signal"], "signal_value": value}
+
+
 # -- 2. thresholds ----------------------------------------------------------
-def apply_thresholds(scores: list[ContentScore], cfg: dict[str, Any], notes: list[str]) -> None:
+def apply_thresholds(scores: list[ContentScore], cfg: dict[str, Any], notes: list[str],
+                     signals: Mapping[str, Any] | None = None) -> list[dict[str, Any]]:
+    """Set threshold + fired on each score. Returns one audit record per score
+    naming the threshold branch taken."""
+    audit: list[dict[str, Any]] = []
     for score in scores:
         entry = cfg["categories"].get(score.code.value)
         if entry is None:
             score.threshold, score.fired = None, False
             notes.append(f"[decision] no threshold configured for {score.code.value}; not fired")
             continue
-        score.threshold = float(entry["threshold"])
+        score.threshold, record = resolve_threshold(entry, signals)
         score.fired = score.score >= score.threshold
+        if record["branch"] == "fallback":
+            notes.append(f"[decision] {score.code.value}: signal {record['signal']} absent or not bool; "
+                         f"scalar threshold used")
+        audit.append({"code": score.code.value, "source": score.source, "threshold": score.threshold, **record})
+    return audit
+
+
+def apply_binary_offensive(cfg: dict[str, Any], signals: Mapping[str, Any] | None,
+                           notes: list[str]) -> dict[str, Any] | None:
+    """Threshold the channel-level binary offensive scores, if configured."""
+    entry = cfg.get("binary_offensive")
+    if entry is None:
+        return None
+    threshold, record = resolve_threshold(entry, signals)
+    channels: dict[str, Any] = {}
+    for channel, path in entry["channels"].items():
+        value = lookup_signal(signals, path)
+        if isinstance(value, bool) or not isinstance(value, (int, float)):
+            channels[channel] = {"score": None, "fired": None}
+            continue
+        channels[channel] = {"score": float(value), "fired": float(value) >= threshold}
+    present = [c for c in channels.values() if c["fired"] is not None]
+    if present and record["branch"] == "fallback":
+        notes.append(f"[decision] binary_offensive: signal {record['signal']} absent or not bool; "
+                     f"scalar threshold used")
+    return {"threshold": threshold, **record, "channels": channels,
+            "fired": any(c["fired"] for c in present) if present else None,
+            "action": entry["action"]}
 
 
 # -- 3. form ----------------------------------------------------------------
@@ -185,7 +274,8 @@ def apply_thread(thread: ThreadSignal | None, cfg: dict[str, Any]) -> None:
 
 
 # -- fast path ----------------------------------------------------------------
-def fast_path_hit(content: list[ContentScore], guards: list[GuardResult], cfg: dict[str, Any]) -> bool:
+def fast_path_hit(content: list[ContentScore], guards: list[GuardResult], cfg: dict[str, Any],
+                  signals: Mapping[str, Any] | None = None) -> bool:
     """True when the evidence so far is decisive enough to skip the remaining
     modules. The pipeline checks that `fast_path.requires` have run."""
     fast = cfg["fast_path"]
@@ -196,7 +286,7 @@ def fast_path_hit(content: list[ContentScore], guards: list[GuardResult], cfg: d
     margin = float(fast["margin"])
     for score in fuse_channels(content, cfg):
         entry = cfg["categories"].get(score.code.value)
-        if entry is not None and score.score >= float(entry["threshold"]) + margin:
+        if entry is not None and score.score >= resolve_threshold(entry, signals)[0] + margin:
             return True
     return False
 
@@ -205,9 +295,11 @@ def fast_path_hit(content: list[ContentScore], guards: list[GuardResult], cfg: d
 def decide(result: AnalysisResult, cfg: dict[str, Any]) -> AnalysisResult:
     """Fill every decision-owned field of `result` in place and return it."""
     raw_scores = [s for s in result.content if s.code is not ContentCode.CLEAN]
-    apply_thresholds(raw_scores, cfg, result.notes)
+    decision_signals = result.signals.setdefault("decision", {})
+    decision_signals["threshold_branches"] = apply_thresholds(raw_scores, cfg, result.notes, result.signals)
+    decision_signals["binary_offensive"] = apply_binary_offensive(cfg, result.signals, result.notes)
     apply_guards(raw_scores, result.guards, cfg, result.notes)
-    result.signals.setdefault("decision", {})["channel_scores"] = [
+    decision_signals["channel_scores"] = [
         {"code": s.code.value, "score": s.score, "source": s.source,
          "span": list(s.span) if s.span is not None else None,
          "threshold": s.threshold, "fired": s.fired}

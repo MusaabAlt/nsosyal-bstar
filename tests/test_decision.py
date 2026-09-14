@@ -156,6 +156,73 @@ class DecisionTest(unittest.TestCase):
         self.assertIs(result.verdict, Action.CLEAN)
         self.assertIn("bastırıldı", result.explanation)
 
+    # -- signal-conditioned thresholds ----------------------------------------------
+    def conditioned(self, code: str, lexicon_hit_true: float, lexicon_hit_false: float, scalar: float) -> None:
+        self.cfg["categories"][code] = {
+            "threshold": scalar,
+            "threshold_when": {"signal": "m1_lexicon.lexicon_hit", True: lexicon_hit_true, False: lexicon_hit_false},
+            "action": "review",
+        }
+
+    def decide_c1(self, value: float, signals: dict) -> AnalysisResult:
+        result = AnalysisResult(text="x", content=[score("C1", value, "m4_implicit@raw")], signals=signals)
+        return fusion.decide(result, self.cfg)
+
+    def test_same_code_resolves_to_two_thresholds_depending_on_signal(self) -> None:
+        self.conditioned("C1", lexicon_hit_true=0.8, lexicon_hit_false=0.3, scalar=0.6)
+        hit = self.decide_c1(0.5, {"m1_lexicon": {"lexicon_hit": True}})
+        free = self.decide_c1(0.5, {"m1_lexicon": {"lexicon_hit": False}})
+        self.assertEqual(hit.content[0].threshold, 0.8)
+        self.assertFalse(hit.content[0].fired)
+        self.assertEqual(free.content[0].threshold, 0.3)
+        self.assertTrue(free.content[0].fired)
+        self.assertEqual(hit.signals["decision"]["threshold_branches"][0]["branch"], "true")
+        self.assertEqual(free.signals["decision"]["threshold_branches"][0]["branch"], "false")
+
+    def test_threshold_when_falls_back_to_scalar_when_signal_missing(self) -> None:
+        self.conditioned("C1", lexicon_hit_true=0.8, lexicon_hit_false=0.3, scalar=0.6)
+        for signals in ({}, {"m1_lexicon": {}}, {"m1_lexicon": {"lexicon_hit": "yes"}}):
+            with self.subTest(signals=signals):
+                result = self.decide_c1(0.5, signals)
+                self.assertEqual(result.content[0].threshold, 0.6)
+                self.assertFalse(result.content[0].fired)
+                self.assertEqual(result.signals["decision"]["threshold_branches"][0]["branch"], "fallback")
+                self.assertTrue(any("scalar threshold used" in n for n in result.notes))
+
+    def test_plain_scalar_threshold_unchanged(self) -> None:
+        result = self.decide_c1(0.5, {"m1_lexicon": {"lexicon_hit": False}})
+        self.assertEqual(result.content[0].threshold, 0.5)
+        self.assertEqual(result.signals["decision"]["threshold_branches"][0]["branch"], "scalar")
+
+    def test_string_branch_keys_are_accepted(self) -> None:
+        self.cfg["categories"]["C1"] = {"threshold": 0.6, "action": "review",
+                                        "threshold_when": {"signal": "m1_lexicon.lexicon_hit",
+                                                           "true": 0.8, "false": 0.3}}
+        fusion.validate_config(self.cfg)
+        self.assertEqual(self.decide_c1(0.5, {"m1_lexicon": {"lexicon_hit": False}}).content[0].threshold, 0.3)
+
+    def test_threshold_when_missing_branch_fails_loudly(self) -> None:
+        self.cfg["categories"]["C1"]["threshold_when"] = {"signal": "m1_lexicon.lexicon_hit", True: 0.8}
+        with self.assertRaises(ValueError):
+            fusion.validate_config(self.cfg)
+
+    def test_binary_offensive_uses_signal_conditioned_threshold(self) -> None:
+        self.cfg["binary_offensive"].update(threshold=0.9, action="review",
+                                            threshold_when={"signal": "m1_lexicon.lexicon_hit", True: 0.7, False: 0.4})
+        signals = {"m1_lexicon": {"lexicon_hit": False}, "m3_encoder": {"raw_score": 0.5, "norm_score": 0.2}}
+        result = fusion.decide(AnalysisResult(text="x", signals=signals), self.cfg)
+        binary = result.signals["decision"]["binary_offensive"]
+        self.assertEqual((binary["threshold"], binary["branch"]), (0.4, "false"))
+        self.assertTrue(binary["channels"]["raw"]["fired"])
+        self.assertFalse(binary["channels"]["normalized"]["fired"])
+        self.assertIs(result.verdict, Action.REVIEW)
+        self.assertIn("genel saldırganlık", result.explanation)
+
+    def test_binary_offensive_absent_scores_do_not_fire(self) -> None:
+        result = fusion.decide(AnalysisResult(text="x"), self.cfg)
+        self.assertIsNone(result.signals["decision"]["binary_offensive"]["fired"])
+        self.assertIs(result.verdict, Action.CLEAN)
+
     def test_form_active_codes(self) -> None:
         result = AnalysisResult(text="x")
         result.form.patterns = [FormPattern(FormCode.DOTLESS_I, 0.1, "casing"),
