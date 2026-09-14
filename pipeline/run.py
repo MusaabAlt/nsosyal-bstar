@@ -9,7 +9,11 @@ The pipeline enforces the module contract at runtime:
     an error, never an implicit "clean"
   * each module sees a deep read-only copy of earlier modules' signals
   * nothing a module does - failing to construct, load, run, or returning
-    garbage - crashes the request; the result is marked degraded instead
+    garbage - crashes the request
+  * FAIL CLOSED: a stub, a failed or unavailable module, or a module whose
+    output had to be dropped makes the result DEGRADED. Every degraded module
+    is listed in signals.pipeline.degraded with its reasons, and the decision
+    layer never returns clean for a degraded result (policy, Phase 9).
 
 CLI:  python -m pipeline.run "metin" [--compact] [--trace-id ID]
 """
@@ -127,6 +131,21 @@ def _finite(value: Any) -> bool:
     return isinstance(value, (int, float)) and not isinstance(value, bool) and math.isfinite(value)
 
 
+def _score_problem(value: Any) -> str | None:
+    """Scores and confidences are probabilities: finite and within [0, 1].
+    NaN, None or out-of-range is an error of the producing module, never a silent zero."""
+    if not _finite(value):
+        return f"score {value!r} is not a finite number (treated as degradation, not as clean)"
+    if not 0 <= value <= 1:
+        return f"score {value!r} is outside [0, 1] (treated as degradation, not as clean)"
+    return None
+
+
+DEGRADED_STUB = "stub"
+DEGRADED_FAILED = "failed"
+DEGRADED_INVALID = "invalid_output"
+
+
 def _span_problem(span: Any, text: str) -> str | None:
     if span is None:
         return None
@@ -180,6 +199,17 @@ class Pipeline:
         normalized_text: str | None = None
         signals: dict[str, Any] = {}
         ran: set[str] = set()
+        degraded: dict[str, dict[str, Any]] = {}
+
+        def degrade(name: str, kind: str, reason: str) -> None:
+            entry = degraded.setdefault(name, {"module": name, "kinds": [], "reasons": []})
+            if kind not in entry["kinds"]:
+                entry["kinds"].append(kind)
+            entry["reasons"].append(reason)
+
+        for module in self.modules:
+            if getattr(module, "stub", False):
+                degrade(module.name.value, DEGRADED_STUB, "stub: no detection logic yet")
         required = set(self.config["fast_path"]["requires"])
 
         for index, module in enumerate(self.modules):
@@ -191,7 +221,10 @@ class Pipeline:
                 trace_id=result.trace_id,
             )
             out = safe_process(module, ctx)
-            self._merge(result, out, module)
+            if not out.ok:
+                degrade(module.name.value, DEGRADED_FAILED, "; ".join(map(str, out.notes)) or "ok=False")
+            for problem in self._merge(result, out, module):
+                degrade(module.name.value, DEGRADED_INVALID, problem)
             if "charsafe_text" in module.provides and out.charsafe_text is not None:
                 charsafe_text = out.charsafe_text
             if "normalized_text" in module.provides and out.normalized_text is not None:
@@ -209,12 +242,11 @@ class Pipeline:
 
         result.signals.update(signals)
         result.signals["channels"] = {"charsafe_text": charsafe_text, "normalized_text": normalized_text}
-        stubs = [m.name.value for m in self.modules if getattr(m, "stub", False)]
-        result.signals["pipeline"] = {"stub_modules": stubs}
-        if stubs:
+        result.signals["pipeline"] = {"degraded": list(degraded.values())}
+        if degraded:
             # A screenshot of a "clean" verdict must not pass for a real result.
-            result.notes.insert(0, f"[pipeline] STUB modules with no detection logic (their silence is not "
-                                   f"evidence): {', '.join(stubs)}")
+            summary = ", ".join(f"{d['module']} ({'/'.join(d['kinds'])})" for d in degraded.values())
+            result.notes.insert(0, f"[pipeline] DEGRADED - judgement incomplete, clean is not reachable: {summary}")
         try:
             fusion.decide(result, self.config)
         except Exception as exc:
@@ -225,24 +257,27 @@ class Pipeline:
         return result
 
     @staticmethod
-    def _merge(result: AnalysisResult, out: ModuleOutput, module: Any) -> None:
+    def _merge(result: AnalysisResult, out: ModuleOutput, module: Any) -> list[str]:
+        """Merge one module's output into `result`. Returns the problems found
+        (dropped items, undeclared fields); each one degrades the module."""
         name = module.name.value
         result.per_module_ms[name] = out.latency_ms
-        if not isinstance(out.notes, list):
-            out.notes = [f"notes was {type(out.notes).__name__}, expected list"]
-        result.notes.extend(f"[{name}] {note}" for note in out.notes)
-        if not isinstance(out.signals, dict):
-            result.notes.append(f"[pipeline] {name} signals was {type(out.signals).__name__}; replaced by {{}}")
-            out.signals = {}
-
         problems: list[str] = []
 
         def drop(what: str, why: str) -> None:
-            problems.append(f"[pipeline] {name}: dropped {what}: {why}")
+            problems.append(f"dropped {what}: {why}")
+
+        if not isinstance(out.notes, list):
+            problems.append(f"notes was {type(out.notes).__name__}, expected list")
+            out.notes = []
+        result.notes.extend(f"[{name}] {note}" for note in out.notes)
+        if not isinstance(out.signals, dict):
+            problems.append(f"signals was {type(out.signals).__name__}; replaced by {{}}")
+            out.signals = {}
 
         undeclared = out.populated_fields() - set(module.provides)
         if undeclared:
-            result.notes.append(f"[pipeline] {name} returned undeclared fields {sorted(undeclared)}; dropped")
+            problems.append(f"returned undeclared fields {sorted(undeclared)}; dropped")
 
         def allowed(field_name: str) -> bool:
             return field_name in module.provides and field_name not in undeclared
@@ -260,9 +295,8 @@ class Pipeline:
                 for i, pattern in enumerate(out.form.patterns):
                     if not isinstance(pattern, FormPattern) or not isinstance(pattern.code, FormCode):
                         drop(f"form pattern #{i}", "not a FormPattern with a FormCode")
-                    elif not _finite(pattern.confidence):
-                        drop(f"form pattern #{i} ({pattern.code.value})",
-                             f"confidence {pattern.confidence!r} is not a finite number")
+                    elif why := _score_problem(pattern.confidence):
+                        drop(f"form pattern #{i} ({pattern.code.value})", why)
                     elif (why := _span_problem(pattern.span, result.text)
                           or _source_problem(pattern.source, name, required=False)):
                         drop(f"form pattern #{i} ({pattern.code.value})", why)
@@ -277,9 +311,8 @@ class Pipeline:
                 if not isinstance(score, ContentScore) or not isinstance(score.code, ContentCode):
                     drop(f"content item #{i}", "not a ContentScore with a ContentCode")
                     continue
-                if not _finite(score.score):
-                    drop(f"content {score.code.value}",
-                         f"score {score.score!r} is not a finite number (treated as an error, not as clean)")
+                if why := _score_problem(score.score):
+                    drop(f"content {score.code.value}", why)
                     continue
                 why = _span_problem(score.span, result.text) or _source_problem(score.source, name, required=True)
                 if why:
@@ -296,8 +329,8 @@ class Pipeline:
                 if not isinstance(guard, GuardResult) or not isinstance(guard.code, GuardCode):
                     drop(f"guard #{i}", "not a GuardResult with a GuardCode")
                     continue
-                if not _finite(guard.score):
-                    drop(f"guard {guard.code.value}", f"score {guard.score!r} is not a finite number")
+                if why := _score_problem(guard.score):
+                    drop(f"guard {guard.code.value}", why)
                     continue
                 why = _span_problem(guard.span, result.text) or _source_problem(guard.source, name, required=False)
                 if why:
@@ -311,9 +344,10 @@ class Pipeline:
                 result.guards.append(guard)
 
         if allowed("target") and out.target is not None:
-            if (not isinstance(out.target, TargetResult) or not isinstance(out.target.type, TargetType)
-                    or not _finite(out.target.confidence)):
-                drop("target", "not a TargetResult with a TargetType and finite confidence")
+            if not isinstance(out.target, TargetResult) or not isinstance(out.target.type, TargetType):
+                drop("target", "not a TargetResult with a TargetType")
+            elif why := _score_problem(out.target.confidence):
+                drop("target", why)
             elif why := _span_problem(out.target.span, result.text):
                 drop("target", why)
             else:
@@ -328,9 +362,10 @@ class Pipeline:
                 out.thread.threshold, out.thread.fired = None, None
                 result.thread = out.thread
 
-        result.notes.extend(problems)
+        result.notes.extend(f"[pipeline] {name}: {problem}" for problem in problems)
         if not out.ok or problems:
             result.notes.append(f"[pipeline] {name} failed or returned invalid output; result is degraded")
+        return problems
 
 
 def main(argv: list[str] | None = None) -> int:

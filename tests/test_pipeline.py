@@ -63,7 +63,8 @@ class PipelineTest(unittest.TestCase):
         text = "Bu bir test cumlesi"
         result = Pipeline().analyze(text)
         self.assertEqual(result.text, text)
-        self.assertIs(result.verdict, Action.CLEAN)
+        # Six stub modules: the judgement is incomplete, so never clean (Phase 9).
+        self.assertIs(result.verdict, Action.REVIEW)
         self.assertEqual(len(result.per_module_ms), 7)
         self.assertEqual(result.signals["channels"]["charsafe_text"], "bu bir test cumlesi")
         self.assertEqual(len(result.artifact_hash), 64)
@@ -78,21 +79,22 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(ctx.charsafe_text, "abc")
         self.assertIn("m0_charsafe", ctx.signals)
 
-    def test_stub_modules_are_named_and_clean_is_not_confident(self) -> None:
+    def test_stub_modules_are_degraded_and_named(self) -> None:
         result = Pipeline().analyze("Bu bir test cumlesi")
         stubs = ["m2_deobf", "m1_lexicon", "m6_target", "m3_encoder", "m4_implicit", "m5_sarcasm"]
-        self.assertEqual(result.signals["pipeline"]["stub_modules"], stubs)
-        self.assertTrue(result.notes[0].startswith("[pipeline] STUB modules"))
+        degraded = result.signals["pipeline"]["degraded"]
+        self.assertEqual([d["module"] for d in degraded], stubs)
+        self.assertTrue(all(d["kinds"] == ["stub"] for d in degraded))
+        self.assertTrue(result.notes[0].startswith("[pipeline] DEGRADED"))
         for name in stubs:
-            self.assertIn(name, result.notes[0])
             self.assertIn(name, result.explanation)
-        self.assertTrue(result.explanation.startswith("Kesin sonuç değil"))
+        self.assertTrue(result.explanation.startswith("Karar verilemedi"))
 
-    def test_no_stub_caveat_without_stubs(self) -> None:
+    def test_clean_is_reachable_only_without_degradation(self) -> None:
         result = Pipeline(modules=[_Charsafe()], config=self.cfg).analyze("x")
-        self.assertEqual(result.signals["pipeline"]["stub_modules"], [])
-        self.assertFalse(any("STUB" in n for n in result.notes))
-        self.assertFalse(result.explanation.startswith("Kesin sonuç değil"))
+        self.assertEqual(result.signals["pipeline"]["degraded"], [])
+        self.assertIs(result.verdict, Action.CLEAN)
+        self.assertFalse(any("DEGRADED" in n for n in result.notes))
 
     def test_undeclared_fields_are_dropped(self) -> None:
         result = Pipeline(modules=[_Spy()], config=self.cfg).analyze("x")
@@ -125,7 +127,7 @@ class PipelineTest(unittest.TestCase):
                 raise ValueError("bad input")
 
         result = Pipeline(modules=[_Charsafe(), Broken(0.0)], config=self.cfg).analyze("x")
-        self.assertIs(result.verdict, Action.CLEAN)
+        self.assertIs(result.verdict, Action.REVIEW)
         self.assertTrue(any("degraded" in n for n in result.notes))
 
     def test_cli_prints_contract_json(self) -> None:
@@ -133,7 +135,7 @@ class PipelineTest(unittest.TestCase):
         with redirect_stdout(buffer):
             self.assertEqual(run.main(["Bu bir test cumlesi", "--compact"]), 0)
         data = json.loads(buffer.getvalue())
-        self.assertEqual(data["verdict"], "clean")
+        self.assertEqual(data["verdict"], "review")  # stubs: judgement incomplete
 
 
 class _InitBoom(BaseModule):
@@ -208,7 +210,7 @@ class RobustnessTest(unittest.TestCase):
         result = Pipeline(modules=[_Emit(ModuleOutput(content=[ContentScore(ContentCode.A3, nan, "m3_encoder@raw")]))],
                           config=self.cfg).analyze("x")
         self.assertEqual(result.content, [])
-        self.assertTrue(any("not a finite number (treated as an error, not as clean)" in n for n in result.notes))
+        self.assertTrue(any("not a finite number (treated as degradation, not as clean)" in n for n in result.notes))
         self.assertTrue(any("degraded" in n for n in result.notes))
 
     def test_source_naming_another_module_is_dropped(self) -> None:
@@ -259,6 +261,86 @@ class RobustnessTest(unittest.TestCase):
         self.assertNotEqual(Pipeline(modules=modules, config=changed).artifact_hash,
                             Pipeline(modules=modules, config=self.cfg).artifact_hash)
         self.assertEqual(run.artifact_hash(self.cfg, modules), Pipeline(modules=modules, config=self.cfg).artifact_hash)
+
+
+class DegradationTest(unittest.TestCase):
+    """Phase 9 policy: an unavailable module means the system cannot judge."""
+
+    def setUp(self) -> None:
+        self.cfg = copy.deepcopy(fusion.load_config())
+
+    def assertDegradedReview(self, result: AnalysisResult, module: str, kind: str) -> None:
+        self.assertIs(result.verdict, Action.REVIEW)
+        entry = next((d for d in result.signals["pipeline"]["degraded"] if d["module"] == module), None)
+        self.assertIsNotNone(entry, result.signals["pipeline"])
+        self.assertIn(kind, entry["kinds"])
+        self.assertTrue(entry["reasons"])
+        self.assertIn(module, result.explanation)
+        self.assertTrue(result.explanation.startswith("Karar verilemedi"))
+        self.assertNotIn("temiz kabul edildi", result.explanation)
+        self.assertNotIn("bulunmadı.", result.explanation)
+
+    def test_stub(self) -> None:
+        class Stub(_Charsafe):
+            stub = True
+
+        self.assertDegradedReview(Pipeline(modules=[Stub()], config=self.cfg).analyze("x"), "m0_charsafe", "stub")
+
+    def test_run_raises(self) -> None:
+        class Broken(_Scorer):
+            def _run(self, ctx: Context) -> ModuleOutput:
+                raise ValueError("bad input")
+
+        self.assertDegradedReview(Pipeline(modules=[Broken(0.0)], config=self.cfg).analyze("x"),
+                                  "m1_lexicon", "failed")
+
+    def test_protocol_module_raises(self) -> None:
+        class RawModule:
+            name = ModuleName.M6_TARGET
+            version = "0"
+            provides = frozenset({"target"})
+
+            def load(self) -> None:
+                return None
+
+            def process(self, ctx: Context) -> ModuleOutput:
+                raise RuntimeError("raw crash")
+
+        self.assertDegradedReview(Pipeline(modules=[RawModule()], config=self.cfg).analyze("x"), "m6_target", "failed")
+
+    def test_construction_failure(self) -> None:
+        entries = (run.registry.RegistryEntry(ModuleName.M5_SARCASM, "tests.test_pipeline:_InitBoom"),)
+        result = Pipeline(modules=run.build_modules_safely(entries), config=self.cfg).analyze("x")
+        self.assertDegradedReview(result, "m5_sarcasm", "failed")
+
+    def test_load_failure(self) -> None:
+        class BadLoad(_Charsafe):
+            def load(self) -> None:
+                raise OSError("missing artifact")
+
+        self.assertDegradedReview(Pipeline(modules=[BadLoad()], config=self.cfg).analyze("x"), "m0_charsafe", "failed")
+
+    def test_invalid_output_items(self) -> None:
+        for label, score in (("nan", float("nan")), ("none", None), ("above one", 1.5), ("below zero", -0.2)):
+            with self.subTest(score=label):
+                out = ModuleOutput(content=[ContentScore(ContentCode.A3, score, "m3_encoder@raw")])
+                result = Pipeline(modules=[_Emit(out)], config=self.cfg).analyze("x")
+                self.assertDegradedReview(result, "m3_encoder", "invalid_output")
+                self.assertEqual(result.content, [])
+        malformed = ModuleOutput(content=[ContentScore("A2", 0.9, "m3_encoder@raw")])
+        self.assertDegradedReview(Pipeline(modules=[_Emit(malformed)], config=self.cfg).analyze("x"),
+                                  "m3_encoder", "invalid_output")
+
+    def test_severe_verdict_stands_but_says_incomplete(self) -> None:
+        self.cfg["categories"]["A3"].update(threshold=0.5, action="block")
+
+        class Stub(_Charsafe):
+            stub = True
+
+        result = Pipeline(modules=[Stub(), _Scorer(0.9)], config=self.cfg).analyze("x")
+        self.assertIs(result.verdict, Action.BLOCK)
+        self.assertIn("ancak değerlendirme eksik", result.explanation)
+        self.assertIn("m0_charsafe", result.explanation)
 
 
 if __name__ == "__main__":
