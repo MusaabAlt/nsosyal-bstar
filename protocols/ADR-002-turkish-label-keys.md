@@ -33,3 +33,20 @@ for any further contract edit):
 asserts 55 entries and that both `CLEAN` members are present.
 
 The contract is re-frozen immediately after this change.
+
+## Amendment — regenerated contract example (2026-09-14)
+
+On an explicit instruction from the project owner, `contracts/` was opened once
+more for one file: `contracts/fixtures/analysis_result.example.json` was stale
+(it showed `verdict: clean`, a per-character `offsets` list, a `channels` copy of
+the post and no `pipeline` block). It was regenerated from a real run of the
+current code, not edited by hand:
+
+    python -m pipeline.run "Bu bir test cumlesi" --trace-id example-trace-id > contracts/fixtures/analysis_result.example.json
+
+It now reflects fail-closed degradation (verdict `review`, `signals.pipeline.degraded`),
+span declarations, internal-only offsets and the bounded response (no `channels`).
+`contracts/fixtures/module_output.example.json` was not part of the instruction and
+is still stale; regenerating it needs its own instruction.
+
+The contract is re-frozen immediately after this change.

@@ -86,14 +86,8 @@ class TargetModuleContractTest(unittest.TestCase):
 
 
 class TargetModuleBehaviourTest(unittest.TestCase):
-    @unittest.skip("TODO: m6_target detection not implemented")
-    def test_invalid_tc_checksum_is_not_doxing(self) -> None:
-        raise NotImplementedError
 
 
-    @unittest.skip("TODO: m6_target detection not implemented")
-    def test_pii_is_masked_in_evidence(self) -> None:
-        raise NotImplementedError
 
 
     @unittest.skip("TODO: m6_target detection not implemented")

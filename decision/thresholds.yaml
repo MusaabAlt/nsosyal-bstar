@@ -104,19 +104,27 @@ guards_order:
 
 budgets:
   # Read by eval/run_all.py (eval.harness.pipeline_budget_report).
+  # fpr_increase_on_clean is intentionally absent: it returns once a frozen baseline
+  # result exists to measure an FPR increase against (project owner decision).
   clean_to_dirty_flip_rate: 0.01   # PLACEHOLDER - max share of traps the normalized channel flips to fired
   latency_p95_ms: 150              # PLACEHOLDER - whole pipeline, CPU
   module_latency_p95_ms:           # PLACEHOLDER - per module, CPU
-    m0_charsafe: 1                 # PLACEHOLDER - spec.md acceptance: p95 under 1 ms
+    m0_charsafe:                   # PLACEHOLDER - p95 ms by input length, {max chars: ms}; measured 2026-09-14
+      64: 0.25                     # PLACEHOLDER - re-measure on the demo machine
+      280: 1                       # PLACEHOLDER - re-measure on the demo machine
+      1000: 4                      # PLACEHOLDER - re-measure on the demo machine
+      5000: 25                     # PLACEHOLDER - re-measure on the demo machine
     m1_lexicon: 5       # PLACEHOLDER - measure on the demo machine
     m2_deobf: 10        # PLACEHOLDER - measure on the demo machine
     m3_encoder: 80      # PLACEHOLDER - measure on the demo machine
     m4_implicit: 20     # PLACEHOLDER - measure on the demo machine
-    m5_sarcasm: 20      # PLACEHOLDER - measure on the demo machine
+    m5_sarcasm: 20      # PLACEHOLDER - own model (ADR-003): small or distilled to fit
     m6_target: 5        # PLACEHOLDER - measure on the demo machine
 
 thread:
   # Axis 4: repetition is judged here only, never per post.
+  # Repetition is time-windowed, not bounded by a post count (project owner decision);
+  # the time window is not configured yet.
   enabled: true
   min_repeats: 3                   # PLACEHOLDER
   same_target_required: true

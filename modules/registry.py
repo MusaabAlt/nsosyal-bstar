@@ -16,7 +16,7 @@ Order rationale:
                before the encoder.
   m3_encoder   expensive; publishes its scores in signals (m4 spec.md §4).
   m4_implicit  reads M3's published scores from ctx.signals.
-  m5_sarcasm   D1 (see the open m3/m5 ownership question).
+  m5_sarcasm   D1, its own model and artifact (ADR-003); independent of m3.
 """
 from __future__ import annotations
 

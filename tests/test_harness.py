@@ -179,5 +179,27 @@ class PipelineBudgetTest(unittest.TestCase):
         self.assertEqual(report["pipeline_latency"]["n"], 1)
 
 
+class LatencyBudgetTest(unittest.TestCase):
+    def test_per_length_bands(self) -> None:
+        from eval.harness import latency_budget
+
+        report = latency_budget([0.1, 0.2, 3.0, 30.0], [10, 50, 900, 6000], {64: 0.25, 1000: 4})
+        self.assertEqual([(b["max_chars"], b["n"], b["within_budget"]) for b in report["budget_bands"]],
+                         [(64, 2, True), (1000, 1, True)])
+        self.assertEqual(report["unbudgeted_n"], 1)
+        self.assertTrue(report["within_budget"])
+        self.assertFalse(latency_budget([5.0], [900], {1000: 4})["within_budget"])
+        self.assertEqual(latency_budget([0.5], [10], 1), {"budget_p95_ms": 1, "within_budget": True})
+
+    def test_invalid_band_key_fails_config_validation(self) -> None:
+        import copy
+        from decision import fusion
+
+        cfg = copy.deepcopy(fusion.load_config())
+        cfg["budgets"]["module_latency_p95_ms"]["m0_charsafe"] = {"long": 4}
+        with self.assertRaises(ValueError):
+            fusion.validate_config(cfg)
+
+
 if __name__ == "__main__":
     unittest.main()

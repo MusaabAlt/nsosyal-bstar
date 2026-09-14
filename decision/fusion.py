@@ -82,6 +82,13 @@ def validate_config(cfg: dict[str, Any]) -> None:
             raise ValueError(f"guard {code} suppresses unknown codes: {sorted(unknown)}")
     for name in cfg["fast_path"]["requires"]:
         ModuleName(name)
+    for name, budget in cfg["budgets"]["module_latency_p95_ms"].items():
+        ModuleName(name)
+        bands = budget if isinstance(budget, dict) else {None: budget}
+        for max_chars, ms in bands.items():
+            if max_chars is not None and (not isinstance(max_chars, int) or isinstance(max_chars, bool)):
+                raise ValueError(f"latency budget for {name}: band key {max_chars!r} must be a max character count")
+            float(ms)
     Action(cfg["thread"]["action"])
 
 

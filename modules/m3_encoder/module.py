@@ -1,4 +1,4 @@
-"""m3_encoder - shared encoder, three heads. STUB: no detection logic yet.
+"""m3_encoder - shared encoder, two heads (A, B). STUB: no detection logic yet.
 
 What is missing (see spec.md, the only source of truth for this module):
   * per-code, per-channel content scores (spec.md §3 Contract)

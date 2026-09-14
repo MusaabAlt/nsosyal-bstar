@@ -55,7 +55,7 @@ Related warning: the reference functional test suite for hate speech **deliberat
 
 ## 5. Approach
 
-Sequential transfer: pre-train on the sarcasm corpus, then fine-tune on the offensive task. Implemented as a third head on the shared M3 encoder, not a separate model.
+Sequential transfer: pre-train on the sarcasm corpus, then fine-tune on the offensive task. Implemented as **m5's own model** with its own artifact, its own row in `artifacts/MANIFEST.md` and its own thresholds - not a head on the shared M3 encoder (ADR-003). A failed entry gate disables m5 with zero impact on m3. Latency is met with a small or distilled model; heavy dependencies go in `modules/m5_sarcasm/requirements.txt`.
 
 The English reference for sarcasm-transfer into abuse detection is a preprint reporting a recall gain of roughly +9.7 points on an abuse benchmark. Treat that as a plausibility argument, not as a target.
 

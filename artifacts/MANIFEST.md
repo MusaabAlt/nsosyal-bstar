@@ -17,7 +17,7 @@ artifact; `TBD` means the artifact does not exist yet.
 | m2-deobf-tables | TBD | TBD | TBD | TBD | TBD | m2_deobf | TBD |
 | m3-berturk-pytorch-fp32 | TBD (PyTorch FP32) | TBD | TBD | TBD | TBD | m3_encoder | base model `dbmdz/bert-base-turkish-cased`: verify on model card; datasets per m3 spec.md §4 |
 | m4-implicit | TBD | TBD | TBD | TBD | TBD | m4_implicit | TBD |
-| m5-sarcasm | TBD (gated: m5 spec.md §2) | TBD | TBD | TBD | TBD | m5_sarcasm | TBD — record dataset name, version, size |
+| m5-sarcasm | TBD (own model, ADR-003; gated: m5 spec.md §2) | TBD | TBD | TBD | TBD | m5_sarcasm | TBD — record dataset name, version, size |
 | m6-target | TBD | TBD | TBD | TBD | TBD | m6_target | TBD |
 
 ## Change log

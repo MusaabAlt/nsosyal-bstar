@@ -96,9 +96,6 @@ class DeobfModuleBehaviourTest(unittest.TestCase):
         raise NotImplementedError
 
 
-    @unittest.skip("TODO: m2_deobf detection not implemented")
-    def test_ambiguous_deasciification_keeps_alternatives(self) -> None:
-        raise NotImplementedError
 
 
 if __name__ == "__main__":

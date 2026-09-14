@@ -1,21 +1,21 @@
-# M3 — Shared Encoder, Three Heads
+# M3 — Shared Encoder, Two Heads
 
 **Type:** detection
 **Owner:** _assign_
-**Note:** this is the heaviest module. It owns the only non-stdlib dependencies in the project.
+**Note:** this is the heaviest module. Its heavy dependencies live in `modules/m3_encoder/requirements.txt`. D1 is not produced here: m5 is its own model (ADR-003).
 
 ---
 
 ## 1. Objective
 
-One Turkish BERT encoder, three classification heads on top, so CPU latency and memory stay at single-model cost while each family keeps its own head and its own threshold.
+One Turkish BERT encoder, two classification heads on top (families A and B), so CPU latency and memory stay at single-model cost while each family keeps its own head and its own threshold. Degrading sarcasm (D1) is not a head of this encoder: it is m5's own model with its own artifact and thresholds, so sarcasm experiments never produce a new m3 artifact (ADR-003).
 
 ```
                           ┌─ head_explicit    → A1..A4  (single-label)
 ctx.text            ──┐   │
-                      ├─ BERTurk ─┼─ head_nonlexical → B1..B5  (MULTI-label)
+                      ├─ BERTurk ─┤
 ctx.normalized_text ──┘   │
-                          └─ head_sarcasm     → D1
+                          └─ head_nonlexical → B1..B5  (MULTI-label)
 ```
 
 The encoder runs **twice per request**: once on the raw text, once on the normalized text from M2. Both score sets are reported. Fusion happens in the decision layer, not here.
@@ -122,4 +122,4 @@ The demo threshold is derived from the demo artifact itself. No exceptions.
 
 ## 10. Definition of done
 
-Three heads train and score, both channels are reported, the artifact is hashed with its own thresholds, latency is measured on the real machine, and the banned-dataset check is written down.
+Both heads train and score, both channels are reported, the artifact is hashed with its own thresholds, latency is measured on the real machine, and the banned-dataset check is written down.

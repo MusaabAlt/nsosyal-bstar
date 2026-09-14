@@ -67,7 +67,7 @@ class PipelineTest(unittest.TestCase):
         # Six stub modules: the judgement is incomplete, so never clean (Phase 9).
         self.assertIs(result.verdict, Action.REVIEW)
         self.assertEqual(len(result.per_module_ms), 7)
-        self.assertEqual(result.signals["channels"]["charsafe_text"], "bu bir test cumlesi")
+        self.assertNotIn("channels", result.signals)  # bounded response (decision 17)
         self.assertEqual(len(result.artifact_hash), 64)
         data = json.loads(json.dumps(result.to_dict(), ensure_ascii=False))
         self.assertEqual(set(data), set(AnalysisResult(text="").to_dict()))
@@ -98,8 +98,9 @@ class PipelineTest(unittest.TestCase):
         self.assertFalse(any("DEGRADED" in n for n in result.notes))
 
     def test_undeclared_fields_are_dropped(self) -> None:
-        result = Pipeline(modules=[_Spy()], config=self.cfg).analyze("x")
-        self.assertIsNone(result.signals["channels"]["normalized_text"])
+        downstream = _Spy()
+        result = Pipeline(modules=[_Spy(), downstream], config=self.cfg).analyze("x")
+        self.assertIsNone(downstream.seen[0].normalized_text)
         self.assertTrue(any("undeclared" in n for n in result.notes))
 
     def test_module_decision_fields_are_cleared(self) -> None:
@@ -198,7 +199,8 @@ class RobustnessTest(unittest.TestCase):
                    run.registry.RegistryEntry(ModuleName.M5_SARCASM, "tests.test_pipeline:_InitBoom"))
         modules = run.build_modules_safely(entries)
         result = Pipeline(modules=modules, config=self.cfg).analyze("Bu bir test")
-        self.assertEqual(result.signals["channels"]["charsafe_text"], "bu bir test")
+        self.assertIn("m0_charsafe", result.per_module_ms)
+        self.assertTrue(result.signals["m0_charsafe"]["offsets_identity"])
         self.assertTrue(any("construction failed: RuntimeError: init crash" in n for n in result.notes))
 
     def test_malformed_code_is_dropped_not_crashing(self) -> None:
@@ -269,6 +271,11 @@ class RobustnessTest(unittest.TestCase):
         short = Pipeline(modules=[CharSafeModule()], config=self.cfg).analyze("Bu bir test cumlesi")
         size = lambda r: len(json.dumps(r.to_dict()["signals"]["m0_charsafe"]))
         self.assertEqual(size(result), size(short))
+
+    def test_response_signals_do_not_grow_with_post_length(self) -> None:
+        # Decision 17: no copy of the post in signals; only `text` itself scales.
+        size = lambda text: len(json.dumps(Pipeline(config=self.cfg).analyze(text).to_dict()["signals"]))
+        self.assertEqual(size("Bu bir test cumlesi"), size("Bu bir test cumlesi " * 250))
 
     def test_nested_signal_payload_is_read_only(self) -> None:
         frozen = run.deep_freeze({"a": {"b": [1, {"c": 2}]}})

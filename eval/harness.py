@@ -92,6 +92,25 @@ def code_space(module: Any) -> list[str]:
     return codes
 
 
+def latency_budget(latencies: list[float], lengths: list[int], budget: Any) -> dict[str, Any]:
+    """Compare fixture latency with a scalar budget, or with per-length bands
+    {max_chars: p95_ms}: each item counts in the smallest band that holds it."""
+    if budget is None or not isinstance(budget, dict):
+        p95 = percentile(latencies, 95)
+        return {"budget_p95_ms": budget,
+                "within_budget": None if budget is None or p95 is None else p95 <= budget}
+    bands, lower = [], -1
+    for max_chars in sorted(budget):
+        sample = [ms for ms, n in zip(latencies, lengths) if lower < n <= max_chars]
+        p95 = percentile(sample, 95)
+        bands.append({"max_chars": max_chars, "n": len(sample), "p95_ms": p95, "budget_p95_ms": budget[max_chars],
+                      "within_budget": None if p95 is None else p95 <= budget[max_chars]})
+        lower = max_chars
+    checked = [b["within_budget"] for b in bands if b["within_budget"] is not None]
+    return {"budget_bands": bands, "unbudgeted_n": sum(1 for n in lengths if n > lower),
+            "within_budget": all(checked) if checked else None}
+
+
 def tr_fold(text: str) -> str:
     """Turkish-aware case fold, used only to decide whether a word changed.
     NFC first: canonical composition ("s" + U+0327 -> "ş") is not damage."""
@@ -132,6 +151,7 @@ class ModuleEvaluator:
         self.ci = ci
         self.seed = seed
         self.fixture_latencies: list[float] = []
+        self.fixture_lengths: list[int] = []
         self.trap_latencies: list[float] = []
         self.module.load()
 
@@ -147,7 +167,11 @@ class ModuleEvaluator:
             trace_id=str(item.get("id", "")),
         )
         out = safe_process(self.module, ctx)
-        (self.fixture_latencies if latencies is None else latencies).append(out.latency_ms)
+        if latencies is None:
+            self.fixture_latencies.append(out.latency_ms)
+            self.fixture_lengths.append(len(item["text"]))
+        else:
+            latencies.append(out.latency_ms)
         result = AnalysisResult(text=item["text"])
         Pipeline._merge(result, out, self.module)
         # Same signal view the pipeline gives the decision layer, so signal-
@@ -289,8 +313,7 @@ class ModuleEvaluator:
                             "p95_ms": fixture_p95},
                 "traps": {"n": len(self.trap_latencies), "p50_ms": percentile(self.trap_latencies, 50),
                           "p95_ms": percentile(self.trap_latencies, 95)},
-                "budget_p95_ms": budget,
-                "within_budget": None if budget is None or fixture_p95 is None else fixture_p95 <= budget,
+                **latency_budget(self.fixture_latencies, self.fixture_lengths, budget),
             },
             "module_errors": module_errors,
         }

@@ -261,7 +261,8 @@ class Pipeline:
         # ctx.signals but kept out of the response, so its size does not grow
         # with the post (e.g. m0's per-character `_offsets`).
         result.signals.update({name: public_signals(payload) for name, payload in signals.items()})
-        result.signals["channels"] = {"charsafe_text": charsafe_text, "normalized_text": normalized_text}
+        # No copy of the charsafe / normalized text in the response (decision 17): both grow
+        # with the post, and trace_id is enough for auditability. Modules still receive them.
         result.signals["pipeline"] = {"degraded": list(degraded.values()),
                                       "emits_spans": span_declarations(self.modules)}
         if degraded:

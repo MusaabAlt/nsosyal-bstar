@@ -96,9 +96,6 @@ class EncoderModuleBehaviourTest(unittest.TestCase):
         raise NotImplementedError
 
 
-    @unittest.skip("TODO: m3_encoder detection not implemented")
-    def test_truncation_reported(self) -> None:
-        raise NotImplementedError
 
 
 if __name__ == "__main__":

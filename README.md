@@ -25,7 +25,7 @@ bash scripts/check.sh                          # everything above, pre-merge
 
 ```
 text ─► m0_charsafe ─► m2_deobf ─► m1_lexicon ─► m6_target ─┬─► m3_encoder ─► m4_implicit ─► m5_sarcasm
-        (charsafe)     (parallel    (raw+norm)    (target,   │   (3 heads,      (C1-C5)        (D1)
+        (charsafe)     (parallel    (raw+norm)    (target,   │   (2 heads,      (C1-C5)        (D1, own model)
                         channel)                   guards)    │    both channels)
                                                    fast path ─┘ (skip the rest when decisive)
                                    ─► decision/fusion.py: fuse channels → thresholds → guards → thread → verdict

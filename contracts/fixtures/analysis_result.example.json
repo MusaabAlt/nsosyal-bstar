@@ -1,6 +1,6 @@
 {
   "text": "Bu bir test cumlesi",
-  "verdict": "clean",
+  "verdict": "review",
   "form": {
     "patterns": [],
     "active": []
@@ -11,29 +11,10 @@
   "thread": null,
   "signals": {
     "m0_charsafe": {
-      "offsets": [
-        0,
-        1,
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14,
-        15,
-        16,
-        17,
-        18
-      ],
+      "offsets_identity": true,
       "invisible_removed": 0,
-      "homoglyphs_mapped": 0
+      "homoglyphs_mapped": 0,
+      "charsafe_changed": false
     },
     "m2_deobf": {},
     "m1_lexicon": {},
@@ -41,29 +22,112 @@
     "m3_encoder": {},
     "m4_implicit": {},
     "m5_sarcasm": {},
-    "channels": {
-      "charsafe_text": "bu bir test cumlesi",
-      "normalized_text": null
+    "pipeline": {
+      "degraded": [
+        {
+          "module": "m2_deobf",
+          "kinds": [
+            "stub"
+          ],
+          "reasons": [
+            "stub: no detection logic yet"
+          ]
+        },
+        {
+          "module": "m1_lexicon",
+          "kinds": [
+            "stub"
+          ],
+          "reasons": [
+            "stub: no detection logic yet"
+          ]
+        },
+        {
+          "module": "m6_target",
+          "kinds": [
+            "stub"
+          ],
+          "reasons": [
+            "stub: no detection logic yet"
+          ]
+        },
+        {
+          "module": "m3_encoder",
+          "kinds": [
+            "stub"
+          ],
+          "reasons": [
+            "stub: no detection logic yet"
+          ]
+        },
+        {
+          "module": "m4_implicit",
+          "kinds": [
+            "stub"
+          ],
+          "reasons": [
+            "stub: no detection logic yet"
+          ]
+        },
+        {
+          "module": "m5_sarcasm",
+          "kinds": [
+            "stub"
+          ],
+          "reasons": [
+            "stub: no detection logic yet"
+          ]
+        }
+      ],
+      "emits_spans": {
+        "m0_charsafe": false,
+        "m2_deobf": false,
+        "m1_lexicon": true,
+        "m6_target": true,
+        "m3_encoder": false,
+        "m4_implicit": false,
+        "m5_sarcasm": false
+      }
     },
     "decision": {
+      "threshold_branches": [],
+      "binary_offensive": {
+        "threshold": 0.5,
+        "branch": "fallback",
+        "signal": "m1_lexicon.lexicon_hit",
+        "signal_value": null,
+        "channels": {
+          "raw": {
+            "score": null,
+            "fired": null
+          },
+          "normalized": {
+            "score": null,
+            "fired": null
+          }
+        },
+        "fired": null,
+        "action": "review"
+      },
       "channel_scores": []
     }
   },
-  "explanation": "İçerikte eşiği aşan saldırgan bir kategori bulunmadı.",
-  "latency_ms": 0.436800008174032,
+  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m2_deobf henüz uygulanmadı, m1_lexicon henüz uygulanmadı, m6_target henüz uygulanmadı, m3_encoder henüz uygulanmadı, m4_implicit henüz uygulanmadı, m5_sarcasm henüz uygulanmadı.",
+  "latency_ms": 0.4400000034365803,
   "per_module_ms": {
-    "m0_charsafe": 0.11240001185797155,
-    "m2_deobf": 0.01270000939257443,
-    "m1_lexicon": 0.0050000089686363935,
-    "m6_target": 0.0039000005926936865,
-    "m3_encoder": 0.004799978341907263,
-    "m4_implicit": 0.007199996616691351,
-    "m5_sarcasm": 0.0034999975468963385
+    "m0_charsafe": 0.0881000014487654,
+    "m2_deobf": 0.006099988240748644,
+    "m1_lexicon": 0.0037999998312443495,
+    "m6_target": 0.002700020559132099,
+    "m3_encoder": 0.0030999945010989904,
+    "m4_implicit": 0.0023999891709536314,
+    "m5_sarcasm": 0.0022999884095042944
   },
   "fast_path": false,
   "trace_id": "example-trace-id",
-  "artifact_hash": "573983a57b02c937c1efb84081bdbe39fa86b0008df5aabdd4544087c36bb188",
+  "artifact_hash": "c8ba15f9ff49cfe56140f26df04c65ec5099b87e284f92dd7386159962bc1d4a",
   "notes": [
+    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m2_deobf (stub), m1_lexicon (stub), m6_target (stub), m3_encoder (stub), m4_implicit (stub), m5_sarcasm (stub)",
     "[m2_deobf] stub: detection not implemented",
     "[m1_lexicon] stub: detection not implemented",
     "[m6_target] stub: detection not implemented",
