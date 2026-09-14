@@ -1,7 +1,7 @@
 # M5 — Degrading Sarcasm (D1)
 
 **Type:** detection
-**Owner:** _assign_
+**Owner:** Abdullah
 **Status:** GATED. Do not start implementation until section 2 passes.
 
 ---

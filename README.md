@@ -18,7 +18,8 @@ altındadır.
 [`frontend/`](frontend/) ve [`backend/`](backend/) arayüz çalışması için boş iskeletlerdir.
 
 Başlamak için önce [`AI/CLAUDE.md`](AI/CLAUDE.md), ardından
-[`AI/docs/HANDOVER.md`](AI/docs/HANDOVER.md) okunmalıdır.
+[`AI/docs/HANDOVER.md`](AI/docs/HANDOVER.md) okunmalıdır. Kimin neyden sorumlu olduğu
+[`docs/team/`](docs/team/) altındadır.
 
 ## Kurulum
 

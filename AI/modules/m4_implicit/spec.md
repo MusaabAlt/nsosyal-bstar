@@ -1,7 +1,7 @@
 # M4 — Implicit Abuse (C1–C5)
 
 **Type:** detection
-**Owner:** _assign_
+**Owner:** Musaab
 **Note:** this module carries the project's core scientific claim. Read the whole spec before writing code.
 
 ---

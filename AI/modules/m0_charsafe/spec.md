@@ -1,7 +1,7 @@
 # M0 — Character Safety
 
 **Type:** representation (not a detector)
-**Owner:** _assign_
+**Owner:** Musaab
 **Status:** reference implementation — copy its shape, not its rules
 
 ---

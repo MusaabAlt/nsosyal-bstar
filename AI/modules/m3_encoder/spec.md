@@ -1,7 +1,7 @@
 # M3 — Shared Encoder, Three Heads
 
 **Type:** detection
-**Owner:** _assign_
+**Owner:** Abdullah
 **Note:** this is the heaviest module. Its heavy dependencies live in `modules/m3_encoder/requirements.txt`. D1 is not produced here: m5 is its own model (ADR-003).
 
 ---

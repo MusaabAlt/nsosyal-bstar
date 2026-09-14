@@ -1,7 +1,7 @@
 # M1 — Lexicon Signal
 
 **Type:** signal (not a full detector)
-**Owner:** _assign_
+**Owner:** Musaab
 
 ---
 

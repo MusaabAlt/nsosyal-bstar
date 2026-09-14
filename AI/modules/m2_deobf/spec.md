@@ -1,7 +1,7 @@
 # M2 — Parallel De-obfuscation Channel
 
 **Type:** representation (not a detector)
-**Owner:** _assign_
+**Owner:** Mohammed
 **Priority:** highest value-to-effort in the project. This is the live-demo module.
 
 ---

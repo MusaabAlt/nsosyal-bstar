@@ -37,7 +37,7 @@ module without confidence intervals.
 ```
 modules/<your_module>/
 ├── module.py        your implementation
-├── spec.md          your reference — propose changes; Osama approves them
+├── spec.md          your reference — propose changes; Musaab approves them
 ├── test_unit.py     unit tests
 ├── eval.py          standalone evaluation entrypoint
 ├── fixtures/        your test cases, in cases.jsonl (format: eval/harness.py)
@@ -54,7 +54,7 @@ You do not touch anything outside this folder, with two exceptions: adding your
 trap cases to `eval/traps/`, and editing your own category rows in
 `decision/thresholds.yaml` (derived on dev, in a separate reviewed change - see
 CONTRIBUTING.md). Changes to your `spec.md` are proposed by you and approved by
-Osama.
+Musaab.
 
 ---
 
@@ -77,7 +77,7 @@ Osama.
 - [ ] That file contains: metrics with CIs, p50/p95 latency, trap results
 - [ ] Zero regressions on `eval/traps/`
 - [ ] Latency on clean input inside the budget in `decision/thresholds.yaml`; adversarial latency reported alongside
-- [ ] Any change to `spec.md` (what the module catches, what it deliberately does not, its current number) proposed and approved by Osama
+- [ ] Any change to `spec.md` (what the module catches, what it deliberately does not, its current number) proposed and approved by Musaab
 - [ ] No import of another module
 - [ ] No threshold anywhere in your code
 - [ ] Licence recorded for every external resource you used

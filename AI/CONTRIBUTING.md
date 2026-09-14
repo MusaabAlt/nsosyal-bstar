@@ -76,7 +76,7 @@ stub's docstring, TODOs or skipped tests. spec.md is the only source of truth.
 
 1. **Spec first.** Read `modules/README.md` and your `modules/<name>/spec.md`;
    the spec is the source of truth. A module owner **proposes** changes to their
-   spec; Osama **approves** them. Do not edit a spec without that approval.
+   spec; Musaab **approves** them. Do not edit a spec without that approval.
 2. **Fixtures.** Put cases in `modules/<name>/fixtures/cases.jsonl` (format and
    key names in `eval/harness.py`). Use
    `context` to feed upstream outputs so the module runs alone. Never put
