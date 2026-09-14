@@ -15,10 +15,11 @@ from pipeline.run import Pipeline
 
 
 class _Scorer(BaseModule):
-    """Test double: emits a fixed score."""
+    """Test double: emits a fixed, whole-post score (no span)."""
 
     name = ModuleName.M1_LEXICON
     provides = frozenset({"content"})
+    emits_spans = False
 
     def __init__(self, value: float, **decision_fields) -> None:
         super().__init__()
@@ -151,6 +152,7 @@ class _Emit(BaseModule):
 
     name = ModuleName.M3_ENCODER
     provides = frozenset({"content", "guards"})
+    emits_spans = False
 
     def __init__(self, out: ModuleOutput) -> None:
         super().__init__()
@@ -341,6 +343,74 @@ class DegradationTest(unittest.TestCase):
         self.assertIs(result.verdict, Action.BLOCK)
         self.assertIn("ancak değerlendirme eksik", result.explanation)
         self.assertIn("m0_charsafe", result.explanation)
+
+
+class _SpanLexicon(BaseModule):
+    """m1-like double that declares spans and raises a collision guard."""
+
+    name = ModuleName.M1_LEXICON
+    provides = frozenset({"content", "guards"})
+    emits_spans = True
+
+    def __init__(self, score_span, guard_span) -> None:
+        super().__init__()
+        self.score_span, self.guard_span = score_span, guard_span
+
+    def _run(self, ctx: Context) -> ModuleOutput:
+        return ModuleOutput(
+            content=[ContentScore(ContentCode.A2, 0.99, "m1_lexicon@raw", span=self.score_span)],
+            guards=[GuardResult(GuardCode.SUBSTRING_COLLISION, 0.99, "m1_lexicon", evidence="'am' inside 'amcam'",
+                                span=self.guard_span)])
+
+
+class SpanEnforcementTest(unittest.TestCase):
+    """Phase 10: the no-span fallback had become a bypass (ADR-001)."""
+
+    TEXT = "<insult> amcam"
+
+    def setUp(self) -> None:
+        self.cfg = copy.deepcopy(fusion.load_config())
+        self.cfg["categories"]["A2"]["action"] = "block"
+
+    def analyze(self, score_span, guard_span) -> AnalysisResult:
+        return Pipeline(modules=[_Charsafe(), _SpanLexicon(score_span, guard_span)], config=self.cfg).analyze(self.TEXT)
+
+    def test_insult_plus_amcam_with_spans_blocks_because_spans_do_not_overlap(self) -> None:
+        result = self.analyze((0, 8), (9, 14))
+        self.assertIs(result.verdict, Action.BLOCK)
+        [guard] = result.guards
+        self.assertTrue(guard.active)
+        self.assertEqual(guard.suppressed, [])
+        self.assertEqual(result.signals["pipeline"]["degraded"], [])
+
+    def test_insult_plus_amcam_guard_without_span_blocks_because_guard_is_dropped(self) -> None:
+        result = self.analyze((0, 8), None)
+        self.assertIs(result.verdict, Action.BLOCK)
+        self.assertEqual(result.guards, [])
+        self.assertTrue(any("dropped guard SUBSTRING_COLLISION: no span although the module emits spans" in n
+                            for n in result.notes))
+        [entry] = result.signals["pipeline"]["degraded"]
+        self.assertEqual((entry["module"], entry["kinds"]), ("m1_lexicon", ["invalid_output"]))
+        self.assertIn("ancak değerlendirme eksik", result.explanation)
+
+    def test_fully_spanless_output_is_dropped_and_never_clean(self) -> None:
+        result = self.analyze(None, None)
+        self.assertEqual((result.content, result.guards), ([], []))
+        self.assertIs(result.verdict, Action.REVIEW)
+
+    def test_undeclared_module_must_emit_spans(self) -> None:
+        class Undeclared(_SpanLexicon):
+            emits_spans = None  # "not declared": spans are required, no fallback
+
+        result = Pipeline(modules=[Undeclared(None, None)], config=self.cfg).analyze(self.TEXT)
+        self.assertEqual(result.content, [])
+        self.assertIs(result.verdict, Action.REVIEW)
+
+    def test_decision_layer_refuses_fallback_for_span_emitting_module(self) -> None:
+        score = ContentScore(ContentCode.A2, 0.99, "m1_lexicon@raw")
+        guard = GuardResult(GuardCode.SUBSTRING_COLLISION, 0.99, "m1_lexicon")
+        self.assertFalse(fusion.guard_applies(guard, score, self.cfg, {"m1_lexicon": True}))
+        self.assertTrue(fusion.guard_applies(guard, score, self.cfg, {"m1_lexicon": False}))
 
 
 if __name__ == "__main__":

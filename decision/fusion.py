@@ -216,26 +216,29 @@ def spans_overlap(a: tuple[int, int] | list[int], b: tuple[int, int] | list[int]
     return a[0] < b[1] and b[0] < a[1]
 
 
-def guard_applies(guard: GuardResult, score: ContentScore, cfg: dict[str, Any]) -> bool:
+def guard_applies(guard: GuardResult, score: ContentScore, cfg: dict[str, Any],
+                  emits_spans: Mapping[str, bool] | None = None) -> bool:
     """ADR-001 scoping rule.
 
     - never across modules: the guard's source module must have produced the score
     - both spans present: suppress only when they overlap
-    - either span missing: fall back to same-module suppression (which is why
-      modules that raise guards must emit spans - see their spec.md)
+    - either span missing: same-module fallback ONLY for a module that declares
+      `emits_spans = False`; for a span-emitting module a missing span never
+      suppresses (the pipeline already drops such items - this is defence in depth)
     - still limited to the codes/families the guard's config lists
     """
-    if not guard.source or module_of(guard.source) != module_of(score.source):
+    module = module_of(guard.source)
+    if not guard.source or module != module_of(score.source):
         return False
     if not any(_covers(e, score.code) for e in cfg["guards"][guard.code.value]["suppresses"]):
         return False
     if guard.span is not None and score.span is not None:
         return spans_overlap(guard.span, score.span)
-    return True
+    return not (emits_spans or {}).get(module, False)
 
 
 def apply_guards(content: list[ContentScore], guards: list[GuardResult],
-                 cfg: dict[str, Any], notes: list[str]) -> None:
+                 cfg: dict[str, Any], notes: list[str], emits_spans: Mapping[str, bool] | None = None) -> None:
     by_code: dict[GuardCode, list[GuardResult]] = {}
     for guard in guards:
         entry = cfg["guards"].get(guard.code.value)
@@ -253,7 +256,7 @@ def apply_guards(content: list[ContentScore], guards: list[GuardResult],
         for score in content:
             if not score.fired:
                 continue
-            guard = next((g for g in active if guard_applies(g, score, cfg)), None)
+            guard = next((g for g in active if guard_applies(g, score, cfg, emits_spans)), None)
             if guard is None:
                 continue
             score.fired = False
@@ -298,7 +301,8 @@ def decide(result: AnalysisResult, cfg: dict[str, Any]) -> AnalysisResult:
     decision_signals = result.signals.setdefault("decision", {})
     decision_signals["threshold_branches"] = apply_thresholds(raw_scores, cfg, result.notes, result.signals)
     decision_signals["binary_offensive"] = apply_binary_offensive(cfg, result.signals, result.notes)
-    apply_guards(raw_scores, result.guards, cfg, result.notes)
+    apply_guards(raw_scores, result.guards, cfg, result.notes,
+                 result.signals.get("pipeline", {}).get("emits_spans"))
     decision_signals["channel_scores"] = [
         {"code": s.code.value, "score": s.score, "source": s.source,
          "span": list(s.span) if s.span is not None else None,

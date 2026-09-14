@@ -23,6 +23,9 @@ class ImplicitModule(BaseModule):
     # so its silence must not be read as evidence (remove when implemented).
     stub = True
     provides = frozenset({"content"})
+    # ADR-001 runtime enforcement: whether content scores / guards carry spans.
+    # implicit abuse is scored on the whole post, not a substring.
+    emits_spans = False
 
     def _load(self) -> None:
         # TODO(load): load head weights and per-class calibrators from artifacts/ (hash-checked).

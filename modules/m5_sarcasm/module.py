@@ -23,6 +23,9 @@ class SarcasmModule(BaseModule):
     # so its silence must not be read as evidence (remove when implemented).
     stub = True
     provides = frozenset({"content", "guards"})
+    # ADR-001 runtime enforcement: whether content scores / guards carry spans.
+    # degrading sarcasm is scored on the whole post, not a substring.
+    emits_spans = False
 
     def _load(self) -> None:
         # TODO(load): load stage-2 head weights from artifacts/ (hash-checked).

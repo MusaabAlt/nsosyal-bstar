@@ -41,7 +41,7 @@ from contracts.module_api import Context, ModuleOutput
 from contracts.schema import AnalysisResult
 from decision import fusion
 from modules import registry
-from pipeline.run import Pipeline, artifact_hash, deep_freeze, safe_process
+from pipeline.run import Pipeline, artifact_hash, deep_freeze, safe_process, span_declarations
 
 ROOT = Path(__file__).resolve().parent.parent
 TRAPS_PATH = ROOT / "eval" / "traps" / "traps.jsonl"
@@ -153,6 +153,7 @@ class ModuleEvaluator:
         # conditioned thresholds resolve identically in eval and at inference.
         result.signals.update(extra.get("signals", {}))
         result.signals[self.module.name.value] = out.signals
+        result.signals["pipeline"] = {"emits_spans": span_declarations([self.module])}
         fusion.decide(result, self.config)
         predicted = {s.code.value for s in result.fired()}
         predicted |= {c.value for c in result.form.active}

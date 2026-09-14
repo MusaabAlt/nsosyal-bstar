@@ -10,6 +10,10 @@ The pipeline enforces the module contract at runtime:
   * each module sees a deep read-only copy of earlier modules' signals
   * nothing a module does - failing to construct, load, run, or returning
     garbage - crashes the request
+  * SPANS (ADR-001): a module declaring `emits_spans = True` - or declaring
+    nothing - must put a span on every content score and guard; one without a
+    span is dropped, never applied. The no-span guard fallback exists only for
+    modules that explicitly declare `emits_spans = False`.
   * FAIL CLOSED: a stub, a failed or unavailable module, or a module whose
     output had to be dropped makes the result DEGRADED. Every degraded module
     is listed in signals.pipeline.degraded with its reasons, and the decision
@@ -168,6 +172,11 @@ def _source_problem(source: Any, name: str, required: bool) -> str | None:
     return None
 
 
+def span_declarations(modules: list[Any]) -> dict[str, bool]:
+    """Module name -> whether its scores/guards must carry spans (undeclared = True)."""
+    return {m.name.value: getattr(m, "emits_spans", None) is not False for m in modules}
+
+
 class Pipeline:
     def __init__(self, modules: list[Any] | None = None, config: dict[str, Any] | None = None,
                  config_path: str | None = None) -> None:
@@ -242,7 +251,8 @@ class Pipeline:
 
         result.signals.update(signals)
         result.signals["channels"] = {"charsafe_text": charsafe_text, "normalized_text": normalized_text}
-        result.signals["pipeline"] = {"degraded": list(degraded.values())}
+        result.signals["pipeline"] = {"degraded": list(degraded.values()),
+                                      "emits_spans": span_declarations(self.modules)}
         if degraded:
             # A screenshot of a "clean" verdict must not pass for a real result.
             summary = ", ".join(f"{d['module']} ({'/'.join(d['kinds'])})" for d in degraded.values())
@@ -263,6 +273,8 @@ class Pipeline:
         name = module.name.value
         result.per_module_ms[name] = out.latency_ms
         problems: list[str] = []
+        # Undeclared counts as "spans required": the fallback must be opted into.
+        spans_required = getattr(module, "emits_spans", None) is not False
 
         def drop(what: str, why: str) -> None:
             problems.append(f"dropped {what}: {why}")
@@ -315,6 +327,8 @@ class Pipeline:
                     drop(f"content {score.code.value}", why)
                     continue
                 why = _span_problem(score.span, result.text) or _source_problem(score.source, name, required=True)
+                if not why and spans_required and score.span is None:
+                    why = "no span although the module emits spans (ADR-001); not applied"
                 if why:
                     drop(f"content {score.code.value}", why)
                     continue
@@ -333,6 +347,8 @@ class Pipeline:
                     drop(f"guard {guard.code.value}", why)
                     continue
                 why = _span_problem(guard.span, result.text) or _source_problem(guard.source, name, required=False)
+                if not why and spans_required and guard.span is None:
+                    why = "no span although the module emits spans (ADR-001); not applied"
                 if why:
                     drop(f"guard {guard.code.value}", why)
                     continue

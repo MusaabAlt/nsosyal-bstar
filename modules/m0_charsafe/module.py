@@ -146,6 +146,9 @@ class CharSafeModule(BaseModule):
     name = ModuleName.M0_CHARSAFE
     version = "0.1.0"
     provides = frozenset({"charsafe_text", "form"})
+    # ADR-001 runtime enforcement: whether content scores / guards carry spans.
+    # emits no content scores or guards (its form patterns always carry spans).
+    emits_spans = False
 
     def _run(self, ctx: Context) -> ModuleOutput:
         text = ctx.text  # read only; we build a new string, never edit this one

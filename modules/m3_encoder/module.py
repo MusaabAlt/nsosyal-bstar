@@ -26,6 +26,9 @@ class EncoderModule(BaseModule):
     # so its silence must not be read as evidence (remove when implemented).
     stub = True
     provides = frozenset({"content", "guards"})
+    # ADR-001 runtime enforcement: whether content scores / guards carry spans.
+    # encoder heads score the whole post, not a substring.
+    emits_spans = False
 
     def _load(self) -> None:
         # TODO(load): load the fine-tuned dbmdz/bert-base-turkish-cased artifact from artifacts/ (local files only),

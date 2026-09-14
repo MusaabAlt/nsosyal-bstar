@@ -51,7 +51,8 @@ A guard suppresses a content score only if **all** of these hold:
    (`"m1_lexicon@raw"` → module `m1_lexicon`); a guard with no source
    suppresses nothing;
 4. if both sides carry a span, the spans overlap;
-5. if either side has no span, fall back to same-module suppression.
+5. if either side has no span, fall back to same-module suppression — only for a module that
+   declares `emits_spans = False` (see Amendment).
 
 A guard never suppresses across modules, and never suppresses a whole family
 across the whole post.
@@ -73,6 +74,37 @@ spans reopens the exploit for itself. Emitting spans is therefore an
 m1_lexicon, and every guard and B4 score of m6_target (the modules whose
 specs raise guards), must carry the span of the exact triggering substring.
 A match or guard with no span is a contract violation.
+
+## Amendment — runtime span enforcement (2026-09-14, Phase 10)
+
+**Why:** the re-audit showed the rule-5 fallback had become a bypass. A module
+that simply omitted spans got same-module suppression back, and the original
+exploit returned (insult + `amcam` without spans → clean). A requirement that
+lives only in spec.md is not a requirement.
+
+**Decision:**
+
+1. Every module declares, as a class attribute, whether its content scores and
+   guards carry spans: `emits_spans = True | False`. The architecture test
+   requires the declaration on every registered module. m1_lexicon and
+   m6_target declare `True`; m0, m2 (emit no scores or guards), m3, m4 and m5
+   (whole-post scores) declare `False`.
+2. At runtime the pipeline drops any content score or guard without a span from
+   a module that declares `True` — or declares nothing, since the fallback must
+   be opted into. The drop is recorded in notes, the item is never applied, and
+   the module is marked degraded (Phase 9).
+3. The no-span same-module fallback survives only for modules that explicitly
+   declare `emits_spans = False`. The decision layer checks this again
+   (`guard_applies` reads `signals.pipeline.emits_spans`, which the pipeline and
+   the eval harness both set). A caller that builds an AnalysisResult by hand
+   without that signal gets the old fallback; only pipeline/harness results
+   are covered.
+
+**Consequence for the exploit:** insult + `amcam` now ends in block both with
+spans (the guard does not overlap the insult) and with a spanless guard (the
+guard is dropped and never applied); a fully spanless m1 output is dropped
+entirely and ends in review, never clean
+(`tests/test_pipeline.py::SpanEnforcementTest`).
 
 ## Consequences
 

@@ -222,6 +222,15 @@ class ArchitectureTest(unittest.TestCase):
             for section in SPEC_SECTIONS:
                 self.assertIn(section, headings, f"{mdir.name}/spec.md lacks section '{section}'")
 
+    def test_every_module_declares_whether_it_emits_spans(self) -> None:
+        # ADR-001: the no-span fallback exists only for an explicit emits_spans = False.
+        for entry in registry.REGISTRY:
+            cls = registry.load_class(entry)
+            with self.subTest(module=entry.name.value):
+                self.assertIn("emits_spans", vars(cls))
+                self.assertIsInstance(cls.emits_spans, bool)
+        self.assertTrue(registry.load_class(registry.REGISTRY[2]).emits_spans)  # m1_lexicon
+
     def test_registry_classes_match_names(self) -> None:
         for entry in registry.REGISTRY:
             cls = registry.load_class(entry)

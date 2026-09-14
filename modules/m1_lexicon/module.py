@@ -26,6 +26,9 @@ class LexiconModule(BaseModule):
     # so its silence must not be read as evidence (remove when implemented).
     stub = True
     provides = frozenset({"content", "guards"})
+    # ADR-001 runtime enforcement: whether content scores / guards carry spans.
+    # spec.md: every match and every guard carries the span of the triggering substring.
+    emits_spans = True
 
     def _load(self) -> None:
         # TODO(load): load the versioned lexicon + suffix automaton tables from artifacts/ and verify the sha256 listed in artifacts/MANIFEST.md.

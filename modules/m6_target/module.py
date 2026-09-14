@@ -27,6 +27,9 @@ class TargetModule(BaseModule):
     # so its silence must not be read as evidence (remove when implemented).
     stub = True
     provides = frozenset({"target", "content", "guards"})
+    # ADR-001 runtime enforcement: whether content scores / guards carry spans.
+    # spec.md: every guard and every B4 score carries the span of the triggering substring.
+    emits_spans = True
 
     def _load(self) -> None:
         # TODO(load): load group / non-human gazetteers from artifacts/ (hash-checked).

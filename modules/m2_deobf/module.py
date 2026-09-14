@@ -22,6 +22,9 @@ class DeobfModule(BaseModule):
     # so its silence must not be read as evidence (remove when implemented).
     stub = True
     provides = frozenset({"normalized_text", "form"})
+    # ADR-001 runtime enforcement: whether content scores / guards carry spans.
+    # emits no content scores or guards.
+    emits_spans = False
 
     def _load(self) -> None:
         # TODO(load): load leet table, unigram frequency list, dictionary and deasciifier pattern tables from artifacts/ (hash-checked).
