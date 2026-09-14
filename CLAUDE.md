@@ -38,10 +38,10 @@ else. The exact allow-lists live as data in `tests/test_architecture.py`.
 | m0_charsafe | representation | invisible chars, homoglyphs, Turkish I casing |
 | m1_lexicon  | signal         | morpheme-boundary profanity match, never substring |
 | m2_deobf    | representation | PARALLEL de-obfuscation channel, never replaces text |
-| m3_encoder  | detection      | one BERTurk encoder, two heads (A, B), runs on both channels |
-| m4_implicit | detection      | C1-C5, threshold repair + influence hardening |
+| m3_encoder  | detection      | one BERTurk encoder, three heads (A profanity, B, C1-C5), runs on both channels |
+| m4_implicit | detection      | C1-C5 thresholds + slice repair (scores from m3's C head), influence hardening |
 | m5_sarcasm  | detection      | D1, own model (ADR-003), sequential transfer from a sarcasm corpus |
-| m6_target   | signal         | target resolution + doxing patterns |
+| m6_target   | signal         | target resolution (assigns A1/A2/A3 via the decision layer) + doxing patterns |
 
 Entry points: `modules/registry.py::PIPELINE_ORDER` is the single ordered list
 of modules. Each entry names the module CLASS by dotted path
