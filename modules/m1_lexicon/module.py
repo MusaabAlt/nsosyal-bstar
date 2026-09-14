@@ -1,17 +1,12 @@
-"""m1_lexicon - morpheme-boundary profanity lexicon. STUB: contract only, no detection logic yet.
+"""m1_lexicon - lexicon signal. STUB: no detection logic yet.
 
-Catches (once implemented):
-  * Lexicon roots followed by a valid Turkish suffix chain (vowel harmony, consonant alternation, buffer letters) -> A1-A4 scores.
-  * A4 via entries tagged sacred; A3 via entries tagged as group slurs; A2 only from the morphology of the matched word itself (e.g. 2nd person agreement on the profane form); otherwise A1.
-  * SUBSTRING_COLLISION guard when a root occurs inside a known clean word (amca, sikke, psikoloji).
-  * HOMONYM guard when a surface form has both a profane and a clean reading; DUAL_REGISTER guard for entries tagged as friendly in informal register.
+What is missing (see spec.md, the only source of truth for this module):
+  * A1-A4 content scores on both channels (spec.md §3 Contract)
+  * signals "lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm" (spec.md §3, §8)
+  * SUBSTRING_COLLISION and HOMONYM guards with spans (spec.md §3, §8)
 
-Deliberately does NOT:
-  * Obfuscated spellings on the raw channel: m1 reads m2's normalized channel instead of doing fuzzy matching itself.
-  * Implicit abuse (C), sarcasm (D), threats or degradation without a lexicon word (B).
-  * Target resolution beyond the matched word's own morphology (m6 / m3 target head).
-
-See spec.md for approach, named tools and forbidden shortcuts.
+Governing sections of spec.md: §3 Contract, §4 Approach, §5 Forbidden, §7 Required fixtures, §8 Acceptance criteria.
+This stub deliberately prescribes no approach; spec.md does.
 """
 from __future__ import annotations
 
@@ -27,16 +22,13 @@ class LexiconModule(BaseModule):
     stub = True
     provides = frozenset({"content", "guards"})
     # ADR-001 runtime enforcement: whether content scores / guards carry spans.
-    # spec.md: every match and every guard carries the span of the triggering substring.
+    # spec.md §3: every match and every guard carries the span of the triggering substring.
     emits_spans = True
 
     def _load(self) -> None:
-        # TODO(load): load the versioned lexicon + suffix automaton tables from artifacts/ and verify the sha256 listed in artifacts/MANIFEST.md.
+        # TODO: artifacts this module needs - spec.md (§3 Contract, §4 Approach, §5 Forbidden, §7 Required fixtures, §8 Acceptance criteria).
         return None
 
     def _run(self, ctx: Context) -> ModuleOutput:
-        # TODO(approach): tokenize charsafe (raw) and normalized channels separately; parse each token as root + valid suffix chain with the morphotactic automaton; emit one ContentScore per hit tagged m1_lexicon@<channel>.
-        # TODO(approach): when a root is a prefix of a known clean word, emit SUBSTRING_COLLISION guard evidence instead of a score.
-        # TODO(forbidden): `root in text`, `startswith`, `\b`-only regex, str.lower(), stemming, fuzzy matching, threshold/fired.
-        # The stub says so explicitly instead of returning a silent empty result.
+        # TODO: produce the outputs listed in the module docstring - spec.md (§3 Contract, §4 Approach, §5 Forbidden, §7 Required fixtures, §8 Acceptance criteria).
         return ModuleOutput(notes=["stub: detection not implemented"])

@@ -87,11 +87,6 @@ class SarcasmModuleContractTest(unittest.TestCase):
 
 class SarcasmModuleBehaviourTest(unittest.TestCase):
     @unittest.skip("TODO: m5_sarcasm detection not implemented")
-    def test_missing_m3_signal_is_noted_not_clean(self) -> None:
-        raise NotImplementedError
-
-
-    @unittest.skip("TODO: m5_sarcasm detection not implemented")
     def test_friendly_irony_is_not_d1(self) -> None:
         raise NotImplementedError
 

@@ -1,13 +1,11 @@
-"""m2_deobf - parallel de-obfuscation channel. STUB: contract only, no detection logic yet.
+"""m2_deobf - parallel de-obfuscation channel. STUB: no detection logic yet.
 
-Catches (once implemented):
-  * LEET, SPACED, PUNCT_SPLIT, REPEAT, CHAR_DROP, WORD_MERGE, ABBREV, DEASCII, VOWEL_DROP, SUFFIX_ON_MASKED, DIALECT, EMOJI_SUB, PHONETIC.
+What is missing (see spec.md, the only source of truth for this module):
+  * normalized_text, a parallel channel that never replaces the raw text (spec.md §4 Contract)
+  * one FormPattern with evidence and span per transformation (spec.md §3 Patterns in scope, §4)
 
-Deliberately does NOT:
-  * ZERO_WIDTH, HOMOGLYPH, DOTLESS_I (m0).
-  * Whether the de-obfuscated text is offensive: no content scores, ever. Obfuscation is never a content category.
-
-See spec.md for approach, named tools and forbidden shortcuts.
+Governing sections of spec.md: §3 Patterns in scope, §4 Contract, §5 Forbidden, §7 Leakage rule, §8 Acceptance criteria.
+This stub deliberately prescribes no approach; spec.md does.
 """
 from __future__ import annotations
 
@@ -27,11 +25,9 @@ class DeobfModule(BaseModule):
     emits_spans = False
 
     def _load(self) -> None:
-        # TODO(load): load leet table, unigram frequency list, dictionary and deasciifier pattern tables from artifacts/ (hash-checked).
+        # TODO: artifacts this module needs - spec.md (§3 Patterns in scope, §4 Contract, §5 Forbidden, §7 Leakage rule, §8 Acceptance criteria).
         return None
 
     def _run(self, ctx: Context) -> ModuleOutput:
-        # TODO(approach): candidate generation per token -> frequency/dictionary ranking -> normalized_text + alignment + alternatives in signals; FormPattern per rewrite, spans mapped to original via ctx.signals['m0_charsafe']['offsets'].
-        # TODO(forbidden): replacing text/charsafe_text, collapse-to-one repeats, unconditional deasciification, correcting toward the profanity lexicon, content scores.
-        # The stub says so explicitly instead of returning a silent empty result.
+        # TODO: produce the outputs listed in the module docstring - spec.md (§3 Patterns in scope, §4 Contract, §5 Forbidden, §7 Leakage rule, §8 Acceptance criteria).
         return ModuleOutput(notes=["stub: detection not implemented"])

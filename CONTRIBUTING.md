@@ -23,6 +23,13 @@ Read `CLAUDE.md` first. This file turns its rules into a workflow.
 Rules 2, 4, 5 and 6 are enforced by `tests/test_architecture.py` and at runtime
 by the pipeline.
 
+## Stub rule
+
+Until a module is implemented its `module.py` is a stub. A stub may state WHAT
+is missing (the outputs of its spec contract) and point to the spec.md sections
+that govern it. It may not prescribe HOW: no approach, tool or algorithm in a
+stub's docstring, TODOs or skipped tests. spec.md is the only source of truth.
+
 ## Per-module workflow
 
 1. **Spec first.** Update `modules/<name>/spec.md`: purpose, catches, does NOT

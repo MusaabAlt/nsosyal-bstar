@@ -85,10 +85,7 @@ class ImplicitModuleContractTest(unittest.TestCase):
                 self.assertTrue(out.ok, out.notes)
 
 
-class ImplicitModuleBehaviourTest(unittest.TestCase):
-    @unittest.skip("TODO: m4_implicit detection not implemented")
-    def test_missing_m3_signal_is_noted_not_clean(self) -> None:
-        raise NotImplementedError
+# Behaviour tests are added with the implementation, from spec.md §8 Acceptance criteria.
 
 
 if __name__ == "__main__":

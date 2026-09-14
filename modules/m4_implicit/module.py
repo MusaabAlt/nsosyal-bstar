@@ -1,14 +1,10 @@
-"""m4_implicit - implicit abuse (C1-C5). STUB: contract only, no detection logic yet.
+"""m4_implicit - implicit abuse (C1-C5). STUB: no detection logic yet.
 
-Catches (once implemented):
-  * C1 stereotype, C2 inferiority attribution, C3 coded language, C4 incitement, C5 defamation.
+What is missing (see spec.md, the only source of truth for this module):
+  * C1-C5 content scores (spec.md §4 Contract)
 
-Deliberately does NOT:
-  * Explicit profanity or overt threats (m1, m3).
-  * Mere mention of a group, or counter-speech about a stereotype (guards suppress; the model must not learn identity terms as signal).
-  * Degrading sarcasm (m5).
-
-See spec.md for approach, named tools and forbidden shortcuts.
+Governing sections of spec.md: §2 The measured starting point, §3 What it must do, §4 Contract, §5 Forbidden, §8 Acceptance criteria.
+This stub deliberately prescribes no approach; spec.md does.
 """
 from __future__ import annotations
 
@@ -28,11 +24,9 @@ class ImplicitModule(BaseModule):
     emits_spans = False
 
     def _load(self) -> None:
-        # TODO(load): load head weights and per-class calibrators from artifacts/ (hash-checked).
+        # TODO: artifacts this module needs - spec.md (§2 The measured starting point, §3 What it must do, §4 Contract, §5 Forbidden, §8 Acceptance criteria).
         return None
 
     def _run(self, ctx: Context) -> ModuleOutput:
-        # TODO(approach): read ctx.signals['m3_encoder']['embedding'][channel]; if absent, add a note and return nothing; else head -> calibrator -> C1-C5 ContentScore per channel.
-        # TODO(forbidden): identity keyword lists, calibration on test, writing thresholds, importing m3, silent clean on missing signals.
-        # The stub says so explicitly instead of returning a silent empty result.
+        # TODO: produce the outputs listed in the module docstring - spec.md (§2 The measured starting point, §3 What it must do, §4 Contract, §5 Forbidden, §8 Acceptance criteria).
         return ModuleOutput(notes=["stub: detection not implemented"])
