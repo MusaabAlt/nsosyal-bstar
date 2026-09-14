@@ -6,19 +6,22 @@ A module's `_load` must verify the hash and fail loudly on mismatch.
 
 Compute a hash: `python -c "import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],'rb').read()).hexdigest())" <file>`
 
-| id | path | sha256 | owner | source / license | derived on | status |
-|---|---|---|---|---|---|---|
-| thresholds-v0.0.0-placeholder | `decision/thresholds.yaml` | computed at runtime into `AnalysisResult.artifact_hash` | decision | in-repo | not derived | PLACEHOLDER |
-| lexicon | `artifacts/m1_lexicon/lexicon.jsonl` | TBD | m1_lexicon | TBD | - | not created |
-| suffix-automaton | `artifacts/m1_lexicon/suffixes.json` | TBD | m1_lexicon | TBD | - | not created |
-| deobf-tables | `artifacts/m2_deobf/` (leet, unigram freq, deasciifier patterns) | TBD | m2_deobf | TBD | - | not created |
-| berturk-3head-int8 | `artifacts/m3_encoder/model.onnx` + tokenizer | TBD | m3_encoder | dbmdz/bert-base-turkish-cased (license: verify on model card), fine-tuned | - | not created |
-| implicit-head + calibrators | `artifacts/m4_implicit/` | TBD | m4_implicit | TBD | - | not created |
-| sarcasm-head (stage 2) | `artifacts/m5_sarcasm/` | TBD | m5_sarcasm | sarcasm corpus: TBD (record license) | - | not created |
-| gazetteers | `artifacts/m6_target/` | TBD | m6_target | TBD | - | not created |
+Columns (m3_encoder spec.md §7): `artifact_id | format | sha256 | thresholds_file | derived_on | date`,
+plus `owner` and `licence`. Every deployable artifact has its own thresholds file, derived on that
+artifact; `TBD` means the artifact does not exist yet.
+
+| artifact_id | format | sha256 | thresholds_file | derived_on | date | owner | licence |
+|---|---|---|---|---|---|---|---|
+| thresholds-v0.0.0-placeholder | yaml (`decision/thresholds.yaml`) | per result: `AnalysisResult.artifact_hash` (config in use + module versions) | self | not derived (placeholder) | 2026-09-14 | decision | in-repo |
+| m1-lexicon | TBD (terlik lists + sacred-concept extension) | TBD | TBD | TBD | TBD | m1_lexicon | TBD — record per list (m1 spec.md §8) |
+| m2-deobf-tables | TBD | TBD | TBD | TBD | TBD | m2_deobf | TBD |
+| m3-berturk-pytorch-fp32 | TBD (PyTorch FP32) | TBD | TBD | TBD | TBD | m3_encoder | base model `dbmdz/bert-base-turkish-cased`: verify on model card; datasets per m3 spec.md §4 |
+| m4-implicit | TBD | TBD | TBD | TBD | TBD | m4_implicit | TBD |
+| m5-sarcasm | TBD (gated: m5 spec.md §2) | TBD | TBD | TBD | TBD | m5_sarcasm | TBD — record dataset name, version, size |
+| m6-target | TBD | TBD | TBD | TBD | TBD | m6_target | TBD |
 
 ## Change log
 
-| date | id | change | by |
+| date | artifact_id | change | by |
 |---|---|---|---|
 | | | | |

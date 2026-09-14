@@ -39,7 +39,7 @@ thresholds and picks an action (`block > escalate > review > nudge > clean`).
 | path | what |
 |---|---|
 | `contracts/` | FROZEN code books (`codes.py`), result dataclasses (`schema.py`), module interface (`module_api.py`), example JSON |
-| `modules/` | `registry.py` (order) + one folder per module: `module.py`, `spec.md`, `test_unit.py`, `eval.py`, `fixtures/` |
+| `modules/` | `registry.py` (`PIPELINE_ORDER`: ordered module classes) + one folder per module: `module.py`, `spec.md`, `test_unit.py`, `eval.py`, `fixtures/` |
 | `decision/` | `thresholds.yaml` (the only place for numbers), `fusion.py`, `actions.py` |
 | `pipeline/` | `run.py` - orchestration + CLI |
 | `api/` | `main.py` - stdlib HTTP API |

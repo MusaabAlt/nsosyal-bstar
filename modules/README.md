@@ -44,6 +44,12 @@ modules/<your_module>/
 └── requirements.txt only if you need heavy deps
 ```
 
+Your entry point is the class in `module.py` (subclass `BaseModule`, set `name`,
+`version`, `provides` and `emits_spans`). Do not create a module-level instance:
+`modules/registry.py::PIPELINE_ORDER` names your class by dotted path and the
+pipeline constructs it, so a constructor failure degrades your module instead
+of breaking import for everyone.
+
 You do not touch anything outside this folder, except adding your trap cases to
 `eval/traps/`.
 

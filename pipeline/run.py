@@ -96,7 +96,7 @@ class UnavailableModule:
         return ModuleOutput(ok=False, notes=[self.error])
 
 
-def build_modules_safely(entries: tuple[registry.RegistryEntry, ...] = registry.REGISTRY) -> list[Any]:
+def build_modules_safely(entries: tuple[registry.RegistryEntry, ...] = registry.PIPELINE_ORDER) -> list[Any]:
     modules: list[Any] = []
     for entry in entries:
         if not entry.enabled:

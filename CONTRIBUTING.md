@@ -32,12 +32,12 @@ stub's docstring, TODOs or skipped tests. spec.md is the only source of truth.
 
 ## Per-module workflow
 
-1. **Spec first.** Update `modules/<name>/spec.md`: purpose, catches, does NOT
-   catch, contract, approach + named tools, forbidden shortcuts with reasons,
-   metric, acceptance criteria. Get it reviewed before writing code.
-2. **Fixtures.** Put dev items in `modules/<name>/fixtures/dev.jsonl` (format in
-   `eval/harness.py`). Use `context` to feed upstream outputs so the module runs
-   alone. Never put test-split items here.
+1. **Spec first.** Read `modules/README.md` and your `modules/<name>/spec.md`;
+   the spec is the source of truth. Changes to it go through the spec owner.
+2. **Fixtures.** Put cases in `modules/<name>/fixtures/` as named by your spec
+   (`cases.jsonl` when it does not say; format in `eval/harness.py`). Use
+   `context` to feed upstream outputs so the module runs alone. Never put
+   test-split items here.
 3. **Implement `_run` (and `_load`).** Subclass `BaseModule`; do not add
    try/except around the whole body - `BaseModule` reports failures uniformly.
    Catch expected, local failures yourself and explain them in `notes`.

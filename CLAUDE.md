@@ -43,6 +43,12 @@ else. The exact allow-lists live as data in `tests/test_architecture.py`.
 | m5_sarcasm  | detection      | D1, sequential transfer from a sarcasm corpus |
 | m6_target   | signal         | target resolution + doxing patterns |
 
+Entry points: `modules/registry.py::PIPELINE_ORDER` is the single ordered list
+of modules. Each entry names the module CLASS by dotted path
+(`modules.<name>.module:<ClassName>`); modules do not expose a module-level
+instance. The pipeline constructs them, so a failing constructor degrades one
+module instead of breaking import.
+
 ## Style
 
 - Python 3.11+, type hints everywhere, dataclasses over dicts.

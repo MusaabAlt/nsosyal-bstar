@@ -210,7 +210,7 @@ class ArchitectureTest(unittest.TestCase):
         self.assertEqual(len([l for l in lines if l]), 1)
 
     def test_module_layout_and_specs(self) -> None:
-        registered = {entry.name.value for entry in registry.REGISTRY}
+        registered = {entry.name.value for entry in registry.PIPELINE_ORDER}
         self.assertEqual({d.name for d in module_dirs()}, registered)
         for mdir in module_dirs():
             for filename in MODULE_FILES:
@@ -224,15 +224,25 @@ class ArchitectureTest(unittest.TestCase):
 
     def test_every_module_declares_whether_it_emits_spans(self) -> None:
         # ADR-001: the no-span fallback exists only for an explicit emits_spans = False.
-        for entry in registry.REGISTRY:
+        for entry in registry.PIPELINE_ORDER:
             cls = registry.load_class(entry)
             with self.subTest(module=entry.name.value):
                 self.assertIn("emits_spans", vars(cls))
                 self.assertIsInstance(cls.emits_spans, bool)
-        self.assertTrue(registry.load_class(registry.REGISTRY[2]).emits_spans)  # m1_lexicon
+        self.assertTrue(registry.load_class(registry.PIPELINE_ORDER[2]).emits_spans)  # m1_lexicon
+
+    def test_entry_point_convention(self) -> None:
+        # CLAUDE.md "Entry points": PIPELINE_ORDER names classes; no module-level instance.
+        self.assertFalse(hasattr(registry, "REGISTRY"))
+        for mdir in module_dirs():
+            tree = ast.parse((mdir / "module.py").read_text(encoding="utf-8"))
+            instances = [t.id for node in tree.body if isinstance(node, (ast.Assign, ast.AnnAssign))
+                         for t in (node.targets if isinstance(node, ast.Assign) else [node.target])
+                         if isinstance(t, ast.Name) and t.id == "MODULE"]
+            self.assertEqual(instances, [], f"{mdir.name}/module.py defines a module-level MODULE")
 
     def test_registry_classes_match_names(self) -> None:
-        for entry in registry.REGISTRY:
+        for entry in registry.PIPELINE_ORDER:
             cls = registry.load_class(entry)
             self.assertIs(cls.name, entry.name)
             self.assertTrue(entry.target.startswith(f"modules.{entry.name.value}.module:"))

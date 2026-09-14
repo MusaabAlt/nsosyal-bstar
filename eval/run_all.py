@@ -21,7 +21,7 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")
 
     regressions = 0
-    for entry in registry.REGISTRY:
+    for entry in registry.PIPELINE_ORDER:
         fixture = default_fixture(entry.name.value)
         evaluator = ModuleEvaluator(registry.load_class(entry)(), fixture, n_boot=args.n_boot)
         report = evaluator.evaluate()
