@@ -1,12 +1,17 @@
 """Decision layer: the only code allowed to compare a score with a threshold.
 
 Steps, in order:
-  1. fuse raw/normalized channels per content code (strategy from config)
-  2. set threshold + fired on every fused score
-  3. mark active form codes
-  4. apply guards as SUPPRESSORS, in guards_order
+  1. set threshold + fired on every per-module, per-channel score
+  2. apply guards as SUPPRESSORS, in guards_order, scoped per ADR-001
+     (same module; overlapping spans when both carry one)
+  3. fuse channels/sources per content code (strategy from config)
+  4. mark active form codes
   5. apply the thread rule (Axis 4)
   6. resolve verdict + explanation (decision/actions.py)
+
+Guards run BEFORE fusion on purpose: fusion keeps one score per code, so a
+guard applied after it could erase an independent score from another module -
+cross-module suppression by the back door (ADR-001).
 
 Every number comes from decision/thresholds.yaml. A category missing from the
 config never fires and is reported in notes - it does not silently pass.
@@ -64,16 +69,25 @@ def validate_config(cfg: dict[str, Any]) -> None:
 
 # -- 1. channel fusion ------------------------------------------------------
 def fuse_channels(scores: list[ContentScore], cfg: dict[str, Any]) -> list[ContentScore]:
-    """One score per content code. With `max`, the winning source is kept so
-    an audit can tell whether the normalized channel was decisive."""
-    best: dict[ContentCode, ContentScore] = {}
+    """One score per content code. With `max`, the winning source and span are
+    kept so an audit can tell which module/channel was decisive.
+
+    On already-decided scores the representative is the highest score that is
+    still fired (unsuppressed); only if none fired is it the highest overall.
+    A suppressed score therefore never hides a fired one for the same code.
+    """
+    groups: dict[ContentCode, list[ContentScore]] = {}
     for score in scores:
-        if score.code is ContentCode.CLEAN:
-            continue
-        current = best.get(score.code)
-        if current is None or score.score > current.score:
-            best[score.code] = ContentScore(code=score.code, score=score.score, source=score.source)
-    return list(best.values())
+        if score.code is not ContentCode.CLEAN:
+            groups.setdefault(score.code, []).append(score)
+    fused: list[ContentScore] = []
+    for code, group in groups.items():
+        fired = [s for s in group if s.fired]
+        best = max(fired or group, key=lambda s: s.score)
+        fused.append(ContentScore(code=code, score=best.score, source=best.source, span=best.span,
+                                  threshold=best.threshold,
+                                  fired=bool(fired) if best.fired is not None else None))
+    return fused
 
 
 # -- 2. thresholds ----------------------------------------------------------
@@ -104,6 +118,33 @@ def guard_is_active(guard: GuardResult, cfg: dict[str, Any]) -> bool:
     return entry is not None and guard.score >= float(entry["threshold"])
 
 
+def module_of(source: str) -> str:
+    """"m1_lexicon@raw" -> "m1_lexicon"."""
+    return source.split("@", 1)[0]
+
+
+def spans_overlap(a: tuple[int, int] | list[int], b: tuple[int, int] | list[int]) -> bool:
+    return a[0] < b[1] and b[0] < a[1]
+
+
+def guard_applies(guard: GuardResult, score: ContentScore, cfg: dict[str, Any]) -> bool:
+    """ADR-001 scoping rule.
+
+    - never across modules: the guard's source module must have produced the score
+    - both spans present: suppress only when they overlap
+    - either span missing: fall back to same-module suppression (which is why
+      modules that raise guards must emit spans - see their spec.md)
+    - still limited to the codes/families the guard's config lists
+    """
+    if not guard.source or module_of(guard.source) != module_of(score.source):
+        return False
+    if not any(_covers(e, score.code) for e in cfg["guards"][guard.code.value]["suppresses"]):
+        return False
+    if guard.span is not None and score.span is not None:
+        return spans_overlap(guard.span, score.span)
+    return True
+
+
 def apply_guards(content: list[ContentScore], guards: list[GuardResult],
                  cfg: dict[str, Any], notes: list[str]) -> None:
     by_code: dict[GuardCode, list[GuardResult]] = {}
@@ -118,16 +159,19 @@ def apply_guards(content: list[ContentScore], guards: list[GuardResult],
         by_code.setdefault(guard.code, []).append(guard)
 
     for code_name in cfg["guards_order"]:
-        active = [g for g in by_code.get(GuardCode(code_name), []) if g.active]
-        if not active:
-            continue
-        credited = max(active, key=lambda g: g.score)
+        active = sorted((g for g in by_code.get(GuardCode(code_name), []) if g.active),
+                        key=lambda g: g.score, reverse=True)
         for score in content:
-            if score.fired and any(_covers(e, score.code) for e in cfg["guards"][code_name]["suppresses"]):
-                score.fired = False
-                credited.suppressed.append(score.code)
-                notes.append(f"[decision] {score.code.value} suppressed by guard {code_name} "
-                             f"({credited.source})")
+            if not score.fired:
+                continue
+            guard = next((g for g in active if guard_applies(g, score, cfg)), None)
+            if guard is None:
+                continue
+            score.fired = False
+            if score.code not in guard.suppressed:
+                guard.suppressed.append(score.code)
+            notes.append(f"[decision] {score.code.value} from {score.source} span={score.span} "
+                         f"suppressed by guard {code_name} from {guard.source} span={guard.span}")
 
 
 # -- 5. thread --------------------------------------------------------------
@@ -160,14 +204,17 @@ def fast_path_hit(content: list[ContentScore], guards: list[GuardResult], cfg: d
 # -- entry point --------------------------------------------------------------
 def decide(result: AnalysisResult, cfg: dict[str, Any]) -> AnalysisResult:
     """Fill every decision-owned field of `result` in place and return it."""
-    raw_scores = list(result.content)
+    raw_scores = [s for s in result.content if s.code is not ContentCode.CLEAN]
+    apply_thresholds(raw_scores, cfg, result.notes)
+    apply_guards(raw_scores, result.guards, cfg, result.notes)
     result.signals.setdefault("decision", {})["channel_scores"] = [
-        {"code": s.code.value, "score": s.score, "source": s.source} for s in raw_scores
+        {"code": s.code.value, "score": s.score, "source": s.source,
+         "span": list(s.span) if s.span is not None else None,
+         "threshold": s.threshold, "fired": s.fired}
+        for s in raw_scores
     ]
     result.content = fuse_channels(raw_scores, cfg)
-    apply_thresholds(result.content, cfg, result.notes)
     apply_form(result.form, cfg)
-    apply_guards(result.content, result.guards, cfg, result.notes)
     apply_thread(result.thread, cfg)
     verdict, driver = actions.resolve(result, cfg)
     result.verdict = verdict

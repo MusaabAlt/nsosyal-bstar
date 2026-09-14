@@ -43,9 +43,9 @@ class SchemaTest(unittest.TestCase):
     def make(self) -> AnalysisResult:
         return AnalysisResult(
             text="x",
-            content=[ContentScore(ContentCode.A1, 0.2, "m@raw", 0.5, False),
-                     ContentScore(ContentCode.B2, 0.9, "m@raw", 0.5, True),
-                     ContentScore(ContentCode.A2, 0.7, "m@raw", 0.5, True)],
+            content=[ContentScore(ContentCode.A1, 0.2, "m@raw", threshold=0.5, fired=False),
+                     ContentScore(ContentCode.B2, 0.9, "m@raw", threshold=0.5, fired=True),
+                     ContentScore(ContentCode.A2, 0.7, "m@raw", threshold=0.5, fired=True)],
         )
 
     def test_fired_and_top(self) -> None:

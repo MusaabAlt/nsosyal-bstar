@@ -33,6 +33,8 @@ This module exists for two reasons. First, it gives the decision layer a second 
 - `out.content` — scores for `A1`–`A4`
 - `out.guards` — `SUBSTRING_COLLISION`, `HOMONYM`
 
+**Every match and every guard carries `span`** — the `(start, end)` of the exact substring of the original text that triggered it (`ContentScore.span`, `GuardResult.span`), plus `GuardResult.source = "m1_lexicon"`. A match or guard with no span is a contract violation: the decision layer scopes guards by span overlap (ADR-001), and without spans a collision guard on `amcam` could clear a real insult elsewhere in the same post.
+
 **Never sets** `threshold` or `fired`.
 
 ---
@@ -99,6 +101,7 @@ The Turkish community repository `90pixel/kufur-filtresi` splits its list into t
 ## 8. Acceptance criteria
 
 - [ ] Zero positives on the full trap list. Any regression fails the build.
+- [ ] Every `ContentScore` and every `GuardResult` emitted carries the span of the exact substring that triggered it (ADR-001). A unit test asserts `span is not None` on every output item and that `text[start:end]` is the matched root or colliding word.
 - [ ] Recall and FPR reported with CIs, on both the raw and normalized channels, separately.
 - [ ] `SUBSTRING_COLLISION` guard fires and is counted whenever a root is found but the boundary test rejects it.
 - [ ] Sacred-concept extension table committed, with a source for each added root.

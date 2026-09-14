@@ -50,12 +50,17 @@ class ContentScore:
     """Axis 1 score.
 
     Module fills: code, score, source ("<module>@<channel>", channel being
-    raw | normalized). Decision layer fills: threshold, fired.
+    raw | normalized), span. Decision layer fills: threshold, fired.
+
+    `span` is the exact substring of the ORIGINAL text that triggered the
+    score. Guards are scoped by it (ADR-001): without it a same-module guard
+    elsewhere in the post can suppress this score.
     """
 
     code: ContentCode
     score: float
     source: str
+    span: Span | None = None  # ADR-001
     threshold: float | None = None  # decision layer only
     fired: bool | None = None  # decision layer only; None = not decided yet
 
@@ -75,14 +80,19 @@ class TargetResult:
 class GuardResult:
     """Negative-control evidence.
 
-    Module fills: code, score, source, evidence. Decision layer fills:
+    Module fills: code, score, source, evidence, span. Decision layer fills:
     threshold, active, suppressed.
+
+    ADR-001: a guard only ever suppresses content scores produced by its own
+    `source` module, and when both sides carry a span, only overlapping ones.
+    A guard with an empty source suppresses nothing.
     """
 
     code: GuardCode
     score: float
-    source: str
+    source: str = ""  # module that raised the guard ("<module>" or "<module>@<channel>")
     evidence: str = ""
+    span: Span | None = None  # ADR-001: exact substring of the ORIGINAL text that triggered it
     threshold: float | None = None  # decision layer only
     active: bool | None = None  # decision layer only
     suppressed: list[ContentCode] = field(default_factory=list)  # decision layer only

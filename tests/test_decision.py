@@ -8,8 +8,12 @@ from contracts.schema import AnalysisResult, ContentScore, FormPattern, GuardRes
 from decision import fusion
 
 
-def score(code: str, value: float, source: str = "m@raw") -> ContentScore:
-    return ContentScore(ContentCode(code), value, source)
+def score(code: str, value: float, source: str = "m@raw", span: tuple[int, int] | None = None) -> ContentScore:
+    return ContentScore(ContentCode(code), value, source, span=span)
+
+
+def guard(code: GuardCode, value: float, source: str, span: tuple[int, int] | None = None) -> GuardResult:
+    return GuardResult(code, value, source, span=span)
 
 
 class DecisionTest(unittest.TestCase):
@@ -60,28 +64,94 @@ class DecisionTest(unittest.TestCase):
         self.assertIs(result.verdict, Action.ESCALATE)
         self.assertIn("B2", result.explanation)
 
-    def test_guard_suppresses_family(self) -> None:
+    # -- ADR-001 guard scoping -------------------------------------------------
+    def test_guard_suppresses_only_overlapping_same_module_score(self) -> None:
+        # Replaces test_guard_suppresses_family: a guard is scoped to its own
+        # module and its own span, never to a whole family across the post.
         result = AnalysisResult(
             text="x",
-            content=[score("A3", 0.9), score("B2", 0.9)],
-            guards=[GuardResult(GuardCode.SUBSTRING_COLLISION, 0.95, "m1_lexicon")],
+            content=[score("A3", 0.9, "m1_lexicon@raw", span=(10, 14)),   # overlaps the guard
+                     score("A1", 0.9, "m1_lexicon@raw", span=(30, 35)),   # same family, elsewhere
+                     score("B2", 0.9, "m1_lexicon@raw", span=(20, 25))],  # not in suppresses list
+            guards=[guard(GuardCode.SUBSTRING_COLLISION, 0.95, "m1_lexicon", span=(10, 15))],
         )
         fusion.decide(result, self.cfg)
-        fired = {s.code.value for s in result.fired()}
-        self.assertEqual(fired, {"B2"})
+        self.assertEqual({s.code.value for s in result.fired()}, {"A1", "B2"})
         self.assertEqual(result.guards[0].suppressed, [ContentCode.A3])
         self.assertIs(result.verdict, Action.ESCALATE)
 
+    def test_insult_plus_unrelated_collision_still_blocks(self) -> None:
+        # The exploit: A2=0.99 with a SUBSTRING_COLLISION raised on "amcam"
+        # elsewhere in the same post must not clear the insult.
+        self.cfg["categories"]["A2"]["action"] = "block"
+        text = "<insult> amcam"
+        result = AnalysisResult(
+            text=text,
+            content=[score("A2", 0.99, "m1_lexicon@raw", span=(0, 8))],
+            guards=[guard(GuardCode.SUBSTRING_COLLISION, 0.99, "m1_lexicon", span=(9, 14))],
+        )
+        fusion.decide(result, self.cfg)
+        self.assertIs(result.verdict, Action.BLOCK)
+        self.assertEqual(result.guards[0].suppressed, [])
+
+    def test_guard_never_suppresses_across_modules(self) -> None:
+        self.cfg["categories"]["A2"]["action"] = "block"
+        result = AnalysisResult(
+            text="x",
+            content=[score("A2", 0.99, "m3_encoder@raw")],
+            guards=[guard(GuardCode.SUBSTRING_COLLISION, 0.99, "m1_lexicon")],
+        )
+        fusion.decide(result, self.cfg)
+        self.assertIs(result.verdict, Action.BLOCK)
+
+    def test_fallback_spanless_guard_suppresses_spanless_same_module_score(self) -> None:
+        result = AnalysisResult(
+            text="x",
+            content=[score("A2", 0.99, "m1_lexicon@raw")],
+            guards=[guard(GuardCode.SUBSTRING_COLLISION, 0.99, "m1_lexicon")],
+        )
+        fusion.decide(result, self.cfg)
+        self.assertIs(result.verdict, Action.CLEAN)
+        self.assertEqual(result.guards[0].suppressed, [ContentCode.A2])
+
+    def test_fallback_when_only_one_side_has_a_span(self) -> None:
+        result = AnalysisResult(
+            text="x",
+            content=[score("A2", 0.99, "m1_lexicon@normalized")],
+            guards=[guard(GuardCode.SUBSTRING_COLLISION, 0.99, "m1_lexicon@raw", span=(9, 14))],
+        )
+        fusion.decide(result, self.cfg)
+        self.assertIs(result.verdict, Action.CLEAN)
+
+    def test_guard_without_source_suppresses_nothing(self) -> None:
+        result = AnalysisResult(text="x", content=[score("A2", 0.99, "m1_lexicon@raw")],
+                                guards=[GuardResult(GuardCode.SUBSTRING_COLLISION, 0.99)])
+        fusion.decide(result, self.cfg)
+        self.assertIs(result.verdict, Action.REVIEW)
+
+    def test_suppressed_score_does_not_hide_other_module_score_for_same_code(self) -> None:
+        result = AnalysisResult(
+            text="x",
+            content=[score("A2", 0.99, "m1_lexicon@raw", span=(9, 14)),
+                     score("A2", 0.70, "m3_encoder@raw")],
+            guards=[guard(GuardCode.SUBSTRING_COLLISION, 0.99, "m1_lexicon", span=(9, 14))],
+        )
+        fusion.decide(result, self.cfg)
+        [fused] = result.content
+        self.assertTrue(fused.fired)
+        self.assertEqual(fused.source, "m3_encoder@raw")
+        self.assertIs(result.verdict, Action.REVIEW)
+
     def test_inactive_guard_suppresses_nothing(self) -> None:
-        result = AnalysisResult(text="x", content=[score("A3", 0.9)],
+        result = AnalysisResult(text="x", content=[score("A3", 0.9, "m1_lexicon@raw")],
                                 guards=[GuardResult(GuardCode.SUBSTRING_COLLISION, 0.1, "m1_lexicon")])
         fusion.decide(result, self.cfg)
         self.assertIs(result.verdict, Action.BLOCK)
         self.assertFalse(result.guards[0].active)
 
     def test_clean_explanation_names_suppressing_guard(self) -> None:
-        result = AnalysisResult(text="x", content=[score("A1", 0.9)],
-                                guards=[GuardResult(GuardCode.QUOTE_COUNTERSPEECH, 0.9, "m3")])
+        result = AnalysisResult(text="x", content=[score("A1", 0.9, "m3_encoder@raw")],
+                                guards=[GuardResult(GuardCode.QUOTE_COUNTERSPEECH, 0.9, "m3_encoder@raw")])
         fusion.decide(result, self.cfg)
         self.assertIs(result.verdict, Action.CLEAN)
         self.assertIn("bastırıldı", result.explanation)

@@ -56,7 +56,7 @@ Doxing is more pattern than semantics, which makes it the one B-family category 
 **Writes:**
 - `out.target` — a `TargetResult` with `type`, `evidence`, `confidence`
 - `out.content` — `B4` when doxing patterns fire
-- `out.guards` — `NON_HUMAN_TARGET`
+- `out.guards` — `NON_HUMAN_TARGET`, each with `source = "m6_target"` and the `span` of the exact substring that triggered it; every `B4` score also carries its `span`. No span is a contract violation (ADR-001).
 
 **Never** sets `threshold` or `fired`.
 
@@ -100,6 +100,7 @@ Doxing is more pattern than semantics, which makes it the one B-family category 
 - [ ] Target-type confusion matrix reported.
 - [ ] B4 precision reported before recall, with CIs.
 - [ ] Zero firing on the non-human target fixtures.
+- [ ] Every `GuardResult` and every `B4` `ContentScore` carries the span of the exact triggering substring (ADR-001), asserted by a unit test.
 - [ ] Agreement number reported and benchmarked against the reference corpus.
 - [ ] Relabelling decision for non-protected targets documented explicitly.
 
