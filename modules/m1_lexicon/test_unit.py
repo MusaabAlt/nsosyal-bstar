@@ -101,5 +101,10 @@ class LexiconModuleBehaviourTest(unittest.TestCase):
         raise NotImplementedError
 
 
+    @unittest.skip("TODO: m1_lexicon detection not implemented")
+    def test_non_human_target_raises_guard_on_family_a_matches(self) -> None:
+        raise NotImplementedError
+
+
 if __name__ == "__main__":
     unittest.main()

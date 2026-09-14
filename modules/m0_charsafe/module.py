@@ -6,8 +6,10 @@ Catches:
   * combining-mark stuffing (U+0336 after every letter of "aptal") on Latin letters -> ZERO_WIDTH; decomposed
     letters ("s" + U+0327) are canonically composed ("ş") and recorded
   * styled Latin letters -> HOMOGLYPH: fullwidth ("ａｐｔａｌ"), mathematical
-    alphanumerics (bold/italic/script... U+1D400-U+1D7FF), circled (U+24B6-U+24E9)
-    and small capitals (U+1D00 block and friends)
+    alphanumerics (bold/italic/script... U+1D400-U+1D7FF), circled (U+24B6-U+24E9),
+    squared / negative circled / negative squared capitals (U+1F130-U+1F189),
+    parenthesized letters, superscript and subscript letters, small capitals
+    (U+1D00 block and friends), and regional indicator letters that do not form flags
   * cross-script homoglyphs (Cyrillic/Greek lookalikes inside Latin words) -> HOMOGLYPH
   * the Turkish I problem: 'I' lowercases to 'ı', 'İ' to 'i' -> DOTLESS_I evidence
 
@@ -17,7 +19,10 @@ Deliberately does NOT:
     DEASCII, an interpretation, and interpretations belong to m2's parallel channel.
   * apply NFKC. NFKC folds fullwidth forms but also rewrites ligatures,
     superscripts and compatibility digits; that is normalization, not safety.
-    Fullwidth Latin is mapped by an explicit table instead.
+    Styled Latin is mapped by an explicit per-character table instead, and
+    superscript/subscript DIGITS ("m²") are never mapped.
+  * touch flags: a regional-indicator run made only of valid region pairs is left
+    as flags - so a word spelled only from valid flag pairs passes (known gap).
   * strip combining marks from non-Latin letters (Arabic, Hebrew, Devanagari...
     need them), or fullwidth punctuation (ordinary in CJK text).
   * normalise accents ("áptal" -> "aptal"): accent normalisation belongs to m2
@@ -70,13 +75,85 @@ FULLWIDTH_RANGES = ((0xFF10, 0xFF19), (0xFF21, 0xFF3A), (0xFF41, 0xFF5A))
 # Styled Latin with a single-letter compatibility decomposition. Folded one
 # character at a time with NFKC, and only when the result is one Latin/Turkish
 # letter or digit - never NFKC over the whole text (see "does NOT" above).
-STYLED_NFKC_RANGES = ((0x1D400, 0x1D7FF, "mathematical"), (0x24B6, 0x24E9, "circled"))
+STYLED_NFKC_RANGES = ((0x1D400, 0x1D7FF, "mathematical"), (0x24B6, 0x24E9, "circled"),
+                      (0x1F130, 0x1F149, "squared"))
+
+# Superscript and subscript Latin LETTERS. Folded with NFKC one character at a
+# time, letters only: superscript DIGITS stay ("m²", "10³" are ordinary
+# text, and folding them is normalization, not safety). The ranges also hold IPA
+# modifier letters; those fold to non-ASCII and are left alone.
+SUPERSCRIPT_NFKC_RANGES = ((0x02B0, 0x02FF), (0x1D2C, 0x1D6A), (0x1D9B, 0x1DBF), (0x2070, 0x209C),
+                           (0x2C7C, 0x2C7D))
+
+# Enclosed Latin letters NFKC does not fold to one letter (negative circled and
+# negative squared have no decomposition; parenthesized fold to "(a)"). Mapped by
+# offset: (first code point, last code point, letter at first, style).
+ENCLOSED_OFFSET_RANGES = (
+    (0x249C, 0x24B5, "a", "parenthesized"),
+    (0x1F110, 0x1F129, "A", "parenthesized"),
+    (0x1F150, 0x1F169, "A", "negative circled"),
+    (0x1F170, 0x1F189, "A", "negative squared"),
+)
+
+# Regional indicators render as boxed letters, but a pair of them is also a flag
+# (TR = the Turkish flag), which is ordinary in Turkish posts and must stay
+# untouched. A run is read in pairs from its start, as renderers do; it is mapped
+# to letters unless it is an even-length run of valid region codes (ISO 3166-1
+# alpha-2 plus the Unicode/CLDR extras). Known gap, accepted: a word spelled only
+# from valid flag pairs passes, because it is indistinguishable from a row of flags.
+REGIONAL_INDICATOR_A = 0x1F1E6
+REGIONAL_INDICATOR_Z = 0x1F1FF
+FLAG_REGIONS = frozenset("""
+AD AE AF AG AI AL AM AO AQ AR AS AT AU AW AX AZ BA BB BD BE BF BG BH BI BJ BL BM BN BO BQ BR BS BT BV
+BW BY BZ CA CC CD CF CG CH CI CK CL CM CN CO CR CU CV CW CX CY CZ DE DJ DK DM DO DZ EC EE EG EH ER ES
+ET FI FJ FK FM FO FR GA GB GD GE GF GG GH GI GL GM GN GP GQ GR GS GT GU GW GY HK HM HN HR HT HU ID IE
+IL IM IN IO IQ IR IS IT JE JM JO JP KE KG KH KI KM KN KP KR KW KY KZ LA LB LC LI LK LR LS LT LU LV LY
+MA MC MD ME MF MG MH MK ML MM MN MO MP MQ MR MS MT MU MV MW MX MY MZ NA NC NE NF NG NI NL NO NP NR NU
+NZ OM PA PE PF PG PH PK PL PM PN PR PS PT PW PY QA RE RO RS RU RW SA SB SC SD SE SG SH SI SJ SK SL SM
+SN SO SR SS ST SV SX SY SZ TC TD TF TG TH TJ TK TL TM TN TO TR TT TV TW TZ UA UG UM US UY UZ VA VC VE
+VG VI VN VU WF WS YE YT ZA ZM ZW
+AC CP DG EA EU IC TA UN XK
+""".split())
 
 # Small capitals have no decomposition, so they need a table. Small capital I
 # maps to capital I, which the Turkish casing pass then folds to dotless i.
 SMALL_CAPITALS: dict[str, str] = {"\u1d00": "a", "\u0299": "b", "\u1d04": "c", "\u1d05": "d", "\u1d07": "e", "\ua730": "f", "\u0262": "g", "\u029c": "h", "\u026a": "I", "\u1d0a": "j", "\u1d0b": "k", "\u029f": "l", "\u1d0d": "m", "\u0274": "n", "\u1d0f": "o", "\u1d18": "p", "\u0280": "r", "\ua731": "s", "\u1d1b": "t", "\u1d1c": "u", "\u1d20": "v", "\u1d21": "w", "\u028f": "y", "\u1d22": "z"}
 
 TURKISH_LETTERS = frozenset("çğıöşüÇĞİÖŞÜâîûÂÎÛ")
+
+
+def _build_styled_latin() -> dict[str, tuple[str, str]]:
+    """styled character -> (plain character, style), built once at import so the
+    per-character check is one dict lookup (the per-character range scan made
+    long posts slow)."""
+    table: dict[str, tuple[str, str]] = {}
+    for lo, hi in FULLWIDTH_RANGES:
+        for cp in range(lo, hi + 1):
+            table[chr(cp)] = (chr(cp - FULLWIDTH_OFFSET), "fullwidth")
+    for lo, hi, style in STYLED_NFKC_RANGES:
+        for cp in range(lo, hi + 1):
+            folded = unicodedata.normalize("NFKC", chr(cp))
+            # Mathematical Greek folds to Greek, not Latin: leave it alone.
+            if len(folded) == 1 and ((folded.isascii() and folded.isalnum()) or folded in TURKISH_LETTERS):
+                table[chr(cp)] = (folded, style)
+    for lo, hi in SUPERSCRIPT_NFKC_RANGES:
+        for cp in range(lo, hi + 1):
+            folded = unicodedata.normalize("NFKC", chr(cp))
+            if len(folded) == 1 and folded.isascii() and folded.isalpha():
+                style = "subscript" if "SUBSCRIPT" in unicodedata.name(chr(cp), "") else "superscript"
+                table[chr(cp)] = (folded, style)
+    for lo, hi, first, style in ENCLOSED_OFFSET_RANGES:
+        for cp in range(lo, hi + 1):
+            table[chr(cp)] = (chr(ord(first) + cp - lo), style)
+    for ch, plain in SMALL_CAPITALS.items():
+        table[ch] = (plain, "small capital")
+    return table
+
+
+STYLED_LATIN = _build_styled_latin()
+REGIONAL_INDICATORS = frozenset(chr(cp) for cp in range(REGIONAL_INDICATOR_A, REGIONAL_INDICATOR_Z + 1))
+# Everything the styled-Latin pass may rewrite: one set lookup per character.
+STYLED_CANDIDATES = frozenset(STYLED_LATIN) | REGIONAL_INDICATORS
 
 # Deliberately SMALL. A large confusables table (e.g. the full Unicode
 # confusables.txt) maps legitimate letters of other languages and, worse, some
@@ -112,7 +189,7 @@ CONF_CASING_INNER = 0.90  # "sIk": capital I inside a lowercase word
 CONF_CASING_ORDINARY = 0.10  # "SIKINTI", "Istanbul": normal capitalization
 CONF_COMBINING_STUFFING = 0.90  # marks on Latin letters that compose to nothing
 CONF_CANONICAL_COMPOSITION = 0.05  # decomposed input (e.g. macOS), not an attack
-CONF_STYLED_LATIN = 0.80  # no Turkish text needs fullwidth, mathematical, circled or small-capital Latin
+CONF_STYLED_LATIN = 0.80  # no Turkish text needs fullwidth, mathematical, enclosed, superscript or small-capital Latin
 
 # Marks that belong to emoji sequences (text/emoji presentation, keycap).
 EMOJI_MARKS = frozenset((chr(0xFE0E), chr(0xFE0F), chr(0x20E3)))
@@ -160,7 +237,7 @@ def _tokens(items: list[Item]) -> list[list[int]]:
 
 class CharSafeModule(BaseModule):
     name = ModuleName.M0_CHARSAFE
-    version = "0.1.0"
+    version = "0.2.0"
     provides = frozenset({"charsafe_text", "form"})
     # ADR-001 runtime enforcement: whether content scores / guards carry spans.
     # emits no content scores or guards (its form patterns always carry spans).
@@ -292,34 +369,50 @@ class CharSafeModule(BaseModule):
 
     # -- pass 1c ------------------------------------------------------------
     @staticmethod
-    def _styled_to_latin(ch: str) -> tuple[str, str] | None:
-        """(plain character, style) for a styled Latin letter/digit, else None."""
-        cp = ord(ch)
-        if any(lo <= cp <= hi for lo, hi in FULLWIDTH_RANGES):
-            return chr(cp - FULLWIDTH_OFFSET), "fullwidth"
-        for lo, hi, style in STYLED_NFKC_RANGES:
-            if lo <= cp <= hi:
-                folded = unicodedata.normalize("NFKC", ch)
-                # Mathematical Greek folds to Greek, not Latin: leave it alone.
-                if len(folded) == 1 and ((folded.isascii() and folded.isalnum()) or folded in TURKISH_LETTERS):
-                    return folded, style
-                return None
-        if ch in SMALL_CAPITALS:
-            return SMALL_CAPITALS[ch], "small capital"
-        return None
+    def _regional_indicator_hits(items: list[Item], token: range) -> dict[int, tuple[str, str]]:
+        """Regional indicators in `token` that spell letters rather than flags."""
+        hits: dict[int, tuple[str, str]] = {}
+        run: list[int] = []
+        for k in [*token, None]:
+            if k is not None and items[k][2] in REGIONAL_INDICATORS:
+                run.append(k)
+                continue
+            if run:
+                letters = "".join(chr(ord("A") + ord(items[r][2]) - REGIONAL_INDICATOR_A) for r in run)
+                pairs = [letters[i:i + 2] for i in range(0, len(letters), 2)]
+                if not all(pair in FLAG_REGIONS for pair in pairs):  # an odd tail is never a region
+                    hits.update((r, (letter, "regional indicator")) for r, letter in zip(run, letters))
+                run = []
+        return hits
 
     def _map_styled_latin(self, items: list[Item], patterns: list[FormPattern]) -> int:
+        # Cheap exit: ordinary text has no candidate and is never tokenized by this pass.
+        candidates = [k for k, item in enumerate(items) if item[2] in STYLED_CANDIDATES]
         mapped = 0
-        for token in _tokens(items):
-            styled = [(k, hit) for k in token if (hit := self._styled_to_latin(items[k][2]))]
-            if not styled:
+        covered_until: int | None = None  # last index of the token already handled
+        for c in candidates:
+            if covered_until is not None and c <= covered_until:
                 continue
+            # The whitespace-separated token around the candidate, as _tokens() would cut it.
+            lo = c
+            while lo > 0 and not items[lo - 1][2].isspace():
+                lo -= 1
+            hi = c
+            while hi + 1 < len(items) and not items[hi + 1][2].isspace():
+                hi += 1
+            covered_until = hi
+            token = range(lo, hi + 1)
+            styled = {k: STYLED_LATIN[items[k][2]] for k in token if items[k][2] in STYLED_LATIN}
+            if any(items[k][2] in REGIONAL_INDICATORS for k in token):
+                styled.update(self._regional_indicator_hits(items, token))
+            if not styled:
+                continue  # the token holds only flags
             before = "".join(items[k][2] for k in token)
-            for k, (plain, _) in styled:
+            for k, (plain, _) in styled.items():
                 start, end, _ = items[k]
                 items[k] = (start, end, plain)
             after = "".join(items[k][2] for k in token)
-            styles = ", ".join(dict.fromkeys(style for _, (_, style) in styled))
+            styles = ", ".join(dict.fromkeys(styled[k][1] for k in sorted(styled)))
             patterns.append(FormPattern(
                 code=FormCode.HOMOGLYPH,
                 confidence=CONF_STYLED_LATIN,

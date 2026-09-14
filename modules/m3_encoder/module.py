@@ -1,10 +1,10 @@
-"""m3_encoder - shared encoder, two heads (A, B). STUB: no detection logic yet.
+"""m3_encoder - shared encoder, three heads (A, B, C). STUB: no detection logic yet.
 
 What is missing (see spec.md, the only source of truth for this module):
-  * per-code, per-channel content scores (spec.md §3 Contract)
-  * signals "raw_score", "norm_score" and "artifact" (spec.md §3)
+  * per-code, per-channel content scores: family A on the A1 carrier, B, C1-C5 (spec.md §4 Contract)
+  * signals "raw_score", "norm_score" and "artifact" (spec.md §4)
 
-Governing sections of spec.md: §1 Objective, §3 Contract, §4 Base model and data, §5 Forbidden, §7 Artifact discipline, §8 Acceptance criteria.
+Governing sections of spec.md: §1 Objective, §4 Contract, §5 Base model and data, §6 Forbidden, §8 Artifact discipline, §10 Acceptance criteria.
 This stub deliberately prescribes no approach; spec.md does.
 """
 from __future__ import annotations
@@ -25,9 +25,9 @@ class EncoderModule(BaseModule):
     emits_spans = False
 
     def _load(self) -> None:
-        # TODO: artifacts this module needs - spec.md (§1 Objective, §3 Contract, §4 Base model and data, §5 Forbidden, §7 Artifact discipline, §8 Acceptance criteria).
+        # TODO: artifacts this module needs - spec.md (§1 Objective, §4 Contract, §5 Base model and data, §6 Forbidden, §8 Artifact discipline, §10 Acceptance criteria).
         return None
 
     def _run(self, ctx: Context) -> ModuleOutput:
-        # TODO: produce the outputs listed in the module docstring - spec.md (§1 Objective, §3 Contract, §4 Base model and data, §5 Forbidden, §7 Artifact discipline, §8 Acceptance criteria).
+        # TODO: produce the outputs listed in the module docstring - spec.md (§1 Objective, §4 Contract, §5 Base model and data, §6 Forbidden, §8 Artifact discipline, §10 Acceptance criteria).
         return ModuleOutput(notes=["stub: detection not implemented"])

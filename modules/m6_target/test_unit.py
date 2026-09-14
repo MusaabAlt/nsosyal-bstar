@@ -91,7 +91,7 @@ class TargetModuleBehaviourTest(unittest.TestCase):
 
 
     @unittest.skip("TODO: m6_target detection not implemented")
-    def test_non_human_object_emits_guard(self) -> None:
+    def test_non_human_object_resolves_non_human_target(self) -> None:
         raise NotImplementedError
 
 

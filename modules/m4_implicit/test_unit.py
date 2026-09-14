@@ -85,7 +85,16 @@ class ImplicitModuleContractTest(unittest.TestCase):
                 self.assertTrue(out.ok, out.notes)
 
 
-# Behaviour tests are added with the implementation, from spec.md §8 Acceptance criteria.
+class ImplicitModuleRoleTest(unittest.TestCase):
+    def test_not_a_stub_and_emits_nothing(self) -> None:
+        # ADR-006 amendment: C1-C5 come from m3; an empty output is m4's real answer today.
+        module = ImplicitModule()
+        self.assertFalse(getattr(module, "stub", False))
+        out = module.process(Context(text="Bu bir test cumlesi"))
+        self.assertEqual((out.content, out.guards, out.target, out.notes), ([], [], None, []))
+
+
+# Behaviour tests are added with the implementation, from spec.md §10 Acceptance criteria.
 
 
 if __name__ == "__main__":

@@ -1,9 +1,9 @@
 """m5_sarcasm - degrading sarcasm (D1). STUB: no detection logic yet.
 
 What is missing (see spec.md, the only source of truth for this module):
-  * D1 content scores (spec.md §6 Contract) - GATED: spec.md §2 Entry gate comes first
+  * D1 content scores (spec.md §7 Contract) - GATED: spec.md §2 Entry gate comes first
 
-Governing sections of spec.md: §2 Entry gate, §4 Labelling rule, §5 Approach, §6 Contract, §7 Negative control, §8 Forbidden, §10 Acceptance criteria.
+Governing sections of spec.md: §2 Entry gate, §5 Labelling rule, §6 Approach, §7 Contract, §8 Negative control, §9 Forbidden, §12 Acceptance criteria.
 This stub deliberately prescribes no approach; spec.md does.
 """
 from __future__ import annotations
@@ -24,9 +24,9 @@ class SarcasmModule(BaseModule):
     emits_spans = False
 
     def _load(self) -> None:
-        # TODO: artifacts this module needs - spec.md (§2 Entry gate, §4 Labelling rule, §5 Approach, §6 Contract, §7 Negative control, §8 Forbidden, §10 Acceptance criteria).
+        # TODO: artifacts this module needs - spec.md (§2 Entry gate, §5 Labelling rule, §6 Approach, §7 Contract, §8 Negative control, §9 Forbidden, §12 Acceptance criteria).
         return None
 
     def _run(self, ctx: Context) -> ModuleOutput:
-        # TODO: produce the outputs listed in the module docstring - spec.md (§2 Entry gate, §4 Labelling rule, §5 Approach, §6 Contract, §7 Negative control, §8 Forbidden, §10 Acceptance criteria).
+        # TODO: produce the outputs listed in the module docstring - spec.md (§2 Entry gate, §5 Labelling rule, §6 Approach, §7 Contract, §8 Negative control, §9 Forbidden, §12 Acceptance criteria).
         return ModuleOutput(notes=["stub: detection not implemented"])

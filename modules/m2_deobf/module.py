@@ -1,10 +1,10 @@
 """m2_deobf - parallel de-obfuscation channel. STUB: no detection logic yet.
 
 What is missing (see spec.md, the only source of truth for this module):
-  * normalized_text, a parallel channel that never replaces the raw text (spec.md §4 Contract)
-  * one FormPattern with evidence and span per transformation (spec.md §3 Patterns in scope, §4)
+  * normalized_text, a parallel channel that never replaces the raw text (spec.md §6 Contract)
+  * one FormPattern with evidence and span per transformation (spec.md §4 Patterns in scope, §6)
 
-Governing sections of spec.md: §3 Patterns in scope, §4 Contract, §5 Forbidden, §7 Leakage rule, §8 Acceptance criteria.
+Governing sections of spec.md: §4 Patterns in scope, §6 Contract, §7 Forbidden, §10 Leakage rule, §11 Acceptance criteria.
 This stub deliberately prescribes no approach; spec.md does.
 """
 from __future__ import annotations
@@ -25,9 +25,9 @@ class DeobfModule(BaseModule):
     emits_spans = False
 
     def _load(self) -> None:
-        # TODO: artifacts this module needs - spec.md (§3 Patterns in scope, §4 Contract, §5 Forbidden, §7 Leakage rule, §8 Acceptance criteria).
+        # TODO: artifacts this module needs - spec.md (§4 Patterns in scope, §6 Contract, §7 Forbidden, §10 Leakage rule, §11 Acceptance criteria).
         return None
 
     def _run(self, ctx: Context) -> ModuleOutput:
-        # TODO: produce the outputs listed in the module docstring - spec.md (§3 Patterns in scope, §4 Contract, §5 Forbidden, §7 Leakage rule, §8 Acceptance criteria).
+        # TODO: produce the outputs listed in the module docstring - spec.md (§4 Patterns in scope, §6 Contract, §7 Forbidden, §10 Leakage rule, §11 Acceptance criteria).
         return ModuleOutput(notes=["stub: detection not implemented"])

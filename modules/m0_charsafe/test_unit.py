@@ -251,6 +251,68 @@ class CharSafeTest(unittest.TestCase):
         out = self.run_m0("s" + chr(0x026A) + "k" + chr(0x026A) + "nt" + chr(0x026A))
         self.assertEqual(out.charsafe_text, "sıkıntı")
 
+    # -- styled Latin: enclosed, superscript, regional indicators --------------------
+    @staticmethod
+    def shifted(word: str, first_code_point: int, first_letter: str = "A") -> str:
+        return "".join(chr(first_code_point + ord(c) - ord(first_letter)) for c in word)
+
+    def test_enclosed_and_superscript_letters_are_mapped(self) -> None:
+        cases = {
+            "negative circled": self.shifted("APTAL", 0x1F150),
+            "negative squared": self.shifted("APTAL", 0x1F170),
+            "squared": self.shifted("APTAL", 0x1F130),
+            "parenthesized small": self.shifted("aptal", 0x249C, "a"),
+            "parenthesized capital": self.shifted("APTAL", 0x1F110),
+            "superscript": "".join(chr(cp) for cp in (0x1D43, 0x1D56, 0x1D57, 0x1D43, 0x02E1)),
+            "regional indicator": self.shifted("APTAL", 0x1F1E6),
+        }
+        for style, text in cases.items():
+            with self.subTest(style=style):
+                out = self.run_m0(text)
+                self.assertEqual(out.charsafe_text, "aptal")
+                self.assertEqual(self.codes(out), [FormCode.HOMOGLYPH])
+                self.assertEqual(out.form.patterns[0].confidence, CONF_STYLED_LATIN)
+                self.assertEqual(out.form.patterns[0].span, (0, len(text)))
+                self.assertEqual(out.signals["homoglyphs_mapped"], 5)
+
+    def test_enclosed_capital_i_follows_turkish_casing(self) -> None:
+        for first in (0x1F150, 0x1F170, 0x1F110, 0x1F1E6):
+            with self.subTest(block=hex(first)):
+                out = self.run_m0(self.shifted("SIKINTI", first))
+                self.assertEqual(out.charsafe_text, "sıkıntı")
+                self.assertIn(FormCode.DOTLESS_I, self.codes(out))
+
+    def test_superscript_digits_are_left_alone(self) -> None:
+        # Folding "m²" is normalization, not safety (docstring "does NOT").
+        text = "Oda 12 m\u00b2, hacim 10\u00b3 litre"
+        out = self.run_m0(text)
+        self.assertEqual(out.charsafe_text, text.lower())
+        self.assertEqual(out.form.patterns, [])
+
+    def test_flags_are_not_mapped(self) -> None:
+        for text in (self.shifted("TR", 0x1F1E6),
+                     "T\u00fcrkiye" + self.shifted("TR", 0x1F1E6) + "!",
+                     self.shifted("TRTRTR", 0x1F1E6),
+                     "Ma\u00e7 " + self.shifted("TR", 0x1F1E6) + self.shifted("DE", 0x1F1E6)):
+            with self.subTest(text=text):
+                out = self.run_m0(text)
+                self.assertEqual(out.charsafe_text, text.lower())
+                self.assertNotIn(FormCode.HOMOGLYPH, self.codes(out))
+
+    def test_regional_indicators_that_are_not_flags_are_mapped(self) -> None:
+        flag = self.shifted("TR", 0x1F1E6)
+        out = self.run_m0(flag + " " + self.shifted("SIK", 0x1F1E6))  # odd run: never a row of flags
+        self.assertEqual(out.charsafe_text, flag + " s\u0131k")
+        [homoglyph] = [p for p in out.form.patterns if p.code is FormCode.HOMOGLYPH]
+        self.assertEqual(homoglyph.span, (3, 6))
+        # Even length but not valid region pairs ("AP" is not a region).
+        self.assertEqual(self.run_m0(self.shifted("APTA", 0x1F1E6)).charsafe_text, "apta")
+
+    def test_word_spelled_only_from_valid_flag_pairs_passes(self) -> None:
+        # Known, documented gap: indistinguishable from a row of flags.
+        text = self.shifted("SIKE", 0x1F1E6)  # SI + KE are both regions
+        self.assertEqual(self.run_m0(text).charsafe_text, text)
+
     def test_mathematical_greek_is_not_mapped_to_latin(self) -> None:
         text = chr(0x1D6C2)  # MATHEMATICAL BOLD SMALL ALPHA
         self.assertEqual(self.run_m0(text).charsafe_text, text)

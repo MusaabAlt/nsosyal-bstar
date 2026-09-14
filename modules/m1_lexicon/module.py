@@ -1,9 +1,9 @@
 """m1_lexicon - lexicon signal. STUB: no detection logic yet.
 
 What is missing (see spec.md, the only source of truth for this module):
-  * A1-A4 content scores on both channels (spec.md §3 Contract)
+  * family-A content scores (A1 carrier, ADR-005) and A4, on both channels (spec.md §3 Contract)
   * signals "lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm" (spec.md §3, §8)
-  * SUBSTRING_COLLISION and HOMONYM guards with spans (spec.md §3, §8)
+  * SUBSTRING_COLLISION, HOMONYM and NON_HUMAN_TARGET guards with spans (spec.md §3, §8)
 
 Governing sections of spec.md: §3 Contract, §4 Approach, §5 Forbidden, §7 Required fixtures, §8 Acceptance criteria.
 This stub deliberately prescribes no approach; spec.md does.
