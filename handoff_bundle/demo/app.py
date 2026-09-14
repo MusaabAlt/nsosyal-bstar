@@ -285,7 +285,7 @@ def render_page():
                 f"<span lang='tr'>{t}</span></div>")
 
     op = STATE["operating_point"]
-    return f"""<!doctype html><html lang="tr"><head><meta charset="utf-8">
+    return f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NSosyal B* — offline demo</title><style>{CSS}</style></head><body><main>
 <h1>NSosyal B* — Turkish offensive language, three systems side by side</h1>
