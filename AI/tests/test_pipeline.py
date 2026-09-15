@@ -83,7 +83,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_stub_modules_are_degraded_and_named(self) -> None:
         result = Pipeline().analyze("Bu bir test cumlesi")
-        stubs = ["m2_deobf", "m6_target", "m1_lexicon", "m3_encoder", "m5_sarcasm"]  # registry order; m4 is not a stub
+        stubs = ["m2_deobf", "m6_target", "m3_encoder", "m5_sarcasm"]  # registry order; m1 and m4 are not stubs
         degraded = result.signals["pipeline"]["degraded"]
         self.assertEqual([d["module"] for d in degraded], stubs)
         self.assertTrue(all(d["kinds"] == ["stub"] for d in degraded))

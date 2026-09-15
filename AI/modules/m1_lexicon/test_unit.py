@@ -1,12 +1,13 @@
-"""Unit tests for m1_lexicon. Contract tests run now; behaviour tests are
-skipped until the module is implemented (see spec.md)."""
+"""Unit tests for m1_lexicon: contract tests and behaviour tests (spec.md §3, §7, §8)."""
 from __future__ import annotations
 
 import copy
+import json
 import unittest
+from pathlib import Path
 from types import MappingProxyType
 
-from contracts.codes import ModuleName
+from contracts.codes import ContentCode, GuardCode, ModuleName
 from contracts.module_api import PROVIDABLE_FIELDS, Context, ModuleOutput
 from contracts.schema import ContentScore, GuardResult
 from modules.m1_lexicon.module import LexiconModule
@@ -85,25 +86,108 @@ class LexiconModuleContractTest(unittest.TestCase):
                 self.assertTrue(out.ok, out.notes)
 
 
+TRAPS = Path(__file__).resolve().parents[2] / "eval" / "traps" / "traps.jsonl"
+
+
+def fake_m6_target(target_type: str, target_confidence: float) -> MappingProxyType:
+    """Stands in for m6_target with fixed values. modules.m6_target is never imported."""
+    return MappingProxyType({"m6_target": MappingProxyType(
+        {"target_type": target_type, "target_confidence": target_confidence})})
+
+
 class LexiconModuleBehaviourTest(unittest.TestCase):
-    @unittest.skip("TODO: m1_lexicon detection not implemented")
+    def setUp(self) -> None:
+        self.module = LexiconModule()
+
+    def run_m1(self, text: str, **kwargs) -> ModuleOutput:
+        out = self.module.process(Context(text=text, **kwargs))
+        self.assertTrue(out.ok, out.notes)
+        return out
+
     def test_collision_traps_never_fire(self) -> None:
-        raise NotImplementedError
+        traps = [json.loads(line) for line in TRAPS.read_text(encoding="utf-8").splitlines() if line.strip()]
+        self.assertTrue(traps)
+        for trap in traps:
+            with self.subTest(trap=trap["id"]):
+                out = self.run_m1(trap["text"])
+                self.assertEqual(out.content, [])
+                self.assertFalse(out.signals["lexicon_hit"])
+                self.assertIn(GuardCode.SUBSTRING_COLLISION, {g.code for g in out.guards})
 
-
-    @unittest.skip("TODO: m1_lexicon detection not implemented")
     def test_inflected_root_matches_on_morpheme_boundary(self) -> None:
-        raise NotImplementedError
+        for text, word in (("Onlar aptallar", "aptallar"), ("Sen bir gerizekalısın", "gerizekalısın"),
+                           ("siktiler", "siktiler")):
+            with self.subTest(text=text):
+                out = self.run_m1(text)
+                self.assertEqual([s.code for s in out.content], [ContentCode.A1])
+                start, end = out.content[0].span
+                self.assertEqual(text[start:end], word)
+                self.assertTrue(out.signals["lexicon_hit"])
 
+    def test_root_inside_clean_word_is_a_collision_not_a_match(self) -> None:
+        for text, word in (("amca", "amca"), ("psikoloji", "psikoloji"), ("götürdüler", "götürdüler")):
+            with self.subTest(text=text):
+                out = self.run_m1(text)
+                self.assertEqual(out.content, [])
+                self.assertEqual([(g.code, text[g.span[0]:g.span[1]]) for g in out.guards],
+                                 [(GuardCode.SUBSTRING_COLLISION, word)])
 
-    @unittest.skip("TODO: m1_lexicon detection not implemented")
+    def test_turkish_capital_i_is_dotless(self) -> None:
+        # SIKINTI is sıkıntı: default lower() would read it as a profane root.
+        self.assertEqual(self.run_m1("SIKINTI").content, [])
+        self.assertEqual([s.code for s in self.run_m1("APTALLAR").content], [ContentCode.A1])
+
     def test_scores_tagged_with_channel(self) -> None:
-        raise NotImplementedError
+        out = self.run_m1("a.p.t.a.l", charsafe_text="a.p.t.a.l", normalized_text="aptal....")
+        self.assertEqual({s.source for s in out.content}, {"m1_lexicon@raw", "m1_lexicon@normalized"})
+        out = self.run_m1("xptal herif", normalized_text="aptal herif")
+        self.assertEqual([s.source for s in out.content], ["m1_lexicon@normalized"])
+        self.assertEqual((out.signals["lexicon_hit_raw"], out.signals["lexicon_hit_norm"]), (False, True))
 
+    def test_normalized_channel_without_offset_map_reports_flag_only(self) -> None:
+        out = self.run_m1("xptal", normalized_text="aptal herif")
+        self.assertEqual(out.content, [])
+        self.assertTrue(out.signals["lexicon_hit_norm"])
+        self.assertTrue(out.notes)
 
-    @unittest.skip("TODO: m1_lexicon detection not implemented")
+    def test_spans_map_through_m0_offsets(self) -> None:
+        text = "ap​tal herif"
+        signals = MappingProxyType({"m0_charsafe": MappingProxyType({"_offsets": [0, 1, 3, 4, 5, 6, 7, 8, 9, 10, 11]})})
+        out = self.run_m1(text, charsafe_text="aptal herif", signals=signals)
+        self.assertEqual([s.span for s in out.content], [(0, 6)])
+
+    def test_signals_present_and_boolean_on_every_input(self) -> None:
+        for text in LexiconModuleContractTest.HOSTILE_INPUTS + ("Onlar aptallar",):
+            with self.subTest(text=text[:20]):
+                out = self.run_m1(text)
+                for key in ("lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm"):
+                    self.assertIs(type(out.signals[key]), bool)
+
+    def test_every_item_carries_a_span_of_the_triggering_text(self) -> None:
+        text = "Amcam aptallar psikoloji"
+        out = self.run_m1(text, signals=fake_m6_target("non_human", 0.9))
+        self.assertTrue(out.content and out.guards)
+        for item in [*out.content, *out.guards]:
+            self.assertIsNotNone(item.span)
+        self.assertEqual({text[s.span[0]:s.span[1]] for s in out.content}, {"aptallar"})
+        self.assertEqual({text[g.span[0]:g.span[1]] for g in out.guards
+                          if g.code is GuardCode.SUBSTRING_COLLISION}, {"Amcam", "psikoloji"})
+        self.assertEqual({g.source for g in out.guards}, {"m1_lexicon"})
+
     def test_non_human_target_raises_guard_on_family_a_matches(self) -> None:
-        raise NotImplementedError
+        text = "aptal film"
+        out = self.run_m1(text, signals=fake_m6_target("non_human", 0.9))
+        guards = [g for g in out.guards if g.code is GuardCode.NON_HUMAN_TARGET]
+        self.assertEqual([text[g.span[0]:g.span[1]] for g in guards], ["aptal"])
+        self.assertEqual({g.score for g in guards}, {0.9})   # score = m6's target_confidence (spec §3)
+        self.assertEqual([g for g in self.run_m1(text, signals=fake_m6_target("individual", 0.9)).guards
+                          if g.code is GuardCode.NON_HUMAN_TARGET], [])
+        self.assertEqual([g for g in self.run_m1("film", signals=fake_m6_target("non_human", 0.9)).guards
+                          if g.code is GuardCode.NON_HUMAN_TARGET], [])
+
+    def test_deterministic(self) -> None:
+        text = "Amcam aptallar psikoloji"
+        self.assertEqual(self.run_m1(text).content, self.run_m1(text).content)
 
 
 if __name__ == "__main__":

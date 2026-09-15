@@ -108,3 +108,25 @@ generates both; `--check` (run by `scripts/check.sh`) covers both.
 
 The contract is re-frozen immediately after this change.
 
+
+## Amendment — analysis example after m1_lexicon implemented (2026-09-15)
+
+- **Decided by:** project owner (explicit instruction, after reviewing the dry-run diff)
+
+`contracts/fixtures/analysis_result.example.json` regenerated with
+`python -m pipeline.contract_example --write`. It was stale because `m1_lexicon`
+stopped being a stub (version `0.0.0` -> `0.1.0`). Every difference comes from that:
+
+- `signals.m1_lexicon` now carries `lexicon_hit`, `lexicon_hit_raw`,
+  `lexicon_hit_norm` (all false on the example sentence), `matched_roots`, `engine`.
+- `m1_lexicon` is gone from `signals.pipeline.degraded`, the explanation and the
+  pipeline notes.
+- `artifact_hash` changed, from two inputs in the same commit: m1's version and
+  m1's latency budget in `decision/thresholds.yaml`, which became per input length
+  like m0's (owner decision, placeholders to measure on the demo machine).
+  Verified: with m1 back at `0.0.0` and its budget back at `5` the hash reproduces
+  the previous value exactly; nothing else in the decision config changed.
+
+`contracts/fixtures/module_output.example.json` regenerated identically. No
+contract code, type or field changed. The contract is re-frozen immediately after
+this change.

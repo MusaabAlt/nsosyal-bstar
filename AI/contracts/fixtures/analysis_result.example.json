@@ -18,7 +18,13 @@
     },
     "m2_deobf": {},
     "m6_target": {},
-    "m1_lexicon": {},
+    "m1_lexicon": {
+      "lexicon_hit": false,
+      "lexicon_hit_raw": false,
+      "lexicon_hit_norm": false,
+      "matched_roots": [],
+      "engine": "terlik 0.1.0 balanced"
+    },
     "m3_encoder": {},
     "m4_implicit": {},
     "m5_sarcasm": {},
@@ -35,15 +41,6 @@
         },
         {
           "module": "m6_target",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
-        {
-          "module": "m1_lexicon",
           "kinds": [
             "stub"
           ],
@@ -105,7 +102,7 @@
       "post_offensive": false
     }
   },
-  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m2_deobf henüz uygulanmadı, m6_target henüz uygulanmadı, m1_lexicon henüz uygulanmadı, m3_encoder henüz uygulanmadı, m5_sarcasm henüz uygulanmadı.",
+  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m2_deobf henüz uygulanmadı, m6_target henüz uygulanmadı, m3_encoder henüz uygulanmadı, m5_sarcasm henüz uygulanmadı.",
   "latency_ms": 0.0,
   "per_module_ms": {
     "m0_charsafe": 0.0,
@@ -118,12 +115,11 @@
   },
   "fast_path": false,
   "trace_id": "example-trace-id",
-  "artifact_hash": "5a2fa46738f645f2fa08d27bba1950cdbde19021c0b5ee8c5b658251dddd5381",
+  "artifact_hash": "daa3b2675701a4e4b0e585e93beebddbbb8e2fcc8413bc73c7a7b6039aafe9f9",
   "notes": [
-    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m2_deobf (stub), m6_target (stub), m1_lexicon (stub), m3_encoder (stub), m5_sarcasm (stub)",
+    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m2_deobf (stub), m6_target (stub), m3_encoder (stub), m5_sarcasm (stub)",
     "[m2_deobf] stub: detection not implemented",
     "[m6_target] stub: detection not implemented",
-    "[m1_lexicon] stub: detection not implemented",
     "[m3_encoder] stub: detection not implemented",
     "[m5_sarcasm] stub: detection not implemented"
   ]

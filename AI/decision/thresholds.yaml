@@ -132,7 +132,12 @@ budgets:
       280: 1                       # PLACEHOLDER - re-measure on the demo machine
       1000: 4                      # PLACEHOLDER - re-measure on the demo machine
       5000: 25                     # PLACEHOLDER - re-measure on the demo machine
-    m1_lexicon: 5       # PLACEHOLDER - measure on the demo machine
+    m1_lexicon:                    # PLACEHOLDER - p95 ms by input length, {max chars: ms}; both channels,
+                                   # terlik 0.1.0; dev-machine p95 on 2026-09-15 was 3 / 10 / 28 / 135
+      64: 3                        # PLACEHOLDER - to measure on the demo machine
+      280: 10                      # PLACEHOLDER - to measure on the demo machine
+      1000: 30                     # PLACEHOLDER - to measure on the demo machine
+      5000: 140                    # PLACEHOLDER - to measure on the demo machine
     m2_deobf: 10        # PLACEHOLDER - measure on the demo machine
     m3_encoder: 80      # PLACEHOLDER - measure on the demo machine
     m4_implicit: 20     # PLACEHOLDER - measure on the demo machine

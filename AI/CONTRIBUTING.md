@@ -14,6 +14,7 @@ source .venv/bin/activate              # Windows, Git Bash: source .venv/Scripts
 
 # 2. install - the core needs pyyaml only; a module's heavy dependencies are in its own requirements.txt
 python -m pip install -r requirements.txt
+python -m pip install -r modules/m1_lexicon/requirements.txt   # terlik; without it m1's tests fail
 
 # 3. the commands, in order
 python -m unittest discover -p "test_*.py"      # all tests (the skipped ones belong to stub modules)

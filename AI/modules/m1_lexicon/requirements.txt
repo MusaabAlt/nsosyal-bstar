@@ -1,0 +1,5 @@
+# Dependencies owned by m1_lexicon ONLY (CLAUDE.md rule 6). Not installed by the root requirements.
+# terlik: Turkish profanity engine, spec.md §4.3. Pure Python, standard library only,
+# no network access (checked in the 0.1.0 wheel). MIT licence. Pinned because its
+# dictionary and suffix list define what m1 matches.
+terlik==0.1.0

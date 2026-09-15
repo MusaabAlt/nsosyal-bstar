@@ -89,6 +89,7 @@ pip = [sys.executable, '-m', 'pip', 'install', '-q']
 # torch first, from the CUDA 12.8 index, so the +cu128 build is the one installed
 subprocess.run(pip + ['torch==2.11.0+cu128', '--index-url', 'https://download.pytorch.org/whl/cu128'], check=True)
 subprocess.run(pip + ['-r', '/content/nsosyal-bstar/AI/requirements.txt'], check=True)
+subprocess.run(pip + ['-r', '/content/nsosyal-bstar/AI/modules/m1_lexicon/requirements.txt'], check=True)  # terlik; check 7 runs m1's tests
 subprocess.run(pip + ['-r', '/content/nsosyal-bstar/AI/modules/m3_encoder/requirements.txt'], check=True)
 print("installed - now Runtime -> Restart session, then run cell 3")
 ```
