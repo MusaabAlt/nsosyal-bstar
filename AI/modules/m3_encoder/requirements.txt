@@ -3,5 +3,13 @@ onnxruntime
 tokenizers
 numpy
 # training only (offline):
-torch
-transformers
+# torch, transformers and scikit-learn are PINNED to the versions that produced the
+# frozen BERTurk baseline (diagnosis/results/01_baseline_berturk/run_config.json ->
+# environment: torch 2.11.0+cu128, transformers 5.15.0, scikit-learn 1.6.1). The pins
+# exist so m3 numbers are comparable to that baseline, not out of caution.
+# torch==2.11.0 also matches the +cu128 build; on Colab install that build first from
+# the cu128 index (docs/team/abdullah/COLAB_SETUP.md). scikit-learn 1.6.1 has wheels
+# for Python 3.9-3.13 only.
+torch==2.11.0
+transformers==5.15.0
+scikit-learn==1.6.1
