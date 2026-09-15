@@ -121,7 +121,7 @@ on local disk and Drive.**
 | What it is | Phase 01 BERTurk fine-tune, `best.pt` = **epoch 1** |
 | Bytes | 442,544,192 |
 | sha256 | `43a20d5525aff0a57c0bda2be559a5acdf84848cf7cbed844f0c8f5f3024d4ca` (recorded in `diagnosis/docs/RESULTS_LOG.md`, 2026-08-23 row) |
-| Local copies (Musaab's machine) | `demo_assets/checkpoints/raw.pt`. A byte-identical copy sits at `other/New folder/best.pt`. |
+| Local copies (Musaab's machine) | `demo_assets/checkpoints/best.pt`. A byte-identical copy sits at `other/New folder/best.pt`. |
 | Training-time location | `<drive>/checkpoints/01_baseline_berturk/best.pt`, per `diagnosis/phase03_train_defense.py:23` and `diagnosis/demo/build_assets.py:16`. Not verified on Drive in this session. |
 | How you get it | Drive: **MUSAAB: paste link here** |
 | Decision threshold | **0.5** (`run_config.json` → `hyperparams.threshold`) |

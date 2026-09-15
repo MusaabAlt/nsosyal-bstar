@@ -1,76 +1,28 @@
-# Start here — your first hour on m3
+# Start here — Abdullah
 
-## 1. Read the spec first
+Specs in `AI/modules/*/spec.md` are the source of truth; if this page disagrees, the spec wins and you tell Musaab.
 
-**`AI/modules/m3_encoder/spec.md` is the source of truth.** Read all of it
-before opening any code. If this page, `docs/team/ABDULLAH.md` or anything else
-disagrees with the spec, the spec wins, and you tell Musaab about the
-disagreement.
+## Where m3 stands
+- **m3 inference is done** (commit `0bb9d25`): it wraps the frozen epoch-1 BERTurk baseline and publishes `raw_score` + `artifact`. Dev reproduction was exact (0 label flips).
+- **The A, B and C heads are deferred.** No labelled data exists for any of them. Do not build a head.
 
-Then read, in order:
-1. [RESOURCES.md](RESOURCES.md): data, frozen split, frozen baseline, hyperparameters, the test-set rule, and what is still open.
-2. [COLAB_SETUP.md](COLAB_SETUP.md): get a session to `SMOKE PASS` before any training.
-3. `AI/CLAUDE.md`: the seven non-negotiable rules.
-
-## 2. Two decisions from Musaab
-
-**The C head (C1–C5) is DEFERRED.**
-- No Turkish corpus is labelled with those categories, so there is nothing to
-  train or measure it on.
-- Build the **A head** and the **B head** now.
-- Musaab is labelling a C slice in parallel.
-- The spec's three-head design stands. Only the third head waits. Don't design
-  the encoder in a way that makes adding the C head later harder.
-
-**For m5, the sarcasm corpus is not yet named.**
-- Your first research task on m5: find the exact **name, authors and contact**
-  of the Turkish sarcasm corpus meant by m5 spec §2.
-- Also record version and size. The spec warns that similar datasets get
-  confused.
-- **Report it to Musaab before you request access.** Don't contact the authors
-  until he has seen it.
-- The gate still applies. **No m5 code until the gate in m5 spec §2 resolves.**
-  m5 stays a stub until then.
-
-## 3. Your first deliverable: the A head
-
-The A head's per-code metrics, **with confidence intervals, on the frozen
-split** (`diagnosis/data/splits/split_seed42.json`, dev = 4,764 rows),
-**compared against the frozen baseline** (phase 01 BERTurk, epoch 1, decision
-threshold 0.5).
-
-It must meet the spec:
-- one "profanity present" score, on the `A1` carrier only, never `A2` or `A3`
-  (spec §3)
-- both channels reported separately: `m3_encoder@raw` and `m3_encoder@normalized`
-  (spec §4, §7)
-- `raw_score`, `norm_score` and `artifact` published; `threshold` and `fired`
-  left as `None` (spec §4)
-- truncation policy declared and the written banned-dataset check done
-  **before** training (spec §5, §9)
-- results from `python -m modules.m3_encoder.eval`
-
-Two things you need for this are still open and waiting on Musaab
-(RESOURCES.md, *Open* items 4 and 5):
-- **Where the training code lives.** m3 module code cannot import
-  `diagnosis/config.py`; the architecture test fails.
-- **What gold label the A head is measured against.** The Çöltekin corpus is
-  OFF/NOT only, with no "profanity present" label.
-
-Don't guess either one. Ask.
-
-## 4. Before every commit
-
-Run from `AI/`. All three must pass. They passed on `master` on 2026-09-15.
-
+## Setup (from `AI/`)
 ```bash
-cd AI
-python -m unittest discover -p "test_*.py"
-python -m modules.m3_encoder.eval
-BASE_REF=$(git merge-base HEAD master) bash scripts/check.sh
+python -m pip install -r requirements.txt -r modules/m1_lexicon/requirements.txt
+python -m pip install torch==2.11.0 --index-url https://download.pytorch.org/whl/cpu
+python -m pip install -r modules/m3_encoder/requirements.txt
 ```
+- Get `demo_assets/` from Musaab via Drive. It is **not in git**. You need `checkpoints/best.pt` (sha256 `43a20d55…`, full digest in `AI/artifacts/MANIFEST.md`) and `tokenizer/`.
+- Point m3 at them: `export NSOSYAL_M3_CHECKPOINT=<path>/demo_assets/checkpoints/best.pt` and `export NSOSYAL_M3_TOKENIZER=<path>/demo_assets/tokenizer`. m3 checks every sha256 and fails closed on a mismatch.
+- Then `python -m unittest discover -p "test_*.py"` must pass.
+- **Every team member** needs `demo_assets/` from Musaab via Drive and the m1 + m3 requirements installed; otherwise the contract-example check in `check.sh` fails.
 
-Once m5 has code, also run `python -m modules.m5_sarcasm.eval`.
+## Task 1 today: the m5 sarcasm corpus
+- m5 spec §2 describes the main Turkish sarcasm corpus but does not name it (recent, distributed on request, 1,515 samples, accuracy 0.73 / 0.76 with title context). Identify it: exact name, authors, version, size, contact.
+- Request access from the authors.
+- Record the corpus name and the request (date, who, how) in `AI/modules/m5_sarcasm/spec.md` §2. No m5 code until the gate resolves.
 
-Never commit corpus text, prediction dumps or checkpoints. Never touch the
-official test set.
+## Task 2 while waiting: m6_target v1
+- Build `m6_target` to `AI/modules/m6_target/spec.md`: gazetteer plus morphology, **no transformer** (ADR-007).
+
+Before every commit, from `AI/`: the unit tests, `python -m eval.run_all`, and `BASE_REF=$(git merge-base HEAD master) bash scripts/check.sh`. Never commit data, checkpoints or corpus text; never touch the official test set.
