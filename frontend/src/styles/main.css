@@ -1,0 +1,128 @@
+/*
+ * Cascade layer order. Declared first so it wins over the order Vuetify and
+ * Tailwind would otherwise set: Tailwind utilities override Vuetify component
+ * styles, and our own unlayered component styles override both.
+ */
+@layer theme, base, vuetify-core, vuetify-components, vuetify-overrides, vuetify-utilities, components, utilities, vuetify-final;
+
+@import '@fontsource-variable/inter/index.css';
+@import 'tailwindcss';
+@import './tokens.css';
+
+/*
+ * Tailwind theme reduced to the design system. The default palette, spacing,
+ * radii, shadows and sizes are removed, so a class outside the system
+ * (bg-blue-500, p-5, rounded-xl, shadow-md) does not exist.
+ *
+ * Colour utilities: bg-surface-raised, text-text-muted, border-border-divider ...
+ * Size utilities:   text-fs-verdict, text-fs-body, text-fs-caption ...
+ */
+@theme inline {
+  --color-*: initial;
+  --color-surface-page: var(--surface-page);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-hover: var(--surface-hover);
+  --color-surface-selected: var(--surface-selected);
+  --color-border-default: var(--border-default);
+  --color-border-divider: var(--border-divider);
+  --color-border-strong: var(--border-strong);
+  --color-text-primary: var(--text-primary);
+  --color-text-body: var(--text-body);
+  --color-text-muted: var(--text-muted);
+  --color-text-disabled: var(--text-disabled);
+  --color-status-block: var(--status-block);
+  --color-status-review: var(--status-review);
+  --color-status-clean: var(--status-clean);
+  --color-status-neutral: var(--status-neutral);
+  --color-status-incomplete: var(--status-incomplete);
+  --color-transparent: transparent;
+
+  --font-*: initial;
+  --font-sans: var(--font-family-sans);
+  --font-mono: var(--font-family-mono);
+}
+
+@theme {
+  /* 2.3 spacing scale: 4 8 12 16 24 32 48, nothing else */
+  --spacing-*: initial;
+  --spacing-0: 0;
+  --spacing-1: 4px;
+  --spacing-2: 8px;
+  --spacing-3: 12px;
+  --spacing-4: 16px;
+  --spacing-6: 24px;
+  --spacing-8: 32px;
+  --spacing-12: 48px;
+
+  /* 2.4 radius: two values only */
+  --radius-*: initial;
+  --radius-control: 6px;
+
+  /* 2.5 no shadows anywhere */
+  --shadow-*: initial;
+  --inset-shadow-*: initial;
+  --drop-shadow-*: initial;
+
+  /* 2.2 type roles; nothing below 12px, nothing above weight 600 */
+  --text-*: initial;
+  --text-fs-caption: 12px;
+  --text-fs-caption--line-height: 1.4;
+  --text-fs-status: 13px;
+  --text-fs-label: 14px;
+  --text-fs-label--line-height: 1.4;
+  --text-fs-body-sm: 14px;
+  --text-fs-body-sm--line-height: 1.5;
+  --text-fs-heading: 15px;
+  --text-fs-heading--line-height: 1.4;
+  --text-fs-body: 16px;
+  --text-fs-body--line-height: 1.6;
+  --text-fs-title: 20px;
+  --text-fs-title--line-height: 1.3;
+  --text-fs-verdict-sm: 24px;
+  --text-fs-metric: 32px;
+  --text-fs-metric--line-height: 1.2;
+  --text-fs-verdict: 40px;
+  --text-fs-verdict--line-height: 1.15;
+
+  --font-weight-*: initial;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+}
+
+@layer base {
+  html {
+    /* Reserve the scrollbar's space so the layout does not jump when a report appears. */
+    scrollbar-gutter: stable;
+  }
+  html,
+  body {
+    background: var(--surface-page);
+    color: var(--text-body);
+    font-family: var(--font-family-sans);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* 2.7 focus: 2px solid accent ring at 2px offset, never removed */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* 2.6 prefers-reduced-motion disables motion except the progress indicator */
+  @media (prefers-reduced-motion: reduce) {
+    *:not(.progress-indicator__bar) {
+      transition: none !important;
+      animation: none !important;
+    }
+  }
+}
+
+/* Vuetify application root: our page surface and font, no theme background of its own. */
+.v-application {
+  background: var(--surface-page);
+  color: var(--text-body);
+  font-family: var(--font-family-sans);
+}

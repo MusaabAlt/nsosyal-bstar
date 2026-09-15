@@ -1,0 +1,75 @@
+/*
+ * Design tokens. Every value is copied from docs/UI/design-system.md section 2
+ * (colours measured from NSosyal, recorded in nsosyal-design-tokens.md).
+ * Components reference these names only; a raw hex value inside a component
+ * is a build error (design-system 2.1, prohibition 12).
+ */
+:root {
+  /* 2.1 surfaces */
+  --surface-page: #1b1e26;
+  --surface-raised: #171a21;
+  --surface-hover: #242833;
+  --surface-selected: #242833;
+
+  /* lines */
+  --border-default: #242833;
+  --border-divider: #252b3c;
+  --border-strong: #363c4c;
+
+  /* text */
+  --text-primary: #fafafa;
+  --text-body: #dbdbdc;
+  --text-muted: #a7aab2;
+  --text-disabled: #666c7b;
+  --text-on-accent: #ffffff;
+
+  /* accent: interaction only, never decoration */
+  --accent: #324bff;
+  --accent-hover: #40a9ff;
+  --accent-pressed: #096dd9;
+  --accent-subtle: rgba(50, 75, 255, 0.1);
+
+  /* semantic: meaning only */
+  --status-block: #ff4d4f;
+  --status-block-bg: rgba(255, 77, 79, 0.08);
+  --status-review: #f5a623;
+  --status-review-bg: rgba(245, 166, 35, 0.08);
+  --status-clean: #52c41a;
+  --status-clean-bg: rgba(82, 196, 26, 0.08);
+  --status-neutral: #a7aab2;
+  --status-incomplete: #a7aab2;
+  --status-incomplete-bg: rgba(167, 170, 178, 0.08);
+
+  /* 4.13 highlight: 20% opacity of --status-block */
+  --highlight-block: rgba(255, 77, 79, 0.2);
+
+  /* 4.16 progress: the only gradient in the application */
+  --progress-gradient: linear-gradient(90deg, #07d0e0, #324bff);
+
+  /* 2.2 typography */
+  --font-family-sans: 'Inter Variable', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
+  /* 4.13 evidence text only: system monospace stack */
+  --font-family-mono: ui-monospace, 'Cascadia Mono', Consolas, 'Liberation Mono', Menlo, monospace;
+
+  /* 2.4 radius: two values only */
+  --radius-control: 6px;
+  --radius-none: 0;
+
+  /* 2.6 motion */
+  --motion-fast: 120ms ease-out;
+  --motion-normal: 200ms ease-out;
+
+  /* 3 grid */
+  --sidebar-width: 220px;
+  --content-max: 1280px;
+  --consequence-width: 360px;
+
+  /*
+   * 2.5 / pages-spec 2.5: NSosyal's sensitive-content overlay.
+   * [OPEN] in design-system.md and nsosyal-design-tokens.md: blur radius and
+   * scrim opacity were never measured. These two values are PROVISIONAL and
+   * must be replaced with the measured ones.
+   */
+  --sensitive-blur: 8px;
+  --sensitive-scrim: rgba(27, 30, 38, 0.6);
+}
