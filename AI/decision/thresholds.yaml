@@ -11,9 +11,10 @@
 # placeholder POLICY and need sign-off, not tuning.
 
 artifact:
-  id: thresholds-v0.0.0-placeholder
-  status: placeholder          # placeholder | derived (validated)
-  derived_on: null             # dev split id + date; required when derived, null while placeholder
+  id: thresholds-v0.1.0
+  status: derived              # placeholder | derived (validated)
+  # derived covers binary_offensive ONLY; every other number below is still a PLACEHOLDER.
+  derived_on: "binary_offensive: frozen dev split 034415af (CAL half, n 2382), m3-berturk-pytorch-fp32-epoch1, 2026-09-15"
 
 fusion:
   # Per content code, take the max score over channels and sources.
@@ -77,11 +78,17 @@ binary_offensive:
   # m1_lexicon.lexicon_hit via threshold_when. It replaces stage 1 only after being
   # measured against it at equal coverage (ADR-006).
   # Not suppressible by guards: it has no code and no span to scope a guard to.
+  # DERIVED (protocols/threshold_derivation_binary_offensive_stage1.md): the study's S1b,
+  # diagnosis/results/12_threshold_policy/metrics.json#primary -> thresholds_fitted_on_CAL.S1b.
+  # Valid ONLY for artifact m3-berturk-pytorch-fp32-epoch1 (FP32, raw text, max_len 128),
+  # cost ratio r = 3, fitted on the CAL half of the frozen dev split. Raw channel only:
+  # no threshold was derived for a normalized score, so none is applied (owner decision).
+  # Study rule is `flag iff score > t`; fusion flags at >=. One dev row sits on the
+  # 6-decimal value; recorded in the derivation file, fusion.py unchanged (owner decision).
   channels:
     raw: m3_encoder.raw_score
-    normalized: m3_encoder.norm_score
-  threshold: 0.50                  # PLACEHOLDER - stage 1 global cost-derived threshold, derive on dev
-  action: review                   # PLACEHOLDER policy
+  threshold: 0.320188              # DERIVED - stage 1 global cost-derived threshold (r = 3)
+  action: review                   # PLACEHOLDER policy (owner: stays review)
 
 fast_path:
   # Stop after `requires` have run when some category clears its threshold by
@@ -125,7 +132,7 @@ budgets:
   # fpr_increase_on_clean is intentionally absent: it returns once a frozen baseline
   # result exists to measure an FPR increase against (project owner decision).
   clean_to_dirty_flip_rate: 0.01   # PLACEHOLDER - max share of traps the normalized channel flips to fired
-  latency_p95_ms: 150              # PLACEHOLDER - whole pipeline, CPU
+  latency_p95_ms: 250              # PLACEHOLDER - whole pipeline, CPU; provisional; re-measure on the demo machine
   module_latency_p95_ms:           # PLACEHOLDER - per module, CPU
     m0_charsafe:                   # PLACEHOLDER - p95 ms by input length, {max chars: ms}; measured 2026-09-14
       64: 0.25                     # PLACEHOLDER - re-measure on the demo machine

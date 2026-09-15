@@ -1,15 +1,12 @@
 # Heavy dependencies owned by m3_encoder ONLY (CLAUDE.md rule 6). Not installed by the root requirements.
-onnxruntime
-tokenizers
-numpy
-# training only (offline):
-# torch, transformers and scikit-learn are PINNED to the versions that produced the
-# frozen BERTurk baseline (diagnosis/results/01_baseline_berturk/run_config.json ->
-# environment: torch 2.11.0+cu128, transformers 5.15.0, scikit-learn 1.6.1). The pins
-# exist so m3 numbers are comparable to that baseline, not out of caution.
-# torch==2.11.0 also matches the +cu128 build; on Colab install that build first from
-# the cu128 index (docs/team/abdullah/COLAB_SETUP.md). scikit-learn 1.6.1 has wheels
-# for Python 3.9-3.13 only.
+# Inference (owner decision 2026-09-15: PyTorch FP32, no ONNX for now):
+# torch and transformers are PINNED to the versions that produced the frozen BERTurk
+# baseline (diagnosis/results/01_baseline_berturk/run_config.json -> environment:
+# torch 2.11.0+cu128, transformers 5.15.0). The pins exist so m3's scores reproduce the
+# baseline's, which the binary_offensive threshold was fitted on.
+# CPU machines: pip install torch==2.11.0 --index-url https://download.pytorch.org/whl/cpu
+# Colab: install the +cu128 build first from the cu128 index (docs/team/abdullah/COLAB_SETUP.md).
 torch==2.11.0
 transformers==5.15.0
+# training only (offline); scikit-learn 1.6.1 has wheels for Python 3.9-3.13 only:
 scikit-learn==1.6.1
