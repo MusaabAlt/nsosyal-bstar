@@ -1,0 +1,123 @@
+{
+  "text": "amcam geldi",
+  "verdict": "clean",
+  "form": {
+    "patterns": [],
+    "active": []
+  },
+  "content": [
+    {
+      "code": "A1",
+      "score": 0.72,
+      "source": "m1_lexicon@raw",
+      "span": [
+        0,
+        2
+      ],
+      "threshold": 0.5,
+      "fired": false
+    }
+  ],
+  "target": null,
+  "guards": [
+    {
+      "code": "SUBSTRING_COLLISION",
+      "score": 0.95,
+      "source": "m1_lexicon",
+      "evidence": "amcam",
+      "span": [
+        0,
+        5
+      ],
+      "threshold": 0.5,
+      "active": true,
+      "suppressed": [
+        "A1"
+      ]
+    }
+  ],
+  "thread": null,
+  "signals": {
+    "m0_charsafe": {
+      "offsets_identity": true,
+      "invisible_removed": 0,
+      "homoglyphs_mapped": 0,
+      "charsafe_changed": false
+    },
+    "m1_lexicon": {
+      "lexicon_hit": false,
+      "lexicon_hit_raw": false,
+      "lexicon_hit_norm": false
+    },
+    "pipeline": {
+      "degraded": [],
+      "emits_spans": {
+        "m0_charsafe": false,
+        "m1_lexicon": true
+      }
+    },
+    "decision": {
+      "family_a": {
+        "target": "none",
+        "confidence": null,
+        "min_confidence": 0.5,
+        "resolved_as": "none",
+        "code": "A1"
+      },
+      "threshold_branches": [
+        {
+          "code": "A1",
+          "source": "m1_lexicon@raw",
+          "threshold": 0.5,
+          "branch": "scalar",
+          "signal": null,
+          "signal_value": null
+        }
+      ],
+      "binary_offensive": {
+        "threshold": 0.5,
+        "branch": "scalar",
+        "signal": null,
+        "signal_value": null,
+        "channels": {
+          "raw": {
+            "score": null,
+            "fired": null
+          },
+          "normalized": {
+            "score": null,
+            "fired": null
+          }
+        },
+        "fired": null,
+        "action": "review"
+      },
+      "channel_scores": [
+        {
+          "code": "A1",
+          "score": 0.72,
+          "source": "m1_lexicon@raw",
+          "span": [
+            0,
+            2
+          ],
+          "threshold": 0.5,
+          "fired": false
+        }
+      ],
+      "post_offensive": false
+    }
+  },
+  "explanation": "'Hedefsiz küfür' (A1) sinyali 'Alt dizi çakışması' koruması nedeniyle bastırıldı, içerik temiz kabul edildi.",
+  "latency_ms": 0.23419997887685895,
+  "per_module_ms": {
+    "m0_charsafe": 0.048200017772614956,
+    "m1_lexicon": 0.01190003240481019
+  },
+  "fast_path": false,
+  "trace_id": "mock-guard",
+  "artifact_hash": "b246927b240fcae1752a19a0459674e488c802b2edd0245dfcb51c9898b67977",
+  "notes": [
+    "[decision] A1 from m1_lexicon@raw span=(0, 2) suppressed by guard SUBSTRING_COLLISION from m1_lexicon span=(0, 5)"
+  ]
+}

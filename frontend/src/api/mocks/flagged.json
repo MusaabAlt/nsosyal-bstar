@@ -1,0 +1,149 @@
+{
+  "text": "Seni b1tireceğim",
+  "verdict": "escalate",
+  "form": {
+    "patterns": [
+      {
+        "code": "LEET",
+        "confidence": 0.9,
+        "evidence": "1",
+        "span": [
+          6,
+          7
+        ],
+        "source": "m2_deobf"
+      }
+    ],
+    "active": [
+      "LEET"
+    ]
+  },
+  "content": [
+    {
+      "code": "B2",
+      "score": 0.87,
+      "source": "m3_encoder@normalized",
+      "span": null,
+      "threshold": 0.5,
+      "fired": true
+    },
+    {
+      "code": "C4",
+      "score": 0.12,
+      "source": "m3_encoder@raw",
+      "span": null,
+      "threshold": 0.5,
+      "fired": false
+    }
+  ],
+  "target": null,
+  "guards": [],
+  "thread": null,
+  "signals": {
+    "m0_charsafe": {
+      "offsets_identity": true,
+      "invisible_removed": 0,
+      "homoglyphs_mapped": 0,
+      "charsafe_changed": false
+    },
+    "m2_deobf": {},
+    "m3_encoder": {
+      "raw_score": 0.44,
+      "norm_score": 0.81,
+      "artifact": "test-double"
+    },
+    "pipeline": {
+      "degraded": [],
+      "emits_spans": {
+        "m0_charsafe": false,
+        "m2_deobf": false,
+        "m3_encoder": false
+      }
+    },
+    "decision": {
+      "family_a": null,
+      "threshold_branches": [
+        {
+          "code": "B2",
+          "source": "m3_encoder@raw",
+          "threshold": 0.5,
+          "branch": "scalar",
+          "signal": null,
+          "signal_value": null
+        },
+        {
+          "code": "B2",
+          "source": "m3_encoder@normalized",
+          "threshold": 0.5,
+          "branch": "scalar",
+          "signal": null,
+          "signal_value": null
+        },
+        {
+          "code": "C4",
+          "source": "m3_encoder@raw",
+          "threshold": 0.5,
+          "branch": "scalar",
+          "signal": null,
+          "signal_value": null
+        }
+      ],
+      "binary_offensive": {
+        "threshold": 0.5,
+        "branch": "scalar",
+        "signal": null,
+        "signal_value": null,
+        "channels": {
+          "raw": {
+            "score": 0.44,
+            "fired": false
+          },
+          "normalized": {
+            "score": 0.81,
+            "fired": true
+          }
+        },
+        "fired": true,
+        "action": "review"
+      },
+      "channel_scores": [
+        {
+          "code": "B2",
+          "score": 0.41,
+          "source": "m3_encoder@raw",
+          "span": null,
+          "threshold": 0.5,
+          "fired": false
+        },
+        {
+          "code": "B2",
+          "score": 0.87,
+          "source": "m3_encoder@normalized",
+          "span": null,
+          "threshold": 0.5,
+          "fired": true
+        },
+        {
+          "code": "C4",
+          "score": 0.12,
+          "source": "m3_encoder@raw",
+          "span": null,
+          "threshold": 0.5,
+          "fired": false
+        }
+      ],
+      "post_offensive": true
+    }
+  },
+  "explanation": "İçerik 'Tehdit' (B2) nedeniyle üst incelemeye iletildi.",
+  "latency_ms": 0.32699998700991273,
+  "per_module_ms": {
+    "m0_charsafe": 0.05619996227324009,
+    "m2_deobf": 0.028600043151527643,
+    "m3_encoder": 0.009300012607127428
+  },
+  "fast_path": false,
+  "trace_id": "mock-flagged",
+  "artifact_hash": "57466e1738c99c48ae87ba537df93c268d446b3cf4a258669ff3611f5bf6fe63",
+  "notes": []
+}
