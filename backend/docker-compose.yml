@@ -1,0 +1,22 @@
+# Optional: Postgres for development if it is not installed locally.
+# Port 5433 so it never clashes with a local install on 5432. To use it:
+#   NSOSYAL_DATABASE_URL=postgres://nsosyal:nsosyal_dev@127.0.0.1:5433/nsosyal?sslmode=disable
+services:
+  postgres:
+    image: postgres:18
+    environment:
+      POSTGRES_USER: nsosyal
+      POSTGRES_PASSWORD: nsosyal_dev
+      POSTGRES_DB: nsosyal
+    ports:
+      - "127.0.0.1:5433:5432"   # localhost only, never the LAN
+    volumes:
+      - pgdata:/var/lib/postgresql
+      - ./scripts/create-test-db.sql:/docker-entrypoint-initdb.d/create-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nsosyal"]
+      interval: 5s
+      retries: 10
+
+volumes:
+  pgdata:
