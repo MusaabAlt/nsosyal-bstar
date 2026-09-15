@@ -1,16 +1,23 @@
 import type { AnalysisResult } from '@/contract/types'
-import type { AnalysisSource, AnalyzeOutcome } from './source'
+import type { AnalysisSource, AnalyzeOutcome, Display, Extras, Normalization } from './source'
 import { presets } from './presets'
+import { setRepresentative } from './representative'
 import degraded from './mocks/degraded.json'
 import clean from './mocks/clean.json'
 import flagged from './mocks/flagged.json'
 import guard from './mocks/guard.json'
+import extrasJson from './mocks/extras.json'
+import normalizationJson from './mocks/normalization.json'
 
 /*
  * Sample data source: the five payloads in docs/team/AMIN_BRIEF.md section 7,
  * generated from the real pipeline at commit 6583e5c. The flagged and guard
- * scores are TEST-DOUBLE values: this source always sets representative, so
- * the Temsili veri marker is on screen whenever they are shown.
+ * scores are TEST-DOUBLE values, so this source always turns the Temsili veri
+ * marker on.
+ *
+ * The display numbers (extras.json) are written by the Go backend's own code
+ * (go test ./internal/display -update), so this mode shows exactly what the
+ * server would send.
  *
  * Mapping:
  *   "Seni b1tireceğim"     -> flagged  (obfuscated threat, test-double scores)
@@ -22,19 +29,22 @@ import guard from './mocks/guard.json'
  * ?mock=404, ?mock=413, ?mock=500 or ?mock=decision-null.
  */
 
-const payloads = {
+type Name = 'degraded' | 'clean' | 'flagged' | 'guard'
+
+const payloads: Record<Name, AnalysisResult> = {
   degraded: degraded as unknown as AnalysisResult,
   clean: clean as unknown as AnalysisResult,
   flagged: flagged as unknown as AnalysisResult,
   guard: guard as unknown as AnalysisResult,
 }
+const displays = extrasJson as unknown as Record<Name, Display>
+const normalizations = normalizationJson as unknown as Record<string, Normalization>
 
-const byText = new Map<string, AnalysisResult>([
-  [payloads.flagged.text, payloads.flagged],
-  [payloads.guard.text, payloads.guard],
-  [payloads.clean.text, payloads.clean],
+const byText = new Map<string, Name>([
+  [payloads.flagged.text, 'flagged'],
+  [payloads.guard.text, 'guard'],
+  [payloads.clean.text, 'clean'],
 ])
-
 
 function forcedState(): string | null {
   if (typeof window === 'undefined') return null
@@ -43,6 +53,10 @@ function forcedState(): string | null {
 
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T
+}
+
+function extrasFor(name: Name, text: string): Extras {
+  return { display: clone(displays[name]), normalization: normalizations[text] ? clone(normalizations[text]) : null }
 }
 
 export function resolveMock(text: string, forced: string | null): AnalyzeOutcome {
@@ -63,23 +77,23 @@ export function resolveMock(text: string, forced: string | null): AnalyzeOutcome
       result.text = text
       result.verdict = null
       result.explanation = 'Karar verilemedi: karar katmanında RuntimeError oluştu.'
-      return { ok: true, result }
+      return { ok: true, result, extras: extrasFor('degraded', text) }
     }
   }
 
   const known = byText.get(text)
-  if (known) return { ok: true, result: clone(known) }
+  if (known) return { ok: true, result: clone(payloads[known]), extras: extrasFor(known, text) }
 
   // The degraded payload carries no spans, so it stays truthful for any text.
   const result = clone(payloads.degraded)
   result.text = text
-  return { ok: true, result }
+  return { ok: true, result, extras: extrasFor('degraded', text) }
 }
 
 export const mockSource: AnalysisSource = {
-  representative: true,
   presets,
   async analyze(text) {
+    setRepresentative(true)
     return resolveMock(text, forcedState())
   },
 }

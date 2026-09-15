@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import flagged from './mocks/flagged.json'
 import { httpSource } from './httpSource'
+import { representative } from './representative'
 import { errorLine } from '@/report/useAnalysis'
 
 type Handler = (url: string, body: Record<string, unknown>) => { status: number; body?: unknown } | 'network'
@@ -25,7 +26,7 @@ describe('http source (Go API)', () => {
     const calls = mockFetch((url) =>
       url === '/api/sessions'
         ? { status: 201, body: { id: 's-1', nickname: 'Operatör' } }
-        : { status: 201, body: { comment: { id: 'c' }, result: flagged, timing: {} } },
+        : { status: 201, body: { comment: { id: 'c' }, result: flagged, normalization: null, display: { categories_total: 16, categories_evaluated: 5, categories_hidden: 4, patterns_checked_other: 11, content_margins: [0.37, -0.38], normalization: null }, representative: true, timing: {} } },
     )
     const first = await httpSource.analyze('Seni b1tireceğim')
     const second = await httpSource.analyze('ikinci')
@@ -33,7 +34,8 @@ describe('http source (Go API)', () => {
     expect(second.ok).toBe(true)
     expect(calls.map((c) => c.url)).toEqual(['/api/sessions', '/api/comments', '/api/comments'])
     expect(calls[1]!.body).toEqual({ session_id: 's-1', text: 'Seni b1tireceğim' })
-    expect(httpSource.representative).toBe(false)
+    expect(representative.value).toBe(true) // the server said the model service returns sample data
+    expect(first.ok && first.extras.display?.categories_evaluated).toBe(5)
   })
 
   it('recreates a session the server no longer knows and retries once', async () => {

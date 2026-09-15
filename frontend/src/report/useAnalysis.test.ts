@@ -4,7 +4,7 @@ import { resolveMock } from '@/api/mockSource'
 import { MIN_REVEAL_MS, errorLine, useAnalysis } from './useAnalysis'
 
 function sourceReturning(outcome: AnalyzeOutcome): AnalysisSource {
-  return { representative: true, presets: [], analyze: async () => outcome }
+  return { presets: [], analyze: async () => outcome }
 }
 
 describe('analysis flow', () => {
@@ -25,7 +25,7 @@ describe('analysis flow', () => {
 
   it('does nothing for empty input', async () => {
     const analyzeSpy = vi.fn()
-    const { phase, analyze } = useAnalysis({ representative: true, presets: [], analyze: analyzeSpy }, async () => {})
+    const { phase, analyze } = useAnalysis({ presets: [], analyze: analyzeSpy }, async () => {})
     await analyze('   ')
     expect(analyzeSpy).not.toHaveBeenCalled()
     expect(phase.value).toBe('idle')
@@ -57,7 +57,6 @@ describe('analysis flow', () => {
 
   it('a source that throws becomes the network error state', async () => {
     const throwing: AnalysisSource = {
-      representative: false,
       presets: [],
       analyze: async () => {
         throw new TypeError('Failed to fetch')

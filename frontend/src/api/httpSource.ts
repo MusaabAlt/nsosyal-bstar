@@ -1,12 +1,13 @@
 import type { AnalysisResult } from '@/contract/types'
-import type { AnalysisSource, AnalyzeError, AnalyzeOutcome } from './source'
+import type { AnalysisSource, AnalyzeError, AnalyzeOutcome, Display, Normalization } from './source'
 import { presets } from './presets'
+import { setRepresentative } from './representative'
 
 /*
  * Real data source: the Go backend.
  *
  *   POST /api/sessions {nickname}          -> {id}
- *   POST /api/comments {session_id, text}  -> {comment, result: AnalysisResult, timing}
+ *   POST /api/comments {session_id, text}  -> {comment, result, normalization, display, representative, timing}
  *
  * The console has no accounts (pages-spec 1), so an anonymous session is
  * created once, silently, and kept for the browser tab. If the server no
@@ -19,6 +20,13 @@ const OPERATOR_NICKNAME = 'Operatör'
 
 interface ErrorBody {
   error?: { code?: string; message?: string }
+}
+
+interface CommentResponse {
+  result: AnalysisResult
+  normalization?: Normalization | null
+  display?: Display | null
+  representative?: boolean
 }
 
 function readSession(): string | null {
@@ -80,12 +88,16 @@ async function analyzeOnce(text: string, signal?: AbortSignal): Promise<AnalyzeO
     const error = await errorFrom(response)
     return { ok: false, error, staleSession: error.code === 'unknown_session' }
   }
-  const body = (await response.json()) as { result: AnalysisResult }
-  return { ok: true, result: body.result }
+  const body = (await response.json()) as CommentResponse
+  setRepresentative(body.representative)
+  return {
+    ok: true,
+    result: body.result,
+    extras: { display: body.display ?? null, normalization: body.normalization ?? null },
+  }
 }
 
 export const httpSource: AnalysisSource = {
-  representative: false,
   presets,
   async analyze(text, signal) {
     try {
@@ -94,11 +106,23 @@ export const httpSource: AnalysisSource = {
         storeSession(null)
         outcome = await analyzeOnce(text, signal)
       }
-      if (outcome.ok) return { ok: true, result: outcome.result }
+      if (outcome.ok) return { ok: true, result: outcome.result, extras: outcome.extras }
       return { ok: false, error: outcome.error }
     } catch {
       // fetch throws only when the server could not be reached at all.
       return { ok: false, error: { kind: 'network' } }
     }
   },
+}
+
+/** Reads the marker state before the first analysis, so an idle screen on sample data says so too. */
+export async function loadRepresentative(): Promise<void> {
+  try {
+    const response = await fetch('/api/health')
+    if (!response.ok) return
+    const health = (await response.json()) as { python?: { representative?: boolean } }
+    setRepresentative(health.python?.representative)
+  } catch {
+    /* unreachable: the error state will say so when the operator analyses */
+  }
 }

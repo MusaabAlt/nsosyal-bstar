@@ -1,5 +1,6 @@
 import { ref, shallowRef } from 'vue'
-import type { AnalysisSource, AnalyzeError } from '@/api'
+import type { AnalysisSource, AnalyzeError, Extras } from '@/api'
+import { NO_EXTRAS } from '@/api/source'
 import type { AnalysisResult } from '@/contract/types'
 import { isDecisionFailure } from './model'
 import { copy } from '@/copy'
@@ -45,6 +46,7 @@ export function errorLine(error: AnalyzeError): string {
 export function useAnalysis(source: AnalysisSource, wait = (ms: number) => new Promise((r) => setTimeout(r, ms))) {
   const phase = ref<Phase>('idle')
   const result = shallowRef<AnalysisResult | null>(null)
+  const extras = shallowRef<Extras>(NO_EXTRAS)
   const errorText = ref('')
   let controller: AbortController | null = null
   let runId = 0
@@ -81,8 +83,9 @@ export function useAnalysis(source: AnalysisSource, wait = (ms: number) => new P
       return
     }
     result.value = outcome.result
+    extras.value = outcome.extras
     phase.value = 'report'
   }
 
-  return { phase, result, errorText, analyze }
+  return { phase, result, extras, errorText, analyze }
 }
