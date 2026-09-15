@@ -1,12 +1,14 @@
 // Package inference talks to the Python inference service over localhost.
 //
-// Contract (agreed in the backend plan):
+// Contract (agreed in the backend plan; full text in backend/docs/inference-contract.md):
 //
 //	POST /predict_batch  {"items": [{"id", "text"}]}
-//	  200 {"artifact_hash": "...", "results": [{"id", "ok": true, "result": {AnalysisResult}}
+//	  200 {"artifact_hash": "...", "results": [{"id", "ok": true, "result": {AnalysisResult},
+//	                                            "normalization": {"text", "changes": [...]} (optional)}
 //	                                          | {"id", "ok": false, "error": "..."}]}
 //	  503 while models are loading
-//	GET  /health         {"status": "ok" | "loading" | "error", "artifact_hash": "...", "degraded_modules": [...]}
+//	GET  /health         {"status": "ok" | "loading" | "error", "artifact_hash": "...",
+//	                      "degraded_modules": [...], "representative": false}
 package inference
 
 import (
@@ -46,12 +48,15 @@ type Config struct {
 
 // Health is the last known state of the Python service.
 type Health struct {
-	Status          string       `json:"status"` // ok | loading | error | unreachable
-	ArtifactHash    string       `json:"artifact_hash,omitempty"`
-	DegradedModules []string     `json:"degraded_modules,omitempty"`
-	Breaker         BreakerState `json:"breaker"`
-	CheckedAt       time.Time    `json:"checked_at"`
-	Error           string       `json:"error,omitempty"`
+	Status          string   `json:"status"` // ok | loading | error | unreachable
+	ArtifactHash    string   `json:"artifact_hash,omitempty"`
+	DegradedModules []string `json:"degraded_modules,omitempty"`
+	// Representative is true when the service returns sample data (the mock),
+	// so the UI shows the Temsili veri marker (design-system 4.19).
+	Representative bool         `json:"representative"`
+	Breaker        BreakerState `json:"breaker"`
+	CheckedAt      time.Time    `json:"checked_at"`
+	Error          string       `json:"error,omitempty"`
 }
 
 type Client struct {
@@ -90,10 +95,11 @@ type batchRequest struct {
 }
 
 type batchResult struct {
-	ID     string          `json:"id"`
-	OK     bool            `json:"ok"`
-	Result json.RawMessage `json:"result"`
-	Error  string          `json:"error"`
+	ID            string          `json:"id"`
+	OK            bool            `json:"ok"`
+	Result        json.RawMessage `json:"result"`
+	Normalization json.RawMessage `json:"normalization"`
+	Error         string          `json:"error"`
 }
 
 type batchResponse struct {
@@ -182,6 +188,9 @@ func (c *Client) predict(ctx context.Context, items []domain.PredictItem) ([]dom
 				o.Err = &ItemError{Message: err.Error()}
 			} else {
 				o.Result = r.Result
+				if len(r.Normalization) > 0 && string(r.Normalization) != "null" {
+					o.Normalization = r.Normalization
+				}
 			}
 		}
 		outcomes = append(outcomes, o)
@@ -193,6 +202,7 @@ type healthResponse struct {
 	Status          string   `json:"status"`
 	ArtifactHash    string   `json:"artifact_hash"`
 	DegradedModules []string `json:"degraded_modules"`
+	Representative  bool     `json:"representative"`
 }
 
 // CheckHealth calls GET /health, records the result and returns it. The
@@ -217,6 +227,7 @@ func (c *Client) CheckHealth(ctx context.Context) Health {
 				h.Status = parsed.Status
 				h.ArtifactHash = parsed.ArtifactHash
 				h.DegradedModules = parsed.DegradedModules
+				h.Representative = parsed.Representative
 			}
 		}
 	}

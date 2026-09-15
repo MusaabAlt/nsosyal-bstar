@@ -13,7 +13,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -22,6 +21,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -29,6 +29,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/cache"
+	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/categories"
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/config"
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/domain"
 	httpapi "github.com/MusaabAlt/nsosyal-bstar/backend/internal/http"
@@ -140,7 +141,8 @@ func run() error {
 		Writer:       writer,
 		Analyzer:     batcher,
 		Inference:    client,
-		Cache:        cache.New[json.RawMessage](cfg.Cache.Size, cfg.Cache.TTL),
+		Categories:   categories.NewStore(resolveFrom(path, cfg.Decision.ThresholdsFile)),
+		Cache:        cache.New[handlers.CachedAnalysis](cfg.Cache.Size, cfg.Cache.TTL),
 		Metrics:      reg,
 		Log:          log,
 		MaxBodyBytes: cfg.Server.MaxBodyBytes,
@@ -239,6 +241,15 @@ func listenNetwork(addr string) string {
 		return "tcp4"
 	}
 	return "tcp"
+}
+
+// resolveFrom makes a relative path relative to the config file's folder, so
+// the server finds AI/decision/thresholds.yaml from any working directory.
+func resolveFrom(configPath, p string) string {
+	if filepath.IsAbs(p) {
+		return p
+	}
+	return filepath.Join(filepath.Dir(configPath), p)
 }
 
 func newLogger(cfg config.Log) *slog.Logger {

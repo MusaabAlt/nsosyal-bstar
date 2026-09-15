@@ -23,7 +23,10 @@ type PredictItem struct {
 type PredictOutcome struct {
 	ID     string
 	Result json.RawMessage
-	Err    error
+	// Normalization is m2's optional de-obfuscated text and changes, sent
+	// beside the result (it is not part of the frozen AnalysisResult).
+	Normalization json.RawMessage
+	Err           error
 }
 
 // Actions, most severe first (AI/contracts/codes.py ACTION_PRECEDENCE).

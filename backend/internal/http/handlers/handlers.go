@@ -6,6 +6,7 @@
 //	GET  /api/moderation/flagged     non-clean comments with per-type reasons
 //	GET  /api/stats                  live numbers for the dashboard
 //	GET  /api/health                 Go, Python and Postgres status
+//	GET  /api/categories             the sixteen categories with threshold, action and status
 package handlers
 
 import (
@@ -27,6 +28,8 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/cache"
+	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/categories"
+	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/display"
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/domain"
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/http/respond"
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/inference"
@@ -60,12 +63,24 @@ type Inference interface {
 	Health() inference.Health
 }
 
+type Categories interface {
+	List(degraded []string, pythonKnown bool) (categories.List, error)
+}
+
+// CachedAnalysis is what the cache keeps for one text: the result and m2's
+// optional normalization, which always travel together.
+type CachedAnalysis struct {
+	Result        json.RawMessage
+	Normalization json.RawMessage
+}
+
 type Deps struct {
 	Store        Store
 	Writer       Writer
 	Analyzer     Analyzer
 	Inference    Inference
-	Cache        *cache.LRU[json.RawMessage]
+	Categories   Categories
+	Cache        *cache.LRU[CachedAnalysis]
 	Metrics      *metrics.Registry
 	Log          *slog.Logger
 	MaxBodyBytes int64
@@ -94,6 +109,7 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/moderation/flagged", a.listFlagged)
 	mux.HandleFunc("GET /api/stats", a.getStats)
 	mux.HandleFunc("GET /api/health", a.getHealth)
+	mux.HandleFunc("GET /api/categories", a.getCategories)
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusNotFound, respond.CodeNotFound, "no such endpoint", 0)
 	})
@@ -198,7 +214,13 @@ type timing struct {
 type createCommentResponse struct {
 	Comment commentInfo     `json:"comment"`
 	Result  json.RawMessage `json:"result"`
-	Timing  timing          `json:"timing"`
+	// Optional m2 output beside the frozen result (null until m2 provides it).
+	Normalization json.RawMessage `json:"normalization"`
+	// Numbers docs/UI shows that the result does not carry (package display).
+	Display display.Display `json:"display"`
+	// true while the model service returns sample data (Temsili veri, design-system 4.19).
+	Representative bool   `json:"representative"`
+	Timing         timing `json:"timing"`
 }
 
 // validText accepts what the model can be given: valid UTF-8, not blank, at
@@ -254,16 +276,17 @@ func (a *API) createComment(w http.ResponseWriter, r *http.Request) {
 	commentID := uuid.Must(uuid.NewV7())
 	createdAt := time.Now().UTC()
 	var (
-		result   json.RawMessage
-		tm       timing
-		fromHash = a.Inference.ArtifactHash()
-		key      string
+		result        json.RawMessage
+		normalization json.RawMessage
+		tm            timing
+		fromHash      = a.Inference.ArtifactHash()
+		key           string
 	)
 
 	if fromHash != "" {
 		key = cache.Key(text, fromHash)
 		if cached, hit := a.Cache.Get(key); hit {
-			result, tm.CacheHit = cached, true
+			result, normalization, tm.CacheHit = cached.Result, cached.Normalization, true
 		}
 	}
 
@@ -274,6 +297,7 @@ func (a *API) createComment(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		result = res.Outcome.Result
+		normalization = res.Outcome.Normalization
 		qw, mm, bs := ms(res.QueueWait), ms(res.ModelLatency), res.BatchSize
 		tm.QueueWaitMS, tm.ModelMS, tm.BatchSize = &qw, &mm, &bs
 		a.Metrics.QueueWait.Observe(qw)
@@ -294,7 +318,7 @@ func (a *API) createComment(w http.ResponseWriter, r *http.Request) {
 			key = cache.Key(text, summary.ArtifactHash)
 		}
 		if key != "" {
-			a.Cache.Put(key, result)
+			a.Cache.Put(key, CachedAnalysis{Result: result, Normalization: normalization})
 		}
 	}
 
@@ -304,12 +328,27 @@ func (a *API) createComment(w http.ResponseWriter, r *http.Request) {
 		Result: result, Summary: summary, QueueWaitMS: tm.QueueWaitMS, FromCache: tm.CacheHit, CreatedAt: createdAt,
 	})
 
+	disp, err := display.Build(result, normalization)
+	if err != nil {
+		// The result itself parsed; only the extras are unreadable. Answer
+		// without them rather than failing the analysis.
+		a.Log.Warn("display numbers", "comment_id", commentID, "error", err)
+		normalization = nil
+		disp, _ = display.Build(result, nil)
+	}
+	if normalization == nil {
+		normalization = json.RawMessage("null")
+	}
+
 	tm.TotalMS = ms(time.Since(start))
 	a.Metrics.Request.Observe(tm.TotalMS)
 	respond.JSON(w, http.StatusCreated, createCommentResponse{
-		Comment: commentInfo{ID: commentID, SessionID: sessionID, CreatedAt: createdAt},
-		Result:  result,
-		Timing:  tm,
+		Comment:        commentInfo{ID: commentID, SessionID: sessionID, CreatedAt: createdAt},
+		Result:         result,
+		Normalization:  normalization,
+		Display:        disp,
+		Representative: a.Inference.Health().Representative,
+		Timing:         tm,
 	})
 }
 
@@ -480,4 +519,24 @@ func (a *API) getHealth(w http.ResponseWriter, r *http.Request) {
 		Queue:    a.Analyzer.Stats(),
 		Writer:   a.Writer.Stats(),
 	})
+}
+
+// --------------------------------------------------------------- categories
+
+type categoriesResponse struct {
+	categories.List
+	Representative bool `json:"representative"`
+}
+
+// getCategories serves the Kategoriler page (pages-spec 3).
+func (a *API) getCategories(w http.ResponseWriter, r *http.Request) {
+	h := a.Inference.Health()
+	known := h.Status == "ok"
+	list, err := a.Categories.List(h.DegradedModules, known)
+	if err != nil {
+		a.Log.Error("categories", "error", err)
+		respond.Error(w, http.StatusServiceUnavailable, respond.CodeInternal, "category configuration could not be read", 0)
+		return
+	}
+	respond.JSON(w, http.StatusOK, categoriesResponse{List: list, Representative: h.Representative})
 }

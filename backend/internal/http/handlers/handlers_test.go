@@ -22,6 +22,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/cache"
+	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/categories"
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/domain"
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/inference"
 	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/metrics"
@@ -90,6 +91,7 @@ func (w *fakeWriter) Stats() store.WriterStats { return store.WriterStats{} }
 
 type fakeAnalyzer struct {
 	result json.RawMessage
+	norm   json.RawMessage
 	err    error
 	calls  atomic.Int32
 }
@@ -99,15 +101,19 @@ func (a *fakeAnalyzer) Submit(_ context.Context, item domain.PredictItem) (queue
 	if a.err != nil {
 		return queue.Result{}, a.err
 	}
-	return queue.Result{Outcome: domain.PredictOutcome{ID: item.ID, Result: a.result}, QueueWait: 3 * time.Millisecond, ModelLatency: 40 * time.Millisecond, BatchSize: 4}, nil
+	return queue.Result{Outcome: domain.PredictOutcome{ID: item.ID, Result: a.result, Normalization: a.norm}, QueueWait: 3 * time.Millisecond, ModelLatency: 40 * time.Millisecond, BatchSize: 4}, nil
 }
 func (a *fakeAnalyzer) Stats() queue.Stats { return queue.Stats{QueueCapacity: 256} }
 
-type fakeInference struct{ hash string }
+type fakeInference struct {
+	hash           string
+	degraded       []string
+	representative bool
+}
 
 func (f fakeInference) ArtifactHash() string { return f.hash }
 func (f fakeInference) Health() inference.Health {
-	return inference.Health{Status: "ok", ArtifactHash: f.hash, Breaker: inference.BreakerClosed}
+	return inference.Health{Status: "ok", ArtifactHash: f.hash, Breaker: inference.BreakerClosed, DegradedModules: f.degraded, Representative: f.representative}
 }
 
 func mock(t *testing.T, name string) json.RawMessage {
@@ -137,7 +143,8 @@ func newEnv(t *testing.T) *env {
 	e.api = New(Deps{
 		Store: e.store, Writer: e.writer, Analyzer: e.analyzer,
 		Inference:    fakeInference{hash: "57466e1738c99c48ae87ba537df93c268d446b3cf4a258669ff3611f5bf6fe63"},
-		Cache:        cache.New[json.RawMessage](100, time.Minute),
+		Categories:   categories.NewStore("../../../../AI/decision/thresholds.yaml"),
+		Cache:        cache.New[CachedAnalysis](100, time.Minute),
 		Metrics:      metrics.NewRegistry(),
 		Log:          slog.New(slog.NewTextHandler(io.Discard, nil)),
 		MaxBodyBytes: 64 << 10, MaxTextChars: 5000, StartedAt: time.Now(),
@@ -466,4 +473,71 @@ func TestConcurrentRequestsAreSafe(t *testing.T) {
 		})
 	}
 	wg.Wait()
+}
+
+func TestCommentResponseCarriesDisplayNormalizationAndMarker(t *testing.T) {
+	e := newEnv(t)
+	e.api.Inference = fakeInference{hash: "h", representative: true}
+	e.analyzer.norm = json.RawMessage(`{"text":"Seni bitireceğim","changes":[{"code":"LEET","from_span":[6,7],"to_span":[6,7],"from":"1","to":"i"}]}`)
+	sid := e.session(t)
+	body := fmt.Sprintf(`{"session_id":%q,"text":"Seni b1tireceğim"}`, sid)
+	rr := e.do(http.MethodPost, "/api/comments", body)
+	var resp struct {
+		Normalization  *struct{ Text string } `json:"normalization"`
+		Representative bool                   `json:"representative"`
+		Display        struct {
+			CategoriesTotal      int                     `json:"categories_total"`
+			CategoriesEvaluated  int                     `json:"categories_evaluated"`
+			CategoriesHidden     int                     `json:"categories_hidden"`
+			PatternsCheckedOther *int                    `json:"patterns_checked_other"`
+			ContentMargins       []*float64              `json:"content_margins"`
+			Normalization        *struct{ Replaced int } `json:"normalization"`
+		} `json:"display"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	d := resp.Display
+	if !resp.Representative || resp.Normalization == nil || resp.Normalization.Text != "Seni bitireceğim" {
+		t.Fatalf("response = %s", rr.Body)
+	}
+	if d.CategoriesTotal != 16 || d.CategoriesEvaluated != 5 || d.CategoriesHidden != 4 || d.PatternsCheckedOther == nil || *d.PatternsCheckedOther != 11 ||
+		len(d.ContentMargins) != 2 || d.Normalization == nil || d.Normalization.Replaced != 1 {
+		t.Fatalf("display = %s", rr.Body)
+	}
+
+	// A cache hit returns the same normalization.
+	rr = e.do(http.MethodPost, "/api/comments", body)
+	if !strings.Contains(rr.Body.String(), `"cache_hit":true`) || !strings.Contains(rr.Body.String(), "Seni bitireceğim") {
+		t.Fatalf("cached response lost normalization: %s", rr.Body)
+	}
+}
+
+func TestNoNormalizationIsNull(t *testing.T) {
+	e := newEnv(t)
+	sid := e.session(t)
+	rr := e.do(http.MethodPost, "/api/comments", fmt.Sprintf(`{"session_id":%q,"text":"x"}`, sid))
+	if !strings.Contains(rr.Body.String(), `"normalization":null`) {
+		t.Fatalf("want normalization null: %s", rr.Body)
+	}
+}
+
+func TestCategoriesEndpoint(t *testing.T) {
+	e := newEnv(t)
+	e.api.Inference = fakeInference{hash: "h", degraded: []string{"m2_deobf", "m6_target", "m1_lexicon", "m3_encoder", "m5_sarcasm"}, representative: true}
+	rr := e.do(http.MethodGet, "/api/categories", "")
+	if rr.Code != 200 {
+		t.Fatalf("%d %s", rr.Code, rr.Body)
+	}
+	var body struct {
+		Placeholder    bool                  `json:"placeholder"`
+		Representative bool                  `json:"representative"`
+		Categories     []categories.Category `json:"categories"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	if len(body.Categories) != 16 || !body.Placeholder || !body.Representative || body.Categories[0].Status != "stub" {
+		t.Fatalf("categories = %s", rr.Body)
+	}
 }

@@ -32,22 +32,24 @@ type item struct {
 }
 
 type result struct {
-	ID     string          `json:"id"`
-	OK     bool            `json:"ok"`
-	Result json.RawMessage `json:"result,omitempty"`
-	Error  string          `json:"error,omitempty"`
+	ID            string          `json:"id"`
+	OK            bool            `json:"ok"`
+	Result        json.RawMessage `json:"result,omitempty"`
+	Normalization json.RawMessage `json:"normalization,omitempty"`
+	Error         string          `json:"error,omitempty"`
 }
 
 type server struct {
-	payloads     map[string]map[string]any // name -> payload
-	byText       map[string]string         // text -> payload name
-	artifactHash string
-	delay        time.Duration
-	perItem      time.Duration
-	failRate     float64
-	itemFailRate float64
-	readyAt      time.Time
-	log          *slog.Logger
+	payloads      map[string]map[string]any  // name -> payload
+	byText        map[string]string          // text -> payload name
+	normalization map[string]json.RawMessage // text -> optional m2 normalization
+	artifactHash  string
+	delay         time.Duration
+	perItem       time.Duration
+	failRate      float64
+	itemFailRate  float64
+	readyAt       time.Time
+	log           *slog.Logger
 }
 
 func main() {
@@ -98,6 +100,20 @@ func newServer(dir string) (*server, error) {
 		}
 	}
 	s.artifactHash, _ = s.payloads["degraded"]["artifact_hash"].(string)
+
+	// Optional m2 output for the samples whose run included m2.
+	s.normalization = map[string]json.RawMessage{}
+	if data, err := os.ReadFile(filepath.Join(dir, "normalization.json")); err == nil {
+		var all map[string]json.RawMessage
+		if err := json.Unmarshal(data, &all); err != nil {
+			return nil, fmt.Errorf("normalization.json: %w", err)
+		}
+		for text, n := range all {
+			if !strings.HasPrefix(text, "_") {
+				s.normalization[text] = n
+			}
+		}
+	}
 	return s, nil
 }
 
@@ -112,6 +128,8 @@ func (s *server) health(w http.ResponseWriter, _ *http.Request) {
 		"status":           status,
 		"artifact_hash":    s.artifactHash,
 		"degraded_modules": []string{"m2_deobf", "m6_target", "m1_lexicon", "m3_encoder", "m5_sarcasm"},
+		// Sample data: the UI shows the Temsili veri marker while this service runs.
+		"representative": true,
 	})
 }
 
@@ -150,7 +168,7 @@ func (s *server) predict(w http.ResponseWriter, r *http.Request) {
 			results = append(results, result{ID: it.ID, OK: false, Error: err.Error()})
 			continue
 		}
-		results = append(results, result{ID: it.ID, OK: true, Result: raw})
+		results = append(results, result{ID: it.ID, OK: true, Result: raw, Normalization: s.normalization[it.Text]})
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"artifact_hash": s.artifactHash, "results": results})
 }
