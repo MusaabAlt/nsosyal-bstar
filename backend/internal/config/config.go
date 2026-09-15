@@ -35,6 +35,7 @@ type Config struct {
 	Cache     Cache     `yaml:"cache"`
 	Database  Database  `yaml:"database"`
 	Writer    Writer    `yaml:"writer"`
+	Decision  Decision  `yaml:"decision"`
 	Log       Log       `yaml:"log"`
 }
 
@@ -120,6 +121,13 @@ type Writer struct {
 	WriteTimeout  time.Duration `yaml:"write_timeout"`
 }
 
+type Decision struct {
+	// ThresholdsFile is the decision layer's own config (thresholds and
+	// actions), read for the Kategoriler page. Relative paths are resolved
+	// from the folder that holds config.yaml.
+	ThresholdsFile string `yaml:"thresholds_file"`
+}
+
 type Log struct {
 	Level  string `yaml:"level"`  // debug | info | warn | error
 	Format string `yaml:"format"` // json | text
@@ -187,6 +195,9 @@ func Default() Config {
 			BatchSize:     200,
 			FlushInterval: 250 * time.Millisecond,
 			WriteTimeout:  5 * time.Second,
+		},
+		Decision: Decision{
+			ThresholdsFile: "../AI/decision/thresholds.yaml",
 		},
 		Log: Log{
 			Level:  "info",
@@ -301,6 +312,7 @@ func (c Config) Validate() error {
 	check(c.Writer.BatchSize > 0, "writer.batch_size must be > 0")
 	check(c.Writer.FlushInterval > 0, "writer.flush_interval must be > 0")
 	check(c.Writer.WriteTimeout > 0, "writer.write_timeout must be > 0")
+	check(c.Decision.ThresholdsFile != "", "decision.thresholds_file is required")
 
 	switch c.Log.Level {
 	case "debug", "info", "warn", "error":

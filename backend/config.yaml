@@ -72,6 +72,11 @@ writer:
   flush_interval: 250ms
   write_timeout: 5s
 
+decision:
+  # The decision layer's thresholds and actions, shown on the Kategoriler page.
+  # Relative to this file's folder.
+  thresholds_file: "../AI/decision/thresholds.yaml"
+
 log:
   level: info                   # debug | info | warn | error
   format: json                  # json | text
