@@ -39,6 +39,8 @@ function onKeydown(event: KeyboardEvent) {
       @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)"
       @keydown="onKeydown"
     />
+    <!-- pages-spec 2.2: the progress indicator appears directly beneath the text area. -->
+    <slot name="below" />
     <div class="text-area__footer">
       <span class="text-area__counter" :class="{ 'text-area__counter--long': count > 1000 }">{{ count }}</span>
       <slot name="actions" />

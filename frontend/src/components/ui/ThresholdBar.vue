@@ -7,19 +7,23 @@ import { copy } from '@/copy'
  * design-system 4.9: one category against ITS OWN threshold. Never an
  * aggregate, an average or a global threshold.
  *
- * Colour comes from `fired` as the decision layer set it. This component
- * never compares score and threshold: the fill width and tick position are
- * drawn at the values the payload carries, and the sentence under the bar is
- * chosen from `fired`, not computed. That is why the difference in points
- * suggested in 4.9 is not shown: it would be a number the API did not return
- * (design-system 6).
+ *   Above the bar: category label left; score right, in the fill colour.
+ *   The bar: 4px track, fill proportional to the score, --status-block when
+ *            the category fired, --status-neutral when it did not.
+ *   The tick: 2px wide, 10px tall at the threshold's own position.
+ *   Under the tick: "eşik 0.62".
+ *   Beneath: one sentence, "Skor kendi eşiğini 0.32 puan aşıyor".
+ *
+ * `fired` is the decision layer's. `margin` (score minus threshold) is
+ * computed by the server and only formatted here; this component compares
+ * nothing (design-system 6).
  */
 const props = defineProps<{
   label: string
-  code: string
   score: number
   threshold: number | null
   fired: boolean | null
+  margin: number | null
   /** Set when an active guard suppressed this code. */
   suppressedBy?: string | null
 }>()
@@ -33,8 +37,13 @@ const scoreText = computed(() => formatScore(props.score))
 const thresholdText = computed(() => formatScore(props.threshold))
 const sentence = computed(() => {
   if (props.suppressedBy) return copy.stages.suppressedSentence(props.suppressedBy)
-  if (props.fired === true) return copy.stages.firedSentence
-  if (props.fired === false) return copy.stages.notFiredSentence
+  const points = props.margin === null ? null : formatScore(Math.abs(props.margin))
+  if (props.fired === true) return points !== null ? copy.stages.marginAbove(points) : copy.stages.firedSentence
+  if (props.fired === false) {
+    return points !== null && props.margin !== null && props.margin < 0
+      ? copy.stages.marginBelow(points)
+      : copy.stages.notFiredSentence
+  }
   return copy.stages.undecidedSentence
 })
 </script>
@@ -42,7 +51,7 @@ const sentence = computed(() => {
 <template>
   <div class="threshold-bar" :class="{ 'threshold-bar--fired': fired === true }">
     <div class="threshold-bar__top">
-      <span class="threshold-bar__label">{{ label }} <span class="threshold-bar__code">{{ code }}</span></span>
+      <span class="threshold-bar__label">{{ label }}</span>
       <span class="threshold-bar__score">{{ scoreText ?? copy.status.noData }}</span>
     </div>
 
@@ -89,10 +98,6 @@ const sentence = computed(() => {
   font-weight: 500;
   line-height: 1.4;
   color: var(--text-primary);
-}
-.threshold-bar__code {
-  font-weight: 400;
-  color: var(--text-muted);
 }
 .threshold-bar__score {
   font-size: 15px;

@@ -17,7 +17,7 @@ import { copy } from '@/copy'
  * editable above, report beneath in two columns.
  */
 const text = ref('')
-const { phase, result, errorText, analyze } = useAnalysis(analysisSource)
+const { phase, result, extras, errorText, analyze } = useAnalysis(analysisSource)
 
 const canSubmit = computed(() => text.value.trim() !== '' && phase.value !== 'analysing')
 
@@ -42,14 +42,15 @@ function usePreset(presetText: string) {
         :label="copy.analiz.inputLabel"
         @submit="submit"
       >
+        <template #below>
+          <ProgressIndicator v-if="phase === 'analysing'" class="analiz__progress" :label="copy.analiz.submitting" />
+        </template>
         <template #actions>
           <BaseButton variant="primary" :disabled="!canSubmit" @click="submit">
             {{ phase === 'analysing' ? copy.analiz.submitting : copy.analiz.submit }}
           </BaseButton>
         </template>
       </TextArea>
-
-      <ProgressIndicator v-if="phase === 'analysing'" class="analiz__progress" :label="copy.analiz.submitting" />
 
       <div class="analiz__presets" role="group" :aria-label="copy.analiz.presetsLabel">
         <BaseButton
@@ -65,7 +66,7 @@ function usePreset(presetText: string) {
 
     <div v-if="phase === 'report' || phase === 'error'" class="analiz__result">
       <div class="analiz__report">
-        <ReportView v-if="phase === 'report' && result" :result="result" />
+        <ReportView v-if="phase === 'report' && result" :result="result" :extras="extras" />
         <ErrorState v-else :line="errorText" :retry-label="copy.analiz.retry" @retry="submit" />
       </div>
       <ConsequenceColumn class="analiz__consequence" :result="phase === 'report' ? result : null" />

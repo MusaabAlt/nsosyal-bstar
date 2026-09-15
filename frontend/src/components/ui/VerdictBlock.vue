@@ -9,13 +9,14 @@ import type { VerdictView } from '@/report/model'
  * The verdict and the latency are the largest elements on screen and sit at
  * the top (pages-spec 2.3). No left accent bar.
  *
- * Incomplete: grey, never green, never "Temiz". In place of the single
- * sentence it lists the parts that did not run, by name. The line
- * "16 kategoriden N'i değerlendirildi" from 4.12 is not shown: the response
- * does not carry N, and the screen computes no totals (design-system 6).
- * The explanation is kept beneath the list, verbatim, because under
- * degradation a more severe verdict can still stand and only the decision
- * layer's sentence says so.
+ * Verdict block: the word, and beneath it one sentence naming what produced
+ * the outcome (the decision layer's explanation, verbatim).
+ *
+ * Incomplete block: grey, never green, never "Temiz". In place of the single
+ * sentence, a plain list of the parts that did not run, by name, and one
+ * line stating how many of the sixteen categories were evaluated. That
+ * number comes from the server (display.categories_evaluated); the decision
+ * layer's sentence is still shown in stage 9.
  */
 const props = defineProps<{ view: VerdictView; latencyMs: number }>()
 
@@ -28,18 +29,16 @@ const latency = computed(() => formatMs(props.latencyMs))
       <h2 class="verdict__word">{{ view.word }}</h2>
 
       <template v-if="view.tone === 'incomplete'">
-        <template v-if="view.moduleStatusKnown">
-          <p class="verdict__list-heading">{{ copy.verdict.notRunHeading }}</p>
-          <ul class="verdict__list">
-            <li v-for="item in view.notRun" :key="item.module">
-              {{ item.module }} <span class="verdict__kinds">{{ item.kinds.join(', ') }}</span>
-            </li>
-          </ul>
-        </template>
+        <p v-if="view.evaluated" class="verdict__sentence">
+          {{ copy.verdict.evaluated(view.evaluated.total, view.evaluated.n) }}
+        </p>
+        <ul v-if="view.moduleStatusKnown" class="verdict__list" :aria-label="copy.verdict.notRunHeading">
+          <li v-for="item in view.notRun" :key="item.module">{{ item.module }}</li>
+        </ul>
         <p v-else class="verdict__sentence">{{ copy.verdict.moduleStatusMissing }}</p>
       </template>
 
-      <p class="verdict__sentence">{{ view.explanation }}</p>
+      <p v-else class="verdict__sentence">{{ view.explanation }}</p>
     </div>
 
     <div class="verdict__metric" :aria-label="copy.verdict.latencyLabel">
@@ -89,8 +88,7 @@ const latency = computed(() => formatMs(props.latencyMs))
   line-height: 1.15;
   color: var(--tone);
 }
-.verdict__sentence,
-.verdict__list-heading {
+.verdict__sentence {
   margin: 12px 0 0;
   max-width: 80ch;
   font-size: 16px;
@@ -98,15 +96,12 @@ const latency = computed(() => formatMs(props.latencyMs))
   color: var(--text-body);
 }
 .verdict__list {
-  margin: 4px 0 0;
+  margin: 12px 0 0;
   padding: 0;
   list-style: none;
   font-size: 16px;
   line-height: 1.6;
   color: var(--text-body);
-}
-.verdict__kinds {
-  color: var(--text-muted);
 }
 .verdict__metric {
   display: flex;

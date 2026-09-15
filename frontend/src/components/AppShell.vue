@@ -1,14 +1,25 @@
 <script setup lang="ts">
+import { onMounted } from 'vue'
 import NavItem from '@/components/ui/NavItem.vue'
 import DemoMarker from '@/components/ui/DemoMarker.vue'
-import { analysisSource } from '@/api'
+import { dataMode } from '@/api'
+import { loadRepresentative } from '@/api/httpSource'
+import { representative, setRepresentative } from '@/api/representative'
 import { copy } from '@/copy'
 
 /*
  * pages-spec 1 and design-system 3: fixed 220px sidebar with a plain-text
  * heading (no logo, version, avatar or settings icon) and two routes; the
  * content column is max 1280px, centred, 32px side padding.
+ *
+ * The Temsili veri marker (4.19) is shown while sample data is rendered: in
+ * sample mode always, against the API whenever the model service says its
+ * data is representative (the mock inference service).
  */
+onMounted(() => {
+  if (dataMode === 'mock') setRepresentative(true)
+  else void loadRepresentative()
+})
 </script>
 
 <template>
@@ -23,7 +34,7 @@ import { copy } from '@/copy'
         <RouterView />
       </div>
     </main>
-    <DemoMarker v-if="analysisSource.representative" />
+    <DemoMarker v-if="representative" />
   </v-app>
 </template>
 

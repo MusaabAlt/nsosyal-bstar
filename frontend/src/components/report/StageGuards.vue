@@ -46,7 +46,9 @@ function suppressedList(view: GuardView): string {
 </script>
 
 <template>
-  <StageRow :number="stage.number" :name="stage.name" :status="stage.status" :line="stage.line" emphasis>
+  <!-- Stage 7 carries more visual weight than stage 3: even its "none" line is body text, not a muted note. -->
+  <StageRow :number="stage.number" :name="stage.name" :status="stage.status">
+    <p v-if="stage.active.length === 0 && stage.line" class="stage-guards__sentence">{{ stage.line }}</p>
     <div v-if="stage.active.length > 0" class="stage-guards">
       <article v-for="(view, i) in stage.active" :key="`${view.guard.code}-${i}`" class="stage-guards__item">
         <h4 class="stage-guards__name">{{ guardLabel(view.guard.code) }}</h4>

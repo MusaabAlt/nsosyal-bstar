@@ -4,6 +4,20 @@
  * reviewed in one place. Strings quoted in docs/UI are copied verbatim; the
  * rest are marked "ours".
  */
+/**
+ * Turkish accusative suffix after a number, by how the number is read:
+ * 4'ü (dört), 5'i (beş), 6'sı (altı), 0'ı (sıfır), 10'u (on), 16'sı (on altı).
+ */
+export function accusative(n: number): string {
+  const units = ["'ı", "'i", "'si", "'ü", "'ü", "'i", "'sı", "'si", "'i", "'u"]
+  const tens = ["", "'u", "'si", "'u", "'ı", "'si", "'ı", "'i", "'i", "'ı"]
+  const abs = Math.abs(Math.trunc(n))
+  if (abs % 10 !== 0 || abs === 0) return units[abs % 10] ?? "'i"
+  if (abs % 100 !== 0) return tens[(abs / 10) % 10] ?? "'i"
+  if (abs % 1000 !== 0) return "'ü" // yüz
+  return "'i" // bin
+}
+
 export const copy = {
   app: {
     sidebarHeading: 'İçerik Moderasyon Paneli', // pages-spec 1
@@ -40,6 +54,7 @@ export const copy = {
     latencyLabel: 'Gecikme', // ours: accessible name for the latency metric
     notRunHeading: 'Çalışmayan modüller', // ours
     moduleStatusMissing: 'Yanıt modül durumunu içermiyor.', // ours
+    evaluated: (total: number, n: number) => `${total} kategoriden ${n}${accusative(n)} değerlendirildi`, // design-system 4.12
   },
 
   comparison: {
@@ -64,10 +79,17 @@ export const copy = {
 
     charsafeNone: 'Şüpheli karakter bulunamadı', // pages-spec stage 2
     obfuscationNone: 'Gizleme kalıbı bulunamadı', // ours
-    confidence: 'güven', // ours
     rawText: 'ham metin', // design-system 4.10
     recoveredText: 'çözülmüş metin',
     normalizationNone: 'Yanıt ham ve çözülmüş metin skorlarını içermiyor.', // ours
+    normalizationMissing: 'Çözülmüş metin yanıtta yok.', // ours
+    removedChars: (n: number) => `${n} karakter kaldırıldı`, // pages-spec stage 4 (`4 ayırıcı karakter kaldırıldı`)
+    replacedChars: (n: number) => `${n} karakter değiştirildi`, // ours, same form
+    noChanges: 'Metinde değişiklik yapılmadı', // ours
+    patternsCheckedOther: (n: number) => `Kontrol edilen diğer ${n} kalıpta eşleşme yok`, // pages-spec stage 3
+    hiddenCategories: (n: number) => `Eşik altındaki ${n} kategori gösterilmiyor`, // pages-spec stage 5
+    marginAbove: (points: string) => `Skor kendi eşiğini ${points} puan aşıyor`, // design-system 4.9
+    marginBelow: (points: string) => `Skor kendi eşiğinin ${points} puan altında`, // ours, the same sentence for a code that did not fire
     contentNone: 'Değerlendirilen kategori yok', // ours
     thresholdPrefix: 'eşik', // design-system 4.9: "eşik 0.62"
     thresholdMissing: 'eşik yok', // ours
@@ -76,6 +98,7 @@ export const copy = {
     undecidedSentence: 'Karar katmanı bu skor için karar vermedi.',
     suppressedSentence: (guard: string) => `${guard} kontrolü bu kategoriyi bilerek bastırdı.`,
     targetNone: 'Hedef bulunamadı', // ours
+    targetWords: { individual: 'birey', group: 'grup', non_human: 'insan dışı', none: 'yok' } as Record<string, string>, // pages-spec stage 6
     guardsNone: 'Hiçbir koruyucu kontrol tetiklenmedi', // pages-spec stage 7
     guardPrevented: (guard: string, codes: string) => `${guard} kontrolü şu sinyali bastırdı: ${codes}.`, // ours
     guardDeliberate:
@@ -126,6 +149,9 @@ export const copy = {
 
   kategoriler: {
     title: 'Kategoriler',
+    placeholderNote: 'Eşik ve eylem değerleri geçicidir; henüz geliştirme verisinde türetilmedi.', // ours: thresholds.yaml marks them placeholder
+    live: 'canlı', // ours: module status column
+    loadError: 'Kategori listesi alınamadı.', // ours
     columns: {
       code: 'Kod',
       label: 'Etiket',

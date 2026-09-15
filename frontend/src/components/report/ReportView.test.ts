@@ -10,25 +10,75 @@ import degradedJson from '@/api/mocks/degraded.json'
 import cleanJson from '@/api/mocks/clean.json'
 import flaggedJson from '@/api/mocks/flagged.json'
 import guardJson from '@/api/mocks/guard.json'
+import { resolveMock } from '@/api/mockSource'
+import type { Extras } from '@/api/source'
 
 const vuetify = createVuetify({ components })
 const load = (json: unknown) => JSON.parse(JSON.stringify(json)) as AnalysisResult
-const render = (result: AnalysisResult) => mount(ReportView, { props: { result }, global: { plugins: [vuetify] } })
+const global = { plugins: [vuetify], stubs: { RouterLink: { template: '<a><slot /></a>' } } }
+const render = (result: AnalysisResult, extras?: Extras) => mount(ReportView, { props: { result, extras }, global })
+
+/** A sample text with the exact result and extras the Go backend sends for it. */
+function sample(text: string) {
+  const outcome = resolveMock(text, null)
+  if (!outcome.ok) throw new Error('sample failed')
+  return outcome
+}
 
 describe('report renders each state from its payload', () => {
-  it('degraded: incomplete, every missing module by name and kind, explanation verbatim, never Temiz', () => {
-    const r = load(degradedJson)
-    const w = render(r)
+  it('degraded: incomplete, every missing module by name, the evaluated count, never Temiz', () => {
+    const { result: r, extras } = sample('herhangi bir metin')
+    const w = render(r, extras)
     const verdict = w.find('.verdict')
     expect(verdict.classes()).toContain('verdict--incomplete')
     expect(verdict.find('.verdict__word').text()).toBe('Değerlendirme tamamlanmadı')
     for (const d of r.signals.pipeline!.degraded!) {
       expect(verdict.text()).toContain(d.module)
     }
-    expect(verdict.text()).toContain('stub')
+    expect(verdict.text()).toContain("16 kategoriden 0'ı değerlendirildi")
+    // 4.12: the list replaces the single sentence; the explanation is still shown in stage 9.
+    expect(verdict.text()).not.toContain(r.explanation)
     expect(w.text()).toContain(r.explanation)
     expect(verdict.text()).not.toContain('Temiz')
     expect(w.findAll('.status-word--moduleUnavailable').length).toBeGreaterThanOrEqual(5)
+  })
+
+  it('without server extras the count line is left out, never guessed', () => {
+    const w = render(load(degradedJson))
+    expect(w.find('.verdict').text()).not.toContain('kategoriden')
+  })
+
+  it('flagged: the docs lines with the server numbers', () => {
+    const { result, extras } = sample('Seni b1tireceğim')
+    const w = render(result, extras)
+    const bars = w.findAllComponents(ThresholdBar)
+    // 4.9: label only above the bar, and the relationship in words with its own margin.
+    expect(bars[0]!.find('.threshold-bar__label').text()).toBe('Tehdit')
+    expect(bars[0]!.text()).toContain('Skor kendi eşiğini 0.37 puan aşıyor')
+    expect(bars[1]!.text()).toContain('Skor kendi eşiğinin 0.38 puan altında')
+    // Stage 3 and stage 5 lines.
+    expect(w.text()).toContain('Kontrol edilen diğer 11 kalıpta eşleşme yok')
+    expect(w.text()).toContain('Eşik altındaki 4 kategori gösterilmiyor')
+    // Stage 4: original, what changed, recovered text with the recovered character highlighted.
+    const stage4 = w.findAll('.stage-row')[3]!
+    expect(stage4.text()).toContain('1 karakter değiştirildi')
+    const evidences = stage4.findAll('.evidence')
+    expect(evidences.map((e) => e.text())).toEqual(['Seni b1tireceğim', 'Seni bitireceğim'])
+    expect(evidences[1]!.find('.evidence__hl').text()).toBe('i')
+  })
+
+  it('stage 3 rows show name, substring and confidence only', () => {
+    const { result, extras } = sample('Seni b1tireceğim')
+    const row = render(result, extras).find('.patterns tr')
+    expect(row.findAll('th, td').map((c) => c.text())).toEqual(['Rakam/sembol ikamesi', '1', '0.90'])
+  })
+
+  it('stage 6 uses the target words from pages-spec', () => {
+    const { result, extras } = sample('Seni b1tireceğim')
+    result.target = { type: 'group', confidence: 0.8, evidence: 'Seni', span: [0, 4], source: 'm6_target' }
+    result.per_module_ms.m6_target = 1
+    const stage6 = render(result, extras).findAll('.stage-row')[5]!
+    expect(stage6.find('.stage-target__type').text()).toBe('grup')
   })
 
   it('shows the measured latency to one decimal', () => {

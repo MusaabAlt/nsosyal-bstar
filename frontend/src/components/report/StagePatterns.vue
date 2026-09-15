@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 import StageRow from '@/components/ui/StageRow.vue'
 import EvidenceText from '@/components/ui/EvidenceText.vue'
-import StatusWord from '@/components/ui/StatusWord.vue'
 import { formLabel } from '@/contract/labels'
 import { formatScore } from '@/lib/format'
 import { isValidSpan, codePointLength, type Mark } from '@/lib/spans'
@@ -10,14 +9,17 @@ import { copy } from '@/copy'
 import type { PatternStage } from '@/report/model'
 
 /*
- * pages-spec stages 2 (Karakter güvenliği) and 3 (Gizleme tespiti). One row
- * per detected pattern: Turkish pattern name, the exact substring that
- * triggered it, and the module's confidence to two decimals. Patterns the
- * decision layer marked active show "tetiklendi"; the rest "eşik altında".
+ * pages-spec stage 2 (Karakter güvenliği):
+ *   Found: each character rendered in position within the string,
+ *   highlighted, with its Unicode name beside it. m0's evidence carries the
+ *   Unicode names ("removed 1x [ZERO WIDTH SPACE] ...") and is shown verbatim.
+ *   None: "Şüpheli karakter bulunamadı".
  *
- * Stage 2 asks for each character's Unicode name and stage 3 for
- * "Kontrol edilen diğer N kalıpta eşleşme yok": the response carries neither,
- * so neither is shown (design-system 6).
+ * pages-spec stage 3 (Gizleme tespiti):
+ *   One row per detected pattern: the Turkish pattern name, the exact
+ *   substring that triggered it, and the module's confidence to two decimals.
+ *   Beneath the list: "Kontrol edilen diğer N kalıpta eşleşme yok", N from
+ *   the server.
  */
 const props = defineProps<{ stage: PatternStage }>()
 
@@ -27,6 +29,12 @@ const marks = computed<Mark[]>(() => {
     .filter((p) => isValidSpan(p.span, length))
     .map((p) => ({ span: p.span!, kind: 'highlight' as const }))
 })
+
+const checkedLine = computed(() =>
+  props.stage.kind === 'obfuscation' && props.stage.checkedOther !== null
+    ? copy.stages.patternsCheckedOther(props.stage.checkedOther)
+    : null,
+)
 </script>
 
 <template>
@@ -35,23 +43,27 @@ const marks = computed<Mark[]>(() => {
     :name="stage.name"
     :status="stage.status"
     :duration-ms="stage.durationMs"
-    :line="stage.line"
+    :line="stage.patterns.length > 0 ? checkedLine : (checkedLine ?? stage.line)"
   >
     <template v-if="stage.patterns.length > 0">
       <EvidenceText v-if="marks.length > 0" :text="stage.text" :marks="marks" />
-      <table class="patterns">
+
+      <table v-if="stage.kind === 'obfuscation'" class="patterns">
         <tbody>
           <tr v-for="(p, i) in stage.patterns" :key="`${p.code}-${i}`">
             <th scope="row" class="patterns__name">{{ formLabel(p.code) }}</th>
             <td class="patterns__evidence">{{ p.evidence }}</td>
-            <td class="patterns__confidence">
-              {{ formatScore(p.confidence) ?? copy.status.noData }}
-              <span class="patterns__unit">{{ copy.stages.confidence }}</span>
-            </td>
-            <td class="patterns__status"><StatusWord :status="p.active ? 'triggered' : 'below'" /></td>
+            <td class="patterns__confidence">{{ formatScore(p.confidence) ?? copy.status.noData }}</td>
           </tr>
         </tbody>
       </table>
+
+      <ul v-else class="characters">
+        <li v-for="(p, i) in stage.patterns" :key="`${p.code}-${i}`">
+          <span class="characters__name">{{ formLabel(p.code) }}</span>
+          <span class="characters__evidence">{{ p.evidence }}</span>
+        </li>
+      </ul>
     </template>
   </StageRow>
 </template>
@@ -59,7 +71,6 @@ const marks = computed<Mark[]>(() => {
 <style scoped>
 .patterns {
   width: 100%;
-  margin-top: 12px;
   border-collapse: collapse;
 }
 .patterns tr {
@@ -85,17 +96,34 @@ const marks = computed<Mark[]>(() => {
   unicode-bidi: plaintext;
 }
 .patterns__confidence {
+  width: 1%;
+  padding-right: 0;
   text-align: right;
   color: var(--text-body);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
-.patterns__unit {
-  font-size: 12px;
-  color: var(--text-muted);
+.characters {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
 }
-.patterns__status {
-  text-align: right;
-  width: 1%;
+.characters li {
+  display: flex;
+  gap: 16px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.characters__name {
+  flex-shrink: 0;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+.characters__evidence {
+  color: var(--text-body);
+  overflow-wrap: anywhere;
 }
 </style>

@@ -9,6 +9,8 @@ import type {
   ThreadSignal,
 } from '@/contract/types'
 import { copy } from '@/copy'
+import type { Display, Extras, Normalization } from '@/api/source'
+import { NO_EXTRAS } from '@/api/source'
 
 /*
  * Turns one AnalysisResult into what the report shows.
@@ -16,8 +18,9 @@ import { copy } from '@/copy'
  * Hard rule (AMIN_BRIEF 6, design-system 6): this file READS decisions, it
  * never makes them. verdict, fired, active and suppressed come from the
  * payload; no score is ever compared with a threshold, and no number is
- * computed. The only derived things are which word to show for fields that
- * are already decided, and the display order.
+ * computed here. The only derived things are which word to show for fields
+ * that are already decided, and the display order. Numbers docs/UI asks for
+ * that the result lacks arrive in extras.display, computed by the server.
  */
 
 // ---------------------------------------------------------------- statuses
@@ -39,6 +42,8 @@ export interface VerdictView {
   moduleStatusKnown: boolean
   /** Verbatim from the decision layer. */
   explanation: string
+  /** `16 kategoriden N'i değerlendirildi` (4.12); null when the server did not send it. */
+  evaluated: { total: number; n: number } | null
 }
 
 /**
@@ -58,8 +63,10 @@ export function degradedModules(result: AnalysisResult): DegradedModule[] | null
  * this screen can produce (prohibition 17). A response that does not say
  * which modules ran is treated the same way: fail closed.
  */
-export function verdictView(result: AnalysisResult): VerdictView {
+export function verdictView(result: AnalysisResult, extras: Extras = NO_EXTRAS): VerdictView {
   const degraded = degradedModules(result)
+  const d = extras.display
+  const evaluated = d ? { total: d.categories_total, n: d.categories_evaluated } : null
   if (degraded === null || degraded.length > 0) {
     return {
       word: copy.verdict.incomplete,
@@ -67,9 +74,10 @@ export function verdictView(result: AnalysisResult): VerdictView {
       notRun: degraded ?? [],
       moduleStatusKnown: degraded !== null,
       explanation: result.explanation,
+      evaluated,
     }
   }
-  const base = { notRun: [], moduleStatusKnown: true, explanation: result.explanation }
+  const base = { notRun: [], moduleStatusKnown: true, explanation: result.explanation, evaluated }
   switch (result.verdict) {
     case 'block':
       return { ...base, word: copy.verdict.block, tone: 'block' }
@@ -168,6 +176,8 @@ export interface PatternStage extends StageBase {
   kind: 'charsafe' | 'obfuscation'
   text: string
   patterns: Array<FormPattern & { active: boolean }>
+  /** `Kontrol edilen diğer N kalıpta eşleşme yok` (stage 3); null when not sent. */
+  checkedOther: number | null
 }
 
 export interface ScorePairView {
@@ -180,10 +190,16 @@ export interface NormalizationStage extends StageBase {
   text: string
   patterns: FormPattern[]
   scorePair: ScorePairView | null
+  /** m2's recovered text and changes, when the model service sent them. */
+  normalization: Normalization | null
+  /** Counts for `4 ayırıcı karakter kaldırıldı`, computed by the server. */
+  changeSummary: Display['normalization']
 }
 
 export interface ContentRow {
   entry: ContentScore
+  /** score minus threshold as the server computed it (4.9); null when not sent. */
+  margin: number | null
   /** Label of the active guard that suppressed this code, if any. */
   suppressedBy: GuardResult | null
 }
@@ -191,6 +207,8 @@ export interface ContentRow {
 export interface ContentStage extends StageBase {
   kind: 'content'
   rows: ContentRow[]
+  /** `Eşik altındaki N kategori gösterilmiyor` (stage 5); null when not sent. */
+  hidden: number | null
 }
 
 export interface TargetStage extends StageBase {
@@ -241,6 +259,7 @@ function patternStage(
   module: ModuleName,
   belongs: (p: FormPattern) => boolean,
   noneLine: string,
+  checkedOther: number | null,
 ): PatternStage {
   const active = new Set(result.form?.active ?? [])
   const patterns = (result.form?.patterns ?? []).filter(belongs).map((p) => ({ ...p, active: active.has(p.code) }))
@@ -257,10 +276,20 @@ function patternStage(
   } else {
     ;({ status, line } = unavailable(state))
   }
-  return { kind, number, name, status, line, durationMs: moduleDuration(result, module), text: result.text, patterns }
+  return {
+    kind,
+    number,
+    name,
+    status,
+    line,
+    durationMs: moduleDuration(result, module),
+    text: result.text,
+    patterns,
+    checkedOther,
+  }
 }
 
-function normalizationStage(result: AnalysisResult): NormalizationStage {
+function normalizationStage(result: AnalysisResult, extras: Extras): NormalizationStage {
   const state = moduleState(result, 'm2_deobf')
   const channels = result.signals?.decision?.binary_offensive?.channels
   const raw = channels?.raw
@@ -274,6 +303,7 @@ function normalizationStage(result: AnalysisResult): NormalizationStage {
   let status: StatusKey
   let line: string | null = null
   if (scorePair) status = scorePair.normalized.fired === true ? 'triggered' : 'below'
+  else if (extras.normalization) status = extras.normalization.changes.length > 0 ? 'triggered' : 'passed'
   else if (state === 'ran') {
     status = 'passed'
     line = copy.stages.normalizationNone
@@ -290,6 +320,8 @@ function normalizationStage(result: AnalysisResult): NormalizationStage {
     text: result.text,
     patterns: result.form?.patterns ?? [],
     scorePair,
+    normalization: extras.normalization,
+    changeSummary: extras.display?.normalization ?? null,
   }
 }
 
@@ -297,10 +329,13 @@ function activeGuards(result: AnalysisResult): GuardResult[] {
   return (result.guards ?? []).filter((g) => g.active === true)
 }
 
-function contentStage(result: AnalysisResult): ContentStage {
+function contentStage(result: AnalysisResult, extras: Extras): ContentStage {
   const guards = activeGuards(result)
-  const rows: ContentRow[] = (result.content ?? []).map((entry) => ({
+  const margins = extras.display?.content_margins
+  // Margins follow result.content order: attach them before sorting.
+  const rows: ContentRow[] = (result.content ?? []).map((entry, i) => ({
     entry,
+    margin: typeof margins?.[i] === 'number' ? (margins[i] as number) : null,
     suppressedBy: guards.find((g) => g.suppressed?.includes(entry.code)) ?? null,
   }))
   // Fired first, then the rest; each group by score, highest first (pages-spec stage 5).
@@ -322,7 +357,8 @@ function contentStage(result: AnalysisResult): ContentStage {
     line = copy.stages.contentNone
   } else ({ status, line } = unavailable('absent'))
 
-  return { kind: 'content', number: 5, name: copy.stages.content, status, line, durationMs: null, rows }
+  const hidden = extras.display ? extras.display.categories_hidden : null
+  return { kind: 'content', number: 5, name: copy.stages.content, status, line, durationMs: null, rows, hidden }
 }
 
 function targetStage(result: AnalysisResult): TargetStage {
@@ -380,7 +416,7 @@ function threadStage(result: AnalysisResult): ThreadStage {
   return { kind: 'thread', number: 8, name: copy.stages.thread, status, line, durationMs: null, thread }
 }
 
-export function buildStages(result: AnalysisResult): Stage[] {
+export function buildStages(result: AnalysisResult, extras: Extras = NO_EXTRAS): Stage[] {
   const stages: Stage[] = [
     {
       kind: 'input',
@@ -391,10 +427,18 @@ export function buildStages(result: AnalysisResult): Stage[] {
       durationMs: null,
       text: result.text,
     },
-    patternStage(result, 'charsafe', 2, 'm0_charsafe', (p) => p.source === 'm0_charsafe', copy.stages.charsafeNone),
-    patternStage(result, 'obfuscation', 3, 'm2_deobf', (p) => p.source !== 'm0_charsafe', copy.stages.obfuscationNone),
-    normalizationStage(result),
-    contentStage(result),
+    patternStage(result, 'charsafe', 2, 'm0_charsafe', (p) => p.source === 'm0_charsafe', copy.stages.charsafeNone, null),
+    patternStage(
+      result,
+      'obfuscation',
+      3,
+      'm2_deobf',
+      (p) => p.source !== 'm0_charsafe',
+      copy.stages.obfuscationNone,
+      extras.display?.patterns_checked_other ?? null,
+    ),
+    normalizationStage(result, extras),
+    contentStage(result, extras),
     targetStage(result),
     guardsStage(result),
     threadStage(result),

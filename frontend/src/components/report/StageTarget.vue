@@ -2,17 +2,22 @@
 import { computed } from 'vue'
 import StageRow from '@/components/ui/StageRow.vue'
 import EvidenceText from '@/components/ui/EvidenceText.vue'
-import { targetLabel } from '@/contract/labels'
 import { isValidSpan, codePointLength, type Mark } from '@/lib/spans'
+import { copy } from '@/copy'
 import type { TargetStage } from '@/report/model'
 
-/* pages-spec stage 6: target type in Turkish and the evidence highlighted in position. */
+/*
+ * pages-spec stage 6: target type in Turkish (birey, grup, insan dışı, yok)
+ * and the evidence substring that identified it, highlighted in position.
+ */
 const props = defineProps<{ stage: TargetStage }>()
 
 const marks = computed<Mark[]>(() => {
   const span = props.stage.target?.span
   return isValidSpan(span, codePointLength(props.stage.text)) ? [{ span, kind: 'highlight' }] : []
 })
+
+const word = computed(() => (props.stage.target ? (copy.stages.targetWords[props.stage.target.type] ?? props.stage.target.type) : null))
 </script>
 
 <template>
@@ -21,26 +26,20 @@ const marks = computed<Mark[]>(() => {
     :name="stage.name"
     :status="stage.status"
     :duration-ms="stage.durationMs"
-    :line="stage.line"
+    :line="stage.target ? null : stage.line"
   >
-    <template v-if="stage.target && stage.target.type !== 'none'">
-      <p class="stage-target__type">{{ targetLabel(stage.target.type) }}</p>
+    <template v-if="stage.target">
+      <p class="stage-target__type">{{ word }}</p>
       <EvidenceText v-if="marks.length > 0" :text="stage.text" :marks="marks" />
-      <p v-else class="stage-target__evidence">{{ stage.target.evidence }}</p>
     </template>
   </StageRow>
 </template>
 
 <style scoped>
 .stage-target__type {
-  margin: 0 0 8px;
+  margin: 0;
   font-size: 16px;
   font-weight: 500;
   color: var(--text-primary);
-}
-.stage-target__evidence {
-  margin: 0;
-  font-size: 14px;
-  color: var(--text-body);
 }
 </style>

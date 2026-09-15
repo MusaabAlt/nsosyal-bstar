@@ -12,15 +12,16 @@ import StageThread from './StageThread.vue'
 import StageReason from './StageReason.vue'
 import { buildStages, verdictView } from '@/report/model'
 import type { AnalysisResult } from '@/contract/types'
+import { NO_EXTRAS, type Extras } from '@/api/source'
 
 /*
  * pages-spec 2.3: verdict and latency at the top, then the comparison pair,
  * then the nine stages in the order the pipeline ran.
  */
-const props = defineProps<{ result: AnalysisResult }>()
+const props = defineProps<{ result: AnalysisResult; extras?: Extras }>()
 
-const verdict = computed(() => verdictView(props.result))
-const stages = computed(() => buildStages(props.result))
+const verdict = computed(() => verdictView(props.result, props.extras ?? NO_EXTRAS))
+const stages = computed(() => buildStages(props.result, props.extras ?? NO_EXTRAS))
 </script>
 
 <template>
