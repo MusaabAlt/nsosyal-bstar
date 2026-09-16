@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "vite --host",
     "build": "vue-tsc -b && vite build",
     "build:backend": "vue-tsc -b && vite build --outDir ../backend/web/dist --emptyOutDir && node scripts/keep-dist.mjs && node scripts/check-offline.mjs ../backend/web/dist",
     "preview": "vite preview",
