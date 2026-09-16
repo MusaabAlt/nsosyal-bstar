@@ -259,3 +259,24 @@ func (q *Queries) countInto(ctx context.Context, into map[string]int64, sql stri
 	}
 	return rows.Err()
 }
+
+// encodeCursorKey is encodeCursor for rows keyed by text instead of a uuid.
+func encodeCursorKey(t time.Time, key string) string {
+	return base64.RawURLEncoding.EncodeToString([]byte(t.UTC().Format(time.RFC3339Nano) + "|" + key))
+}
+
+func decodeCursorKey(s string) (time.Time, string, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(s)
+	if err != nil {
+		return time.Time{}, "", ErrBadCursor
+	}
+	ts, key, ok := strings.Cut(string(raw), "|")
+	if !ok || key == "" {
+		return time.Time{}, "", ErrBadCursor
+	}
+	t, err := time.Parse(time.RFC3339Nano, ts)
+	if err != nil {
+		return time.Time{}, "", ErrBadCursor
+	}
+	return t, key, nil
+}

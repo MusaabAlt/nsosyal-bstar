@@ -138,6 +138,7 @@ func run() error {
 	reg := metrics.NewRegistry()
 	api := handlers.New(handlers.Deps{
 		Store:        queries,
+		Panel:        queries,
 		Writer:       writer,
 		Analyzer:     batcher,
 		Inference:    client,

@@ -7,6 +7,7 @@
 //	GET  /api/stats                  live numbers for the dashboard
 //	GET  /api/health                 Go, Python and Postgres status
 //	GET  /api/categories             what the AI detects, with threshold, action and status
+//	/api/panel/*                     the moderation panel (panel.go)
 package handlers
 
 import (
@@ -75,11 +76,13 @@ type CachedAnalysis struct {
 }
 
 type Deps struct {
-	Store        Store
-	Writer       Writer
-	Analyzer     Analyzer
-	Inference    Inference
-	Categories   Categories
+	Store      Store
+	Writer     Writer
+	Analyzer   Analyzer
+	Inference  Inference
+	Categories Categories
+	// Panel serves /api/panel/*; nil leaves those routes unregistered.
+	Panel        PanelStore
 	Cache        *cache.LRU[CachedAnalysis]
 	Metrics      *metrics.Registry
 	Log          *slog.Logger
@@ -92,6 +95,7 @@ type API struct {
 	Deps
 	sessions *cache.LRU[bool] // known session ids, so most requests skip the DB check
 	stats    statsCache
+	overview overviewCache
 }
 
 func New(d Deps) *API {
@@ -110,6 +114,9 @@ func (a *API) Register(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/stats", a.getStats)
 	mux.HandleFunc("GET /api/health", a.getHealth)
 	mux.HandleFunc("GET /api/categories", a.getCategories)
+	if a.Panel != nil {
+		a.registerPanel(mux)
+	}
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		respond.Error(w, http.StatusNotFound, respond.CodeNotFound, "no such endpoint", 0)
 	})
