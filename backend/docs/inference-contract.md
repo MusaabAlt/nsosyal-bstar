@@ -74,6 +74,10 @@ Other statuses:
   "status": "ok",
   "artifact_hash": "57466e…",
   "degraded_modules": ["m2_deobf", "m6_target"],
+  "capabilities": [
+    { "code": "A1", "module": "m1_lexicon" },
+    { "code": "binary_offensive", "module": "m3_encoder" }
+  ],
   "representative": false
 }
 ```
@@ -83,6 +87,7 @@ Other statuses:
 | `status` | `ok`, `loading` or `error`. Answer `loading` while models load, never a timeout. |
 | `artifact_hash` | Same value as in batch responses. |
 | `degraded_modules` | Modules that are stubs or failed to load. Kategoriler marks their categories `modül hazır değil`. |
+| `capabilities` | What the AI can detect **today** and which module produces it (`AI/serving/capabilities.py`). Kategoriler lists only these, and "N kategoriden M'i değerlendirildi" counts only these. `binary_offensive` is the decision layer's channel-level offensive score, shown as "Genel saldırganlık". Update the list in the same change that makes a module emit a new code. |
 | `representative` | `true` only for a service that returns sample data. The screen then shows the `Temsili veri` marker. The real service sends `false`. |
 
 ## Limits Go enforces

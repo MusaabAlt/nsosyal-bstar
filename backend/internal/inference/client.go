@@ -8,7 +8,8 @@
 //	                                          | {"id", "ok": false, "error": "..."}]}
 //	  503 while models are loading
 //	GET  /health         {"status": "ok" | "loading" | "error", "artifact_hash": "...",
-//	                      "degraded_modules": [...], "representative": false}
+//	                      "degraded_modules": [...], "capabilities": [{"code", "module"}],
+//	                      "representative": false}
 package inference
 
 import (
@@ -51,6 +52,8 @@ type Health struct {
 	Status          string   `json:"status"` // ok | loading | error | unreachable
 	ArtifactHash    string   `json:"artifact_hash,omitempty"`
 	DegradedModules []string `json:"degraded_modules,omitempty"`
+	// Capabilities is what the AI detects today and which module produces it.
+	Capabilities []domain.Capability `json:"capabilities,omitempty"`
 	// Representative is true when the service returns sample data (the mock),
 	// so the UI shows the Temsili veri marker (design-system 4.19).
 	Representative bool         `json:"representative"`
@@ -199,10 +202,11 @@ func (c *Client) predict(ctx context.Context, items []domain.PredictItem) ([]dom
 }
 
 type healthResponse struct {
-	Status          string   `json:"status"`
-	ArtifactHash    string   `json:"artifact_hash"`
-	DegradedModules []string `json:"degraded_modules"`
-	Representative  bool     `json:"representative"`
+	Status          string              `json:"status"`
+	ArtifactHash    string              `json:"artifact_hash"`
+	DegradedModules []string            `json:"degraded_modules"`
+	Capabilities    []domain.Capability `json:"capabilities"`
+	Representative  bool                `json:"representative"`
 }
 
 // CheckHealth calls GET /health, records the result and returns it. The
@@ -228,6 +232,7 @@ func (c *Client) CheckHealth(ctx context.Context) Health {
 				h.ArtifactHash = parsed.ArtifactHash
 				h.DegradedModules = parsed.DegradedModules
 				h.Representative = parsed.Representative
+				h.Capabilities = parsed.Capabilities
 			}
 		}
 	}

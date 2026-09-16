@@ -29,6 +29,14 @@ type PredictOutcome struct {
 	Err           error
 }
 
+// Capability is one thing the AI detects and the module that produces it, as
+// the inference service reports it in /health (AI/serving/capabilities.py).
+// Code is a content code (A1 ...) or "binary_offensive".
+type Capability struct {
+	Code   string `json:"code"`
+	Module string `json:"module"`
+}
+
 // Actions, most severe first (AI/contracts/codes.py ACTION_PRECEDENCE).
 const (
 	ActionBlock    = "block"

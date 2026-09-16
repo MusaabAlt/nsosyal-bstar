@@ -128,6 +128,11 @@ func (s *server) health(w http.ResponseWriter, _ *http.Request) {
 		"status":           status,
 		"artifact_hash":    s.artifactHash,
 		"degraded_modules": []string{"m2_deobf", "m6_target", "m1_lexicon", "m3_encoder", "m5_sarcasm"},
+		// What the real service reports today (AI/serving/capabilities.py).
+		"capabilities": []map[string]string{
+			{"code": "A1", "module": "m1_lexicon"},
+			{"code": "binary_offensive", "module": "m3_encoder"},
+		},
 		// Sample data: the UI shows the Temsili veri marker while this service runs.
 		"representative": true,
 	})
