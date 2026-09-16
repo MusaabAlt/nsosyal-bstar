@@ -1,0 +1,13 @@
+/bin/
+*.exe
+*.test
+*.out
+
+# Built frontend (make frontend). .keep lets go:embed compile before the first build.
+/web/dist/*
+!/web/dist/.keep
+
+# Local secrets. .env.example is the committed template.
+.env
+.env.*
+!.env.example

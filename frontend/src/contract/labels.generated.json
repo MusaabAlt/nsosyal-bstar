@@ -1,0 +1,150 @@
+{
+  "source": "AI/contracts/codes.py",
+  "enums": {
+    "ContentCode": {
+      "A1": "A1",
+      "A2": "A2",
+      "A3": "A3",
+      "A4": "A4",
+      "B1": "B1",
+      "B2": "B2",
+      "B3": "B3",
+      "B4": "B4",
+      "B5": "B5",
+      "C1": "C1",
+      "C2": "C2",
+      "C3": "C3",
+      "C4": "C4",
+      "C5": "C5",
+      "D1": "D1",
+      "CLEAN": "CLEAN"
+    },
+    "FormCode": {
+      "LEET": "LEET",
+      "SPACED": "SPACED",
+      "PUNCT_SPLIT": "PUNCT_SPLIT",
+      "REPEAT": "REPEAT",
+      "CHAR_DROP": "CHAR_DROP",
+      "WORD_MERGE": "WORD_MERGE",
+      "ABBREV": "ABBREV",
+      "DEASCII": "DEASCII",
+      "DOTLESS_I": "DOTLESS_I",
+      "VOWEL_DROP": "VOWEL_DROP",
+      "SUFFIX_ON_MASKED": "SUFFIX_ON_MASKED",
+      "DIALECT": "DIALECT",
+      "HOMOGLYPH": "HOMOGLYPH",
+      "ZERO_WIDTH": "ZERO_WIDTH",
+      "EMOJI_SUB": "EMOJI_SUB",
+      "PHONETIC": "PHONETIC"
+    },
+    "GuardCode": {
+      "SUBSTRING_COLLISION": "SUBSTRING_COLLISION",
+      "NEGATION": "NEGATION",
+      "QUOTE_COUNTERSPEECH": "QUOTE_COUNTERSPEECH",
+      "METADISCUSSION": "METADISCUSSION",
+      "SELF_DIRECTED": "SELF_DIRECTED",
+      "FRIENDLY_BANTER": "FRIENDLY_BANTER",
+      "DUAL_REGISTER": "DUAL_REGISTER",
+      "HOMONYM": "HOMONYM",
+      "NON_HUMAN_TARGET": "NON_HUMAN_TARGET"
+    },
+    "TargetType": {
+      "INDIVIDUAL": "individual",
+      "GROUP": "group",
+      "NON_HUMAN": "non_human",
+      "NONE": "none"
+    },
+    "Action": {
+      "BLOCK": "block",
+      "ESCALATE": "escalate",
+      "REVIEW": "review",
+      "NUDGE": "nudge",
+      "CLEAN": "clean"
+    },
+    "Family": {
+      "A": "A",
+      "B": "B",
+      "C": "C",
+      "D": "D",
+      "CLEAN": "CLEAN"
+    },
+    "ModuleName": {
+      "M0_CHARSAFE": "m0_charsafe",
+      "M1_LEXICON": "m1_lexicon",
+      "M2_DEOBF": "m2_deobf",
+      "M3_ENCODER": "m3_encoder",
+      "M4_IMPLICIT": "m4_implicit",
+      "M5_SARCASM": "m5_sarcasm",
+      "M6_TARGET": "m6_target"
+    }
+  },
+  "labels": {
+    "ContentCode": {
+      "A1": "Hedefsiz küfür",
+      "A2": "Bireye yönelik küfür",
+      "A3": "Gruba yönelik küfür",
+      "A4": "Kutsal değerlere yönelik küfür",
+      "B1": "Aşağılama",
+      "B2": "Tehdit",
+      "B3": "Lanetleme / dışlama",
+      "B4": "Kişisel bilgi ifşası (doxing)",
+      "B5": "Cinsel saldırganlık",
+      "C1": "Kalıp yargı",
+      "C2": "Aşağılık atfetme",
+      "C3": "Kodlu dil",
+      "C4": "Kışkırtma",
+      "C5": "Karalama / iftira",
+      "D1": "Aşağılayıcı alay",
+      "CLEAN": "Temiz"
+    },
+    "Family": {
+      "A": "Açık küfür",
+      "B": "Sözcük dışı saldırganlık",
+      "C": "Örtük saldırganlık",
+      "D": "Aşağılayıcı ironi",
+      "CLEAN": "Temiz"
+    },
+    "FormCode": {
+      "LEET": "Rakam/sembol ikamesi",
+      "SPACED": "Harf arası boşluk",
+      "PUNCT_SPLIT": "Noktalama ile bölme",
+      "REPEAT": "Harf tekrarı",
+      "CHAR_DROP": "Harf düşürme",
+      "WORD_MERGE": "Sözcük birleştirme",
+      "ABBREV": "Kısaltma",
+      "DEASCII": "Türkçe karaktersiz yazım",
+      "DOTLESS_I": "Noktalı/noktasız i oyunu",
+      "VOWEL_DROP": "Ünlü düşürme",
+      "SUFFIX_ON_MASKED": "Maskelenmiş köke ek",
+      "DIALECT": "Ağız / yöresel yazım",
+      "HOMOGLYPH": "Benzer görünümlü karakter",
+      "ZERO_WIDTH": "Görünmez karakter",
+      "EMOJI_SUB": "Emoji ikamesi",
+      "PHONETIC": "Sesletime dayalı yazım"
+    },
+    "GuardCode": {
+      "SUBSTRING_COLLISION": "Alt dizi çakışması",
+      "NEGATION": "Olumsuzlama",
+      "QUOTE_COUNTERSPEECH": "Alıntı / karşı söylem",
+      "METADISCUSSION": "Dil üzerine tartışma",
+      "SELF_DIRECTED": "Kendine yönelik",
+      "FRIENDLY_BANTER": "Dostça takılma",
+      "DUAL_REGISTER": "Çift anlamlı kullanım",
+      "HOMONYM": "Eş sesli sözcük",
+      "NON_HUMAN_TARGET": "İnsan dışı hedef"
+    },
+    "TargetType": {
+      "individual": "Birey",
+      "group": "Grup",
+      "non_human": "İnsan dışı",
+      "none": "Hedef yok"
+    },
+    "Action": {
+      "block": "Engelle",
+      "escalate": "Üst incelemeye ilet",
+      "review": "İncelemeye al",
+      "nudge": "Uyar",
+      "clean": "Temiz"
+    }
+  }
+}
