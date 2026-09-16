@@ -1,3 +1,5 @@
+> **Updated 2026-09-15 by Musaab.** Changes: (1) the A, B and C heads are **deferred**: no labelled data exists; m3 inference wraps the epoch-1 baseline (see START_HERE); (2) the sarcasm corpus must be **named and reported to Musaab before any access request**; (3) the frozen split for your first number is now fixed; (4) m3's torch/transformers/scikit-learn are pinned, so use Python 3.11–3.13. Start with [`abdullah/START_HERE.md`](abdullah/START_HERE.md).
+
 **Assistant: before anything else, read `AI/CLAUDE.md`, `AI/modules/README.md`, `AI/modules/m3_encoder/spec.md` and `AI/modules/m5_sarcasm/spec.md`. This file is NOT the spec: the specs in the repo are the single source of truth, and if this file and a spec ever disagree, the spec wins.**
 
 ## Role
@@ -12,9 +14,9 @@ You carry the heaviest modelling load in the project: the shared Turkish encoder
 
 ## Day one
 
-**Before any code, send the access request for the Turkish sarcasm corpus** described in m5 spec §2. m5's entry gate depends on the reply, which may take weeks; a refusal means the fallback dataset, and if neither is available the D1 claim is dropped. Record the date you sent it in the gate record (m5 spec §11).
+**Before any m5 code, identify the Turkish sarcasm corpus** described in m5 spec §2 (exact name, version, size, authors, contact) and **request access from the authors directly**. Record the corpus name and the request (date, who, how) in `AI/modules/m5_sarcasm/spec.md` §2. m5's entry gate depends on their reply, which may take weeks; a refusal means the fallback dataset, and if neither is available the D1 claim is dropped. No m5 code until the gate resolves.
 
-Then, Python 3.11 or newer, in Git Bash:
+Then, Python 3.11 to 3.13 (the pinned scikit-learn 1.6.1 in m3's requirements has no wheel for 3.14), in Git Bash:
 
 ```bash
 git clone https://github.com/MusaabAlt/nsosyal-bstar.git
@@ -30,11 +32,11 @@ python -m pip install -r modules/m3_encoder/requirements.txt   # m3's heavy deps
 ## Order of work
 
 1. m3 starts immediately; it is the largest single piece of work in the project. First the written banned-dataset check and the declared truncation policy (m3 spec §5, §9), both before training.
-2. **First deliverable: m3's A head**, then the B head (multi-label), then the C head.
-3. Artifact row, measured latency and decision-flip table (m3 spec §7, §8).
+2. **The A, B and C heads are deferred**: no labelled data exists for any of them. m3 inference already wraps the epoch-1 baseline. Current tasks are in [`abdullah/START_HERE.md`](abdullah/START_HERE.md).
+3. Measured latency and decision-flip table for the m3 artifact (m3 spec §7, §8).
 4. m5 only once its entry gate has passed (m5 spec §2). Until then m5 stays a stub.
 
-**Done for your first deliverable** means the A head scores every input on both channels (`m3_encoder@raw`, `m3_encoder@normalized`) on the `A1` carrier only, never `A2` or `A3`; publishes `raw_score`, `norm_score` and `artifact`; leaves `threshold` and `fired` as `None`; and reports per-code precision, recall and F1 **with confidence intervals on a frozen split**, both channels separately, from `python -m modules.m3_encoder.eval`.
+Data, split, baseline and what is still open: [`abdullah/RESOURCES.md`](abdullah/RESOURCES.md).
 
 ## Testing in isolation
 
@@ -63,7 +65,7 @@ Use `assertEqual` on fixed values. Rule 4's scan rejects numeric literals in com
 
 ## When to stop and ask Musaab
 
-Stop for: any change to a spec; any change to `AI/contracts/`; a threshold outside your own rows; a policy decision; or anything the spec does not cover, including which frozen split the first number is measured on, and whether a dataset outside m3 spec §5 may be used.
+Stop for: any change to a spec; any change to `AI/contracts/`; a threshold outside your own rows; a policy decision; or anything the spec does not cover, including whether a dataset outside m3 spec §5 may be used, and anything listed under "Open — Musaab owes you this" in [`abdullah/RESOURCES.md`](abdullah/RESOURCES.md). (The frozen split is no longer an open question: it is `diagnosis/data/splits/split_seed42.json`.)
 
 ## Before every commit
 

@@ -9,7 +9,7 @@
 
 Produce a profanity signal that is **independent of the neural model**, and precise enough that it never fires on a clean word that happens to contain a profane substring.
 
-This module exists for two reasons. First, it gives the decision layer a second opinion that fails in a different way than the model does. Second, it is the instrument that splits the evaluation set into the `lexicon_hit` and `lexicon_free` slices — the split the entire project is built on. If this module is sloppy, every number downstream is wrong.
+This module exists for two reasons. First, it gives the decision layer a second opinion that fails in a different way than the model does. Second, it is the runtime lexicon signal; the evaluation set's `lexicon_hit` / `lexicon_free` slices — the split the entire project is built on — are not recomputed from it but read from `AI/eval/frozen/study_slice_dev.json`, produced once by the study's own matcher (owner decision, 2026-09-15). If this module is sloppy, every number downstream is wrong.
 
 ---
 
@@ -103,7 +103,7 @@ The Turkish community repository `90pixel/kufur-filtresi` splits its list into t
 - [ ] Zero positives on the full trap list. Any regression fails the build.
 - [ ] Every `ContentScore` and every `GuardResult` emitted carries the span of the exact substring that triggered it (ADR-001). A unit test asserts `span is not None` on every output item and that `text[start:end]` is the matched root or colliding word.
 - [ ] Recall and FPR reported with CIs, on both the raw and normalized channels, separately.
-- [ ] `out.signals` always carries `lexicon_hit`, `lexicon_hit_raw` and `lexicon_hit_norm` as booleans, on every input including empty and no-match inputs. The lexicon-hit / lexicon-free slice split is defined by it, and M4's stage 1b (`threshold_when: {signal: m1_lexicon.lexicon_hit}`, ADR-006) resolves against it; if the signal is missing the decision layer silently falls back to the scalar threshold and the slice split is lost. A unit test asserts all three keys are present and boolean.
+- [ ] `out.signals` always carries `lexicon_hit`, `lexicon_hit_raw` and `lexicon_hit_norm` as booleans, on every input including empty and no-match inputs. The evaluation's lexicon-hit / lexicon-free slice is not defined by it but read from `AI/eval/frozen/study_slice_dev.json` (§1, owner decision 2026-09-15); M4's stage 1b (`threshold_when: {signal: m1_lexicon.lexicon_hit}`, ADR-006) resolves against it at runtime, and if the signal is missing the decision layer silently falls back to the scalar threshold. A unit test asserts all three keys are present and boolean.
 - [ ] `SUBSTRING_COLLISION` guard fires and is counted whenever a root is found but the boundary test rejects it.
 - [ ] Sacred-concept extension table committed, with a source for each added root.
 - [ ] `terlik` vs `karaliste` comparison committed.

@@ -18,8 +18,17 @@
     },
     "m2_deobf": {},
     "m6_target": {},
-    "m1_lexicon": {},
-    "m3_encoder": {},
+    "m1_lexicon": {
+      "lexicon_hit": false,
+      "lexicon_hit_raw": false,
+      "lexicon_hit_norm": false,
+      "matched_roots": [],
+      "engine": "terlik 0.1.0 balanced"
+    },
+    "m3_encoder": {
+      "raw_score": 0.02141149342060089,
+      "artifact": "m3-berturk-pytorch-fp32-epoch1"
+    },
     "m4_implicit": {},
     "m5_sarcasm": {},
     "pipeline": {
@@ -35,24 +44,6 @@
         },
         {
           "module": "m6_target",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
-        {
-          "module": "m1_lexicon",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
-        {
-          "module": "m3_encoder",
           "kinds": [
             "stub"
           ],
@@ -84,28 +75,24 @@
       "family_a": null,
       "threshold_branches": [],
       "binary_offensive": {
-        "threshold": 0.5,
+        "threshold": 0.320188,
         "branch": "scalar",
         "signal": null,
         "signal_value": null,
         "channels": {
           "raw": {
-            "score": null,
-            "fired": null
-          },
-          "normalized": {
-            "score": null,
-            "fired": null
+            "score": 0.02141149342060089,
+            "fired": false
           }
         },
-        "fired": null,
+        "fired": false,
         "action": "review"
       },
       "channel_scores": [],
       "post_offensive": false
     }
   },
-  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m2_deobf henüz uygulanmadı, m6_target henüz uygulanmadı, m1_lexicon henüz uygulanmadı, m3_encoder henüz uygulanmadı, m5_sarcasm henüz uygulanmadı.",
+  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m2_deobf henüz uygulanmadı, m6_target henüz uygulanmadı, m5_sarcasm henüz uygulanmadı.",
   "latency_ms": 0.0,
   "per_module_ms": {
     "m0_charsafe": 0.0,
@@ -118,13 +105,11 @@
   },
   "fast_path": false,
   "trace_id": "example-trace-id",
-  "artifact_hash": "5a2fa46738f645f2fa08d27bba1950cdbde19021c0b5ee8c5b658251dddd5381",
+  "artifact_hash": "4dd6d64b047ddd2d1c01dc6b66e96a8aadb41b63d02a3f155e6acabe08f4ab7f",
   "notes": [
-    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m2_deobf (stub), m6_target (stub), m1_lexicon (stub), m3_encoder (stub), m5_sarcasm (stub)",
+    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m2_deobf (stub), m6_target (stub), m5_sarcasm (stub)",
     "[m2_deobf] stub: detection not implemented",
     "[m6_target] stub: detection not implemented",
-    "[m1_lexicon] stub: detection not implemented",
-    "[m3_encoder] stub: detection not implemented",
     "[m5_sarcasm] stub: detection not implemented"
   ]
 }

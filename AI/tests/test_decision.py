@@ -45,8 +45,8 @@ class DecisionTest(unittest.TestCase):
             fusion.validate_config(bad)
 
     def test_artifact_status_and_derived_on_must_agree(self) -> None:
-        self.assertEqual((self.base_cfg["artifact"]["status"], self.base_cfg["artifact"]["derived_on"]),
-                         ("placeholder", None))
+        self.assertEqual(self.base_cfg["artifact"]["status"], "derived")   # binary_offensive only (owner, 2026-09-15)
+        self.assertIsNotNone(self.base_cfg["artifact"]["derived_on"])
         for status, derived_on in (("derived", None), ("placeholder", "dev-2026-09"), ("final", None)):
             bad = copy.deepcopy(self.cfg)
             bad["artifact"].update(status=status, derived_on=derived_on)
@@ -239,6 +239,8 @@ class DecisionTest(unittest.TestCase):
 
     def test_binary_offensive_uses_signal_conditioned_threshold(self) -> None:
         self.cfg["binary_offensive"].update(threshold=0.9, action="review",
+                                            channels={"raw": "m3_encoder.raw_score",
+                                                      "normalized": "m3_encoder.norm_score"},
                                             threshold_when={"signal": "m1_lexicon.lexicon_hit", True: 0.7, False: 0.4})
         signals = {"m1_lexicon": {"lexicon_hit": False}, "m3_encoder": {"raw_score": 0.5, "norm_score": 0.2}}
         result = fusion.decide(AnalysisResult(text="x", signals=signals), self.cfg)

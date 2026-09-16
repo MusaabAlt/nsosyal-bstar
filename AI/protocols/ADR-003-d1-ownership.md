@@ -108,3 +108,51 @@ generates both; `--check` (run by `scripts/check.sh`) covers both.
 
 The contract is re-frozen immediately after this change.
 
+
+## Amendment — analysis example after m1_lexicon implemented (2026-09-15)
+
+- **Decided by:** project owner (explicit instruction, after reviewing the dry-run diff)
+
+`contracts/fixtures/analysis_result.example.json` regenerated with
+`python -m pipeline.contract_example --write`. It was stale because `m1_lexicon`
+stopped being a stub (version `0.0.0` -> `0.1.0`). Every difference comes from that:
+
+- `signals.m1_lexicon` now carries `lexicon_hit`, `lexicon_hit_raw`,
+  `lexicon_hit_norm` (all false on the example sentence), `matched_roots`, `engine`.
+- `m1_lexicon` is gone from `signals.pipeline.degraded`, the explanation and the
+  pipeline notes.
+- `artifact_hash` changed, from two inputs in the same commit: m1's version and
+  m1's latency budget in `decision/thresholds.yaml`, which became per input length
+  like m0's (owner decision, placeholders to measure on the demo machine).
+  Verified: with m1 back at `0.0.0` and its budget back at `5` the hash reproduces
+  the previous value exactly; nothing else in the decision config changed.
+
+`contracts/fixtures/module_output.example.json` regenerated identically. No
+contract code, type or field changed. The contract is re-frozen immediately after
+this change.
+
+## Amendment — analysis example after m3 wraps the baseline and binary_offensive is derived (2026-09-15)
+
+- **Decided by:** project owner (explicit instruction)
+
+`contracts/fixtures/analysis_result.example.json` regenerated with
+`python -m pipeline.contract_example --write` after two owner-approved changes in the same
+commit, and nothing else:
+
+- `m3_encoder` 0.1.0 wraps the frozen epoch-1 BERTurk checkpoint
+  (`m3-berturk-pytorch-fp32-epoch1`): `signals.m3_encoder` carries `raw_score` and
+  `artifact`; m3 is gone from `signals.pipeline.degraded`, the explanation and the notes.
+- `decision/thresholds.yaml`: `binary_offensive.threshold` 0.50 -> 0.320188, the
+  `normalized` channel removed, artifact `thresholds-v0.1.0` (derived, `binary_offensive`
+  only; `protocols/threshold_derivation_binary_offensive_stage1.md`). The example's
+  `signals.decision.binary_offensive` shows the new threshold, the raw score and
+  `fired: false`; `artifact_hash` changed with the config and m3's version.
+- `decision/thresholds.yaml`: `budgets.latency_p95_ms` 150 -> 250, still a placeholder
+  ("provisional; re-measure on the demo machine"; owner decision after m3 made the
+  pipeline p95 185 ms). It changes only `artifact_hash` in the example.
+
+The example now contains a model output (`raw_score`), so it is current only on a machine
+that has the m3 artifact files (artifacts/MANIFEST.md) and torch 2.11.0 / transformers
+5.15.0. Two consecutive generations were byte-identical on the machine that wrote it.
+`module_output.example.json` regenerated identically. No contract code, type or field
+changed. The contract is re-frozen immediately after this change.
