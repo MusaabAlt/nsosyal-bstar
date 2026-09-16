@@ -18,13 +18,16 @@ export interface AnalyzeError {
  * nothing (design-system 6).
  */
 export interface Display {
-  categories_total: number
-  categories_evaluated: number
-  categories_hidden: number
+  /** Categories the AI detects today (AI/serving/capabilities.py); null when not reported. */
+  categories_total: number | null
+  categories_evaluated: number | null
+  categories_hidden: number | null
   /** null when m2 did not run: no pattern was checked. */
   patterns_checked_other: number | null
   /** Same order as result.content; null where the threshold is null. */
   content_margins: Array<number | null>
+  /** Score minus threshold of signals.decision.binary_offensive; null without both. */
+  binary_offensive_margin: number | null
   normalization: { removed: number; replaced: number } | null
 }
 

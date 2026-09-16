@@ -2,24 +2,25 @@
 import { computed, onMounted, ref } from 'vue'
 import StatusWord from '@/components/ui/StatusWord.vue'
 import ErrorState from '@/components/ui/ErrorState.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 import { dataMode } from '@/api'
-import { loadCategories, type Category, type CategoryList } from '@/api/categories'
+import { BINARY_OFFENSIVE, loadCategories, type Category, type CategoryList } from '@/api/categories'
 import { contentLabel, familyLabel } from '@/contract/labels'
 import { formatScore } from '@/lib/format'
 import { copy } from '@/copy'
 import type { Action, Family } from '@/contract/types'
 
 /*
- * pages-spec 3: a static reference listing all sixteen content categories
- * with their thresholds. A table: code, Turkish label, one-line definition,
- * threshold, the action firing it produces, and whether that module is live
- * or still a stub. Grouped by family with a plain heading above each group.
- * No scores appear here.
+ * pages-spec 3: a static reference of the categories with their thresholds.
+ * A table: code, Turkish label, one-line definition, threshold, the action
+ * firing it produces, and whether that module is live or still a stub.
+ * Grouped by family with a plain heading above each group. No scores.
  *
- * Code and label come from the contract (codes.py); threshold, action and
- * status from GET /api/categories, which reads AI/decision/thresholds.yaml
- * and the model service's health. No Turkish definitions exist yet, so that
- * column renders "veri yok".
+ * Only what the AI can detect today is listed: the inference service reports
+ * it (AI/serving/capabilities.py) and GET /api/categories adds threshold and
+ * action from AI/decision/thresholds.yaml. The BERTurk offensive score is not
+ * a contract code, so it sits in its own "Genel" group. No Turkish
+ * definitions exist yet, so that column renders "veri yok".
  */
 const state = ref<'loading' | 'ready' | 'error'>('loading')
 const list = ref<CategoryList | null>(null)
@@ -32,13 +33,26 @@ const ACTION_WORD: Record<Action, string> = {
   clean: copy.verdict.clean,
 }
 
-const FAMILY_ORDER: Family[] = ['A', 'B', 'C', 'D', 'CLEAN']
+const FAMILY_ORDER: Array<Family | ''> = ['A', 'B', 'C', 'D', 'CLEAN', '']
 
 const groups = computed(() =>
   FAMILY_ORDER.map((family) => ({
     family,
+    heading: family === '' ? copy.kategoriler.generalGroup : familyLabel(family),
     categories: (list.value?.categories ?? []).filter((c: Category) => c.family === family),
   })).filter((g) => g.categories.length > 0),
+)
+
+function labelOf(c: Category): string {
+  return c.code === BINARY_OFFENSIVE ? copy.stages.binaryOffensive : contentLabel(c.code)
+}
+
+/** Rows whose threshold thresholds.yaml does not record as derived. */
+const placeholderLabels = computed(() =>
+  (list.value?.categories ?? [])
+    .filter((c) => !c.derived)
+    .map(labelOf)
+    .join(', '),
 )
 
 async function load() {
@@ -62,10 +76,11 @@ onMounted(load)
     <ErrorState v-if="state === 'error'" :line="copy.kategoriler.loadError" :retry-label="copy.analiz.retry" @retry="load" />
 
     <template v-else-if="state === 'ready' && list">
-      <p v-if="list.placeholder" class="kategoriler__note">{{ copy.kategoriler.placeholderNote }}</p>
+      <EmptyState v-if="list.categories.length === 0" :line="copy.kategoriler.empty" />
+      <p v-else-if="placeholderLabels" class="kategoriler__note">{{ copy.kategoriler.placeholderNote(placeholderLabels) }}</p>
 
       <section v-for="group in groups" :key="group.family" class="kategoriler__group">
-        <h2 class="kategoriler__family">{{ familyLabel(group.family) }}</h2>
+        <h2 class="kategoriler__family">{{ group.heading }}</h2>
         <v-table class="kategoriler__table">
           <!-- Same column widths in every family table, so the groups line up. -->
           <colgroup>
@@ -88,8 +103,8 @@ onMounted(load)
           </thead>
           <tbody>
             <tr v-for="c in group.categories" :key="c.code">
-              <td class="code">{{ c.code }}</td>
-              <td>{{ contentLabel(c.code) }}</td>
+              <td class="code">{{ c.code === BINARY_OFFENSIVE ? '' : c.code }}</td>
+              <td>{{ labelOf(c) }}</td>
               <td><StatusWord status="noData" /></td>
               <td class="num">
                 <template v-if="formatScore(c.threshold) !== null">{{ formatScore(c.threshold) }}</template>

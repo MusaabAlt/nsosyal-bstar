@@ -90,7 +90,7 @@ export const copy = {
     hiddenCategories: (n: number) => `Eşik altındaki ${n} kategori gösterilmiyor`, // pages-spec stage 5
     marginAbove: (points: string) => `Skor kendi eşiğini ${points} puan aşıyor`, // design-system 4.9
     marginBelow: (points: string) => `Skor kendi eşiğinin ${points} puan altında`, // ours, the same sentence for a code that did not fire
-    contentNone: 'Değerlendirilen kategori yok', // ours
+    contentNone: 'Eşiği aşan kategori bulunmadı', // ours
     thresholdPrefix: 'eşik', // design-system 4.9: "eşik 0.62"
     thresholdMissing: 'eşik yok', // ours
     firedSentence: 'Skor kendi eşiğini aşıyor.', // ours: 4.9 relationship in words, without a computed difference
@@ -98,6 +98,7 @@ export const copy = {
     undecidedSentence: 'Karar katmanı bu skor için karar vermedi.',
     suppressedSentence: (guard: string) => `${guard} kontrolü bu kategoriyi bilerek bastırdı.`,
     targetNone: 'Hedef bulunamadı', // ours
+    binaryOffensive: 'Genel saldırganlık', // ours: the BERTurk offensive score, not a contract code
     targetWords: { individual: 'birey', group: 'grup', non_human: 'insan dışı', none: 'yok' } as Record<string, string>, // pages-spec stage 6
     guardsNone: 'Hiçbir koruyucu kontrol tetiklenmedi', // pages-spec stage 7
     guardPrevented: (guard: string, codes: string) => `${guard} kontrolü şu sinyali bastırdı: ${codes}.`, // ours
@@ -149,7 +150,9 @@ export const copy = {
 
   kategoriler: {
     title: 'Kategoriler',
-    placeholderNote: 'Eşik ve eylem değerleri geçicidir; henüz geliştirme verisinde türetilmedi.', // ours: thresholds.yaml marks them placeholder
+    placeholderNote: (labels: string) => `Eşiği henüz geliştirme verisinde türetilmedi, değer geçicidir: ${labels}.`, // ours: thresholds.yaml placeholder rows
+    generalGroup: 'Genel', // ours: heading for the offensive score, which belongs to no family
+    empty: 'Yapay zekâ hizmeti şu anda hiçbir kategori bildirmiyor.', // ours
     live: 'canlı', // ours: module status column
     loadError: 'Kategori listesi alınamadı.', // ours
     columns: {

@@ -96,9 +96,11 @@ describe('stages read decisions, they do not make them', () => {
 
     const content = stage(stages, 'content')
     expect(content.status).toBe('triggered')
-    expect(content.rows.map((r) => [r.entry.code, r.entry.score, r.entry.threshold, r.entry.fired])).toEqual([
-      ['B2', 0.87, 0.5, true],
-      ['C4', 0.12, 0.5, false],
+    // Fired first, then by score; the BERTurk offensive score (raw channel) has its own row.
+    expect(content.rows.map((r) => [r.key, r.label, r.score, r.threshold, r.fired])).toEqual([
+      ['B2', 'Tehdit', 0.87, 0.5, true],
+      ['binary_offensive', 'Genel saldırganlık', 0.44, 0.5, false],
+      ['C4', 'Kışkırtma', 0.12, 0.5, false],
     ])
 
     expect(stage(stages, 'normalization')).toMatchObject({
@@ -114,9 +116,9 @@ describe('stages read decisions, they do not make them', () => {
     const r = load(flaggedJson)
     r.content[1] = { ...r.content[1]!, score: 0.9, threshold: 0.1, fired: false }
     const content = stage(buildStages(r), 'content')
-    const c4 = content.rows.find((row) => row.entry.code === 'C4')!
-    expect(c4.entry.fired).toBe(false)
-    expect(content.rows[0]!.entry.code).toBe('B2') // fired first, regardless of score
+    const c4 = content.rows.find((row) => row.key === 'C4')!
+    expect(c4.fired).toBe(false)
+    expect(content.rows[0]!.key).toBe('B2') // fired first, regardless of score
   })
 
   it('guard: the suppression is shown as deliberate, with the suppressed entry for the underline', () => {
@@ -157,5 +159,27 @@ describe('modules and consequence', () => {
     expect(consequenceView(load(flaggedJson))).toEqual({ mode: 'queued', incomplete: false })
     expect(consequenceView({ ...load(cleanJson), verdict: 'block' }).mode).toBe('withheld')
     expect(consequenceView({ ...load(cleanJson), verdict: 'nudge' }).mode).toBe('sensitive')
+  })
+})
+
+describe('binary offensive score (m3 BERTurk)', () => {
+  it('is its own row on the raw channel, with the server margin, when m3 scored the text', () => {
+    const r = load(guardJson)
+    r.signals.decision!.binary_offensive = {
+      threshold: 0.320188, branch: 'scalar', signal: null, signal_value: null,
+      channels: { raw: { score: 0.91, fired: true } }, fired: true, action: 'review',
+    }
+    const extras = { display: { categories_total: 2, categories_evaluated: 2, categories_hidden: 0, patterns_checked_other: null, content_margins: [0.22], binary_offensive_margin: 0.589812, normalization: null }, normalization: null }
+    const content = stage(buildStages(r, extras), 'content')
+    const row = content.rows.find((x) => x.key === 'binary_offensive')!
+    expect(row).toMatchObject({ label: 'Genel saldırganlık', score: 0.91, threshold: 0.320188, fired: true, margin: 0.589812 })
+    expect(content.rows[0]!.key).toBe('binary_offensive') // fired first
+    expect(content.status).toBe('triggered')
+    expect(verdictView(r, extras).evaluated).toEqual({ total: 2, n: 2 })
+  })
+
+  it('has no row when m3 did not score (checkpoint missing: score null)', () => {
+    const r = load(degradedJson)
+    expect(stage(buildStages(r), 'content').rows).toEqual([])
   })
 })

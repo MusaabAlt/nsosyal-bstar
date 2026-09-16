@@ -11,21 +11,30 @@ const vuetify = createVuetify({ components })
 describe('Kategoriler', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  it('lists the sixteen categories by family with threshold, action and module status', async () => {
+  it('lists only what the AI detects, with threshold, action and module status', async () => {
     vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ ...categoriesJson, representative: true }), { status: 200 }))
     const w = mount(KategorilerView, { global: { plugins: [vuetify] } })
     await flushPromises()
 
     const headings = w.findAll('.kategoriler__family').map((h) => h.text())
-    expect(headings).toEqual(['Açık küfür', 'Sözcük dışı saldırganlık', 'Örtük saldırganlık', 'Aşağılayıcı ironi', 'Temiz'])
-    const rows = w.findAll('tbody tr')
-    expect(rows).toHaveLength(16)
-
-    const b2 = rows.find((r) => r.find('.code').text() === 'B2')!
-    const cells = b2.findAll('td').map((c) => c.text())
-    expect(cells).toEqual(['B2', 'Tehdit', 'veri yok', '0.50', 'İncele', 'modül hazır değil'])
-    expect(w.text()).toContain('geçicidir') // thresholds.yaml marks every value placeholder
+    expect(headings).toEqual(['Açık küfür', 'Genel'])
+    const rows = w.findAll('tbody tr').map((r) => r.findAll('td').map((c) => c.text()))
+    expect(rows).toEqual([
+      ['A1', 'Hedefsiz küfür', 'veri yok', '0.50', 'Hassas içerik', 'canlı'],
+      ['', 'Genel saldırganlık', 'veri yok', '0.32', 'İncele', 'canlı'],
+    ])
+    // A1's threshold is still a placeholder; the offensive score's was derived on dev.
+    expect(w.find('.kategoriler__note').text()).toContain('Hedefsiz küfür')
+    expect(w.find('.kategoriler__note').text()).not.toContain('Genel saldırganlık')
     expect(w.text()).not.toMatch(/skor/i) // no scores on this page
+  })
+
+  it('says so when the AI service reports nothing', async () => {
+    vi.stubGlobal('fetch', async () => new Response(JSON.stringify({ source: 'x', categories: [] }), { status: 200 }))
+    const w = mount(KategorilerView, { global: { plugins: [vuetify] } })
+    await flushPromises()
+    expect(w.text()).toContain('hiçbir kategori bildirmiyor')
+    expect(w.find('table').exists()).toBe(false)
   })
 
   it('a failed load is a readable error state with retry', async () => {

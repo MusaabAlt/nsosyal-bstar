@@ -108,7 +108,8 @@ export interface BinaryOffensive {
   branch: string
   signal: string | null
   signal_value: unknown
-  channels: { raw: ChannelReading; normalized: ChannelReading }
+  /** m3 0.1.0 publishes the raw channel only; normalized returns when a threshold exists for it. */
+  channels: { raw?: ChannelReading; normalized?: ChannelReading }
   fired: boolean | null
   action: Action | null
 }

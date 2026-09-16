@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import StageRow from '@/components/ui/StageRow.vue'
 import ThresholdBar from '@/components/ui/ThresholdBar.vue'
-import { contentLabel, guardLabel } from '@/contract/labels'
+import { guardLabel } from '@/contract/labels'
 import { copy } from '@/copy'
 import type { ContentStage } from '@/report/model'
 
 /*
  * pages-spec stage 5: one threshold bar per category the API returned, fired
- * first, then near-misses, each by score descending. Sixteen rows never
+ * first, then near-misses, each by score descending. The BERTurk offensive
+ * score (Genel saldırganlık) has its own bar against its own threshold. Sixteen rows never
  * render by default. Beneath the list, one line accounting for the rest,
  * "Eşik altındaki N kategori gösterilmiyor", linking to Kategoriler. N comes
  * from the server.
@@ -25,11 +26,11 @@ defineProps<{ stage: ContentStage }>()
     <div v-if="stage.rows.length > 0" class="stage-content">
       <ThresholdBar
         v-for="(row, i) in stage.rows"
-        :key="`${row.entry.code}-${row.entry.source}-${i}`"
-        :label="contentLabel(row.entry.code)"
-        :score="row.entry.score"
-        :threshold="row.entry.threshold"
-        :fired="row.entry.fired"
+        :key="`${row.key}-${i}`"
+        :label="row.label"
+        :score="row.score"
+        :threshold="row.threshold"
+        :fired="row.fired"
         :margin="row.margin"
         :suppressed-by="row.suppressedBy ? guardLabel(row.suppressedBy.code) : null"
       />

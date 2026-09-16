@@ -9,6 +9,7 @@ import type {
   ThreadSignal,
 } from '@/contract/types'
 import { copy } from '@/copy'
+import { contentLabel } from '@/contract/labels'
 import type { Display, Extras, Normalization } from '@/api/source'
 import { NO_EXTRAS } from '@/api/source'
 
@@ -66,7 +67,10 @@ export function degradedModules(result: AnalysisResult): DegradedModule[] | null
 export function verdictView(result: AnalysisResult, extras: Extras = NO_EXTRAS): VerdictView {
   const degraded = degradedModules(result)
   const d = extras.display
-  const evaluated = d ? { total: d.categories_total, n: d.categories_evaluated } : null
+  const evaluated =
+    d && d.categories_total !== null && d.categories_evaluated !== null
+      ? { total: d.categories_total, n: d.categories_evaluated }
+      : null
   if (degraded === null || degraded.length > 0) {
     return {
       word: copy.verdict.incomplete,
@@ -196,11 +200,21 @@ export interface NormalizationStage extends StageBase {
   changeSummary: Display['normalization']
 }
 
+/**
+ * One threshold bar in stage 5: a content code from result.content, or the
+ * decision layer's binary offensive score (signals.decision.binary_offensive),
+ * which the AI detects but which is not a content code.
+ */
 export interface ContentRow {
-  entry: ContentScore
+  /** Content code, or "binary_offensive". */
+  key: string
+  label: string
+  score: number
+  threshold: number | null
+  fired: boolean | null
   /** score minus threshold as the server computed it (4.9); null when not sent. */
   margin: number | null
-  /** Label of the active guard that suppressed this code, if any. */
+  /** The active guard that suppressed this code, if any. */
   suppressedBy: GuardResult | null
 }
 
@@ -250,7 +264,8 @@ export type Stage =
   | ThreadStage
   | ReasonStage
 
-const CONTENT_MODULES: ModuleName[] = ['m1_lexicon', 'm3_encoder', 'm4_implicit', 'm5_sarcasm']
+// Modules that score content today or will (m4 emits nothing itself: C1-C5 come from m3).
+const CONTENT_MODULES: ModuleName[] = ['m1_lexicon', 'm3_encoder', 'm5_sarcasm']
 
 function patternStage(
   result: AnalysisResult,
@@ -329,33 +344,55 @@ function activeGuards(result: AnalysisResult): GuardResult[] {
   return (result.guards ?? []).filter((g) => g.active === true)
 }
 
+/** The channel reading the decision layer applies its threshold to: raw first (the derived one). */
+function binaryOffensiveRow(result: AnalysisResult, extras: Extras): ContentRow | null {
+  const bo = result.signals?.decision?.binary_offensive
+  const reading = [bo?.channels?.raw, bo?.channels?.normalized].find((c) => typeof c?.score === 'number')
+  if (!bo || !reading || typeof reading.score !== 'number') return null
+  return {
+    key: 'binary_offensive',
+    label: copy.stages.binaryOffensive,
+    score: reading.score,
+    threshold: bo.threshold,
+    fired: reading.fired,
+    margin: extras.display?.binary_offensive_margin ?? null,
+    suppressedBy: null,
+  }
+}
+
 function contentStage(result: AnalysisResult, extras: Extras): ContentStage {
   const guards = activeGuards(result)
   const margins = extras.display?.content_margins
   // Margins follow result.content order: attach them before sorting.
-  const rows: ContentRow[] = (result.content ?? []).map((entry, i) => ({
-    entry,
+  const rows: ContentRow[] = (result.content ?? []).map((entry: ContentScore, i) => ({
+    key: entry.code,
+    label: contentLabel(entry.code),
+    score: entry.score,
+    threshold: entry.threshold,
+    fired: entry.fired,
     margin: typeof margins?.[i] === 'number' ? (margins[i] as number) : null,
     suppressedBy: guards.find((g) => g.suppressed?.includes(entry.code)) ?? null,
   }))
+  const offensive = binaryOffensiveRow(result, extras)
+  if (offensive) rows.push(offensive)
   // Fired first, then the rest; each group by score, highest first (pages-spec stage 5).
   rows.sort((a, b) => {
-    const af = a.entry.fired === true ? 0 : 1
-    const bf = b.entry.fired === true ? 0 : 1
-    return af - bf || b.entry.score - a.entry.score
+    const af = a.fired === true ? 0 : 1
+    const bf = b.fired === true ? 0 : 1
+    return af - bf || b.score - a.score
   })
 
   const states = CONTENT_MODULES.map((m) => moduleState(result, m))
   let status: StatusKey
   let line: string | null = null
-  if (rows.some((r) => r.entry.fired === true)) status = 'triggered'
+  if (rows.some((r) => r.fired === true)) status = 'triggered'
   else if (rows.length > 0) status = 'below'
-  else if (states.includes('stub')) ({ status, line } = unavailable('stub'))
-  else if (states.includes('failed')) ({ status, line } = unavailable('failed'))
   else if (states.includes('ran')) {
     status = 'passed'
     line = copy.stages.contentNone
-  } else ({ status, line } = unavailable('absent'))
+  } else if (states.includes('failed')) ({ status, line } = unavailable('failed'))
+  else if (states.includes('stub')) ({ status, line } = unavailable('stub'))
+  else ({ status, line } = unavailable('absent'))
 
   const hidden = extras.display ? extras.display.categories_hidden : null
   return { kind: 'content', number: 5, name: copy.stages.content, status, line, durationMs: null, rows, hidden }

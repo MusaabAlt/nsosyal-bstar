@@ -5,23 +5,29 @@ import { setRepresentative } from './representative'
 /*
  * The Kategoriler page's data (pages-spec 3): GET /api/categories, served by
  * the Go backend from AI/decision/thresholds.yaml and the model service's
- * health. In sample mode, categories.json holds the same response, written
+ * health. It lists only what the AI can detect today. In sample mode, categories.json holds the same response, written
  * by the backend's own code (go test ./internal/categories -update).
  */
 
 export type CategoryStatus = 'live' | 'stub' | 'unknown'
 
+/** The decision layer's channel-level offensive score: detected, but not a ContentCode. */
+export const BINARY_OFFENSIVE = 'binary_offensive'
+
 export interface Category {
-  code: ContentCode
-  family: Family
+  code: ContentCode | typeof BINARY_OFFENSIVE
+  /** Content code family; "" for binary_offensive. */
+  family: Family | ''
   threshold: number | null
   action: Action | null
+  /** false while thresholds.yaml still marks this threshold as a placeholder. */
+  derived: boolean
   status: CategoryStatus
+  module: string
 }
 
+/** Only what the AI can detect today, as the inference service reports it. */
 export interface CategoryList {
-  /** true while thresholds.yaml marks every value as a placeholder. */
-  placeholder: boolean
   source: string
   categories: Category[]
 }

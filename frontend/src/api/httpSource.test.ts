@@ -26,7 +26,7 @@ describe('http source (Go API)', () => {
     const calls = mockFetch((url) =>
       url === '/api/sessions'
         ? { status: 201, body: { id: 's-1', nickname: 'Operatör' } }
-        : { status: 201, body: { comment: { id: 'c' }, result: flagged, normalization: null, display: { categories_total: 16, categories_evaluated: 5, categories_hidden: 4, patterns_checked_other: 11, content_margins: [0.37, -0.38], normalization: null }, representative: true, timing: {} } },
+        : { status: 201, body: { comment: { id: 'c' }, result: flagged, normalization: null, display: { categories_total: 16, categories_evaluated: 5, categories_hidden: 4, patterns_checked_other: 11, content_margins: [0.37, -0.38], binary_offensive_margin: null, normalization: null }, representative: true, timing: {} } },
     )
     const first = await httpSource.analyze('Seni b1tireceğim')
     const second = await httpSource.analyze('ikinci')

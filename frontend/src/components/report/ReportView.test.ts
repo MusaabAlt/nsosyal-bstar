@@ -35,7 +35,7 @@ describe('report renders each state from its payload', () => {
     for (const d of r.signals.pipeline!.degraded!) {
       expect(verdict.text()).toContain(d.module)
     }
-    expect(verdict.text()).toContain("16 kategoriden 0'ı değerlendirildi")
+    expect(verdict.text()).toContain("2 kategoriden 0'ı değerlendirildi")
     // 4.12: the list replaces the single sentence; the explanation is still shown in stage 9.
     expect(verdict.text()).not.toContain(r.explanation)
     expect(w.text()).toContain(r.explanation)
@@ -55,10 +55,14 @@ describe('report renders each state from its payload', () => {
     // 4.9: label only above the bar, and the relationship in words with its own margin.
     expect(bars[0]!.find('.threshold-bar__label').text()).toBe('Tehdit')
     expect(bars[0]!.text()).toContain('Skor kendi eşiğini 0.37 puan aşıyor')
-    expect(bars[1]!.text()).toContain('Skor kendi eşiğinin 0.38 puan altında')
+    // The BERTurk offensive score: raw 0.44 against 0.50.
+    expect(bars[1]!.find('.threshold-bar__label').text()).toBe('Genel saldırganlık')
+    expect(bars[1]!.text()).toContain('Skor kendi eşiğinin 0.06 puan altında')
+    expect(bars[2]!.text()).toContain('Skor kendi eşiğinin 0.38 puan altında')
     // Stage 3 and stage 5 lines.
     expect(w.text()).toContain('Kontrol edilen diğer 11 kalıpta eşleşme yok')
-    expect(w.text()).toContain('Eşik altındaki 4 kategori gösterilmiyor')
+    // Of today's two categories only the offensive score was evaluated, and it has its own bar.
+    expect(w.text()).not.toContain('Eşik altındaki')
     // Stage 4: original, what changed, recovered text with the recovered character highlighted.
     const stage4 = w.findAll('.stage-row')[3]!
     expect(stage4.text()).toContain('1 karakter değiştirildi')
@@ -96,12 +100,13 @@ describe('report renders each state from its payload', () => {
     const w = render(load(flaggedJson))
     expect(w.find('.verdict__word').text()).toBe('İncele')
     const bars = w.findAllComponents(ThresholdBar)
-    expect(bars).toHaveLength(2)
+    expect(bars).toHaveLength(3)
     expect(bars[0]!.text()).toContain('Tehdit')
     expect(bars[0]!.find('.threshold-bar__score').text()).toBe('0.87')
     expect(bars[0]!.find('.threshold-bar__caption').text()).toBe('eşik 0.50')
     expect(bars[0]!.classes()).toContain('threshold-bar--fired')
     expect(bars[1]!.classes()).not.toContain('threshold-bar--fired')
+    expect(bars[2]!.classes()).not.toContain('threshold-bar--fired')
     expect(w.text()).toContain('Rakam/sembol ikamesi')
     // Score pair: raw and recovered, both from the payload.
     expect(w.findAll('.score-pair__value').map((v) => v.text())).toEqual(['0.44', '0.81'])
