@@ -4,7 +4,7 @@
 
 Captain: you own the contract, the decision layer and the final review of every number the team produces. Your modules: `m1_lexicon` and `m4_implicit`, plus `m0_charsafe`, the reference implementation.
 
-You also own `AI/contracts/`, `AI/decision/` (including every shared row in `AI/decision/thresholds.yaml`: A1–A3, C1–C5, `binary_offensive`), and allocating `m6_target`, which is unassigned until you allocate it.
+You also own `AI/contracts/`, `AI/decision/` (including every shared row in `AI/decision/thresholds.yaml`: A1–A3, C1–C5, `binary_offensive`), `m6_target` owner: Abdullah (v1, see `abdullah/START_HERE.md`).
 
 ## Not yours
 

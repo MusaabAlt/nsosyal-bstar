@@ -1,7 +1,7 @@
 # M6 — Target Resolution and Doxing
 
 **Type:** signal
-**Owner:** unassigned, Musaab to allocate
+**Owner:** Abdullah (v1)
 
 ---
 

@@ -6,6 +6,6 @@
 | Abdullah | `m3_encoder`, `m5_sarcasm` | [ABDULLAH.md](ABDULLAH.md) |
 | Mohammed | `m2_deobf` | [MOHAMMED.md](MOHAMMED.md) |
 | Amin | `frontend/`, `backend/`, `AI/api/` | [AMIN.md](AMIN.md), [AMIN_BRIEF.md](AMIN_BRIEF.md) |
-| unassigned | `m6_target` — Musaab to allocate | — |
+| Abdullah (v1) | `m6_target` | [abdullah/START_HERE.md](abdullah/START_HERE.md) |
 
 The module specs in `AI/modules/*/spec.md` are the source of truth; these files only point at them.
