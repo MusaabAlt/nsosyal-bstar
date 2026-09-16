@@ -49,9 +49,11 @@ export interface Normalization {
 export interface Extras {
   display: Display | null
   normalization: Normalization | null
+  /** The stored comment's id, for moderator actions; null when the source has none. */
+  commentId: string | null
 }
 
-export const NO_EXTRAS: Extras = { display: null, normalization: null }
+export const NO_EXTRAS: Extras = { display: null, normalization: null, commentId: null }
 
 export type AnalyzeOutcome = { ok: true; result: AnalysisResult; extras: Extras } | { ok: false; error: AnalyzeError }
 

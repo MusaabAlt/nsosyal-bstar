@@ -1,14 +1,10 @@
 import type { AnalysisSource } from './source'
 import { httpSource } from './httpSource'
-import { mockSource } from './mockSource'
 
 /**
- * The one place that decides where data comes from. The Go API is the
- * default; `npm run dev:mock` (VITE_DATA_SOURCE=mock) uses the sample
- * payloads instead.
+ * Every screen reads the Go API. The sample payloads in src/api/mocks remain
+ * as test fixtures only.
  */
-export const dataMode: 'api' | 'mock' = import.meta.env.VITE_DATA_SOURCE === 'mock' ? 'mock' : 'api'
-
-export const analysisSource: AnalysisSource = dataMode === 'mock' ? mockSource : httpSource
+export const analysisSource: AnalysisSource = httpSource
 
 export type { AnalysisSource, AnalyzeOutcome, AnalyzeError, Extras, Display, Normalization, Preset } from './source'

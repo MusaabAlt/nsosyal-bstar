@@ -9,7 +9,7 @@ import { setRepresentative } from './representative'
  *   POST /api/sessions {nickname}          -> {id}
  *   POST /api/comments {session_id, text}  -> {comment, result, normalization, display, representative, timing}
  *
- * The console has no accounts (pages-spec 1), so an anonymous session is
+ * The panel has no accounts, so an anonymous session is
  * created once, silently, and kept for the browser tab. If the server no
  * longer knows it (database reset), a new one is created and the request is
  * sent again once.
@@ -23,6 +23,7 @@ interface ErrorBody {
 }
 
 interface CommentResponse {
+  comment?: { id?: string }
   result: AnalysisResult
   normalization?: Normalization | null
   display?: Display | null
@@ -68,7 +69,7 @@ async function postJSON(url: string, payload: unknown, signal?: AbortSignal): Pr
   })
 }
 
-async function ensureSession(signal?: AbortSignal): Promise<string | AnalyzeError> {
+export async function ensureSession(signal?: AbortSignal): Promise<string | AnalyzeError> {
   // Storage first; memory only when storage is blocked.
   const existing = readSession() ?? memorySession
   if (existing) return existing
@@ -93,7 +94,7 @@ async function analyzeOnce(text: string, signal?: AbortSignal): Promise<AnalyzeO
   return {
     ok: true,
     result: body.result,
-    extras: { display: body.display ?? null, normalization: body.normalization ?? null },
+    extras: { display: body.display ?? null, normalization: body.normalization ?? null, commentId: body.comment?.id ?? null },
   }
 }
 

@@ -169,7 +169,7 @@ describe('binary offensive score (m3 BERTurk)', () => {
       threshold: 0.320188, branch: 'scalar', signal: null, signal_value: null,
       channels: { raw: { score: 0.91, fired: true } }, fired: true, action: 'review',
     }
-    const extras = { display: { categories_total: 2, categories_evaluated: 2, categories_hidden: 0, patterns_checked_other: null, content_margins: [0.22], binary_offensive_margin: 0.589812, normalization: null }, normalization: null }
+    const extras = { display: { categories_total: 2, categories_evaluated: 2, categories_hidden: 0, patterns_checked_other: null, content_margins: [0.22], binary_offensive_margin: 0.589812, normalization: null }, normalization: null, commentId: null }
     const content = stage(buildStages(r, extras), 'content')
     const row = content.rows.find((x) => x.key === 'binary_offensive')!
     expect(row).toMatchObject({ label: 'Genel saldırganlık', score: 0.91, threshold: 0.320188, fired: true, margin: 0.589812 })

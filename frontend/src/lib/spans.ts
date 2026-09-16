@@ -73,3 +73,35 @@ export function segment(text: string, marks: Mark[]): Segment[] {
   }
   return out
 }
+
+export interface KeyedMark {
+  span: Span
+  key: string
+}
+
+export interface KeyedSegment {
+  text: string
+  /** The first mark covering this run, or null for plain text. */
+  key: string | null
+}
+
+/**
+ * Like segment(), for marks that each carry a key (a category code), so every
+ * run can be coloured by what it belongs to. Where marks overlap, the one
+ * listed first wins; invalid spans are skipped.
+ */
+export function segmentByKey(text: string, marks: KeyedMark[]): KeyedSegment[] {
+  const chars = codePoints(text)
+  const keys = new Array<string | null>(chars.length).fill(null)
+  for (const mark of marks) {
+    if (!isValidSpan(mark.span, chars.length)) continue
+    for (let i = mark.span[0]; i < mark.span[1]; i++) keys[i] ??= mark.key
+  }
+  const out: KeyedSegment[] = []
+  for (let i = 0; i < chars.length; i++) {
+    const last = out[out.length - 1]
+    if (last && last.key === keys[i]) last.text += chars[i]
+    else out.push({ text: chars[i] ?? '', key: keys[i] ?? null })
+  }
+  return out
+}

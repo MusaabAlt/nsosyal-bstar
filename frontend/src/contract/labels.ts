@@ -28,3 +28,4 @@ export const ACTIONS = Object.values(generated.enums.Action) as Action[]
 export function familyOf(code: ContentCode): Family {
   return code === 'CLEAN' ? 'CLEAN' : (code[0] as Family)
 }
+export const actionLabel = (action: Action | string) => label('Action', action)

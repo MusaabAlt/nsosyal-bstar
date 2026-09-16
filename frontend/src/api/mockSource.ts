@@ -10,7 +10,7 @@ import extrasJson from './mocks/extras.json'
 import normalizationJson from './mocks/normalization.json'
 
 /*
- * Sample data source: the five payloads in docs/team/AMIN_BRIEF.md section 7,
+ * Sample data source for tests: the five payloads in docs/team/AMIN_BRIEF.md section 7,
  * generated from the real pipeline at commit 6583e5c. The flagged and guard
  * scores are TEST-DOUBLE values, so this source always turns the Temsili veri
  * marker on.
@@ -56,7 +56,7 @@ function clone<T>(value: T): T {
 }
 
 function extrasFor(name: Name, text: string): Extras {
-  return { display: clone(displays[name]), normalization: normalizations[text] ? clone(normalizations[text]) : null }
+  return { display: clone(displays[name]), normalization: normalizations[text] ? clone(normalizations[text]) : null, commentId: null }
 }
 
 export function resolveMock(text: string, forced: string | null): AnalyzeOutcome {

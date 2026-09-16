@@ -1,8 +1,8 @@
 /*
  * Every Turkish string on screen that does not come from the API response or
- * from the generated contract labels. Kept in one file so the wording can be
- * reviewed in one place. Strings quoted in docs/UI are copied verbatim; the
- * rest are marked "ours".
+ * from the generated contract labels, kept in one file so the wording can be
+ * reviewed in one place. The panel strings follow the ATI-SOSYAL Paneli design;
+ * status, verdict and stage words are the ones the report model uses.
  */
 /**
  * Turkish accusative suffix after a number, by how the number is read:
@@ -20,20 +20,215 @@ export function accusative(n: number): string {
 
 export const copy = {
   app: {
-    sidebarHeading: 'İçerik Moderasyon Paneli', // pages-spec 1
-    navAnaliz: 'Analiz',
-    navKategoriler: 'Kategoriler',
-    demoMarker: 'Temsili veri', // design-system 4.19
+    brand: 'ATI-SOSYAL',
+    demoMarker: 'Temsili veri',
+    analyzeCta: 'Metin Analiz Et',
+    darkMode: 'Karanlık mod',
+    searchPlaceholder: 'Mesaj veya kullanıcı ara',
+    searchLabel: 'Ara',
+    operator: 'Operatör',
+    liveFeed: 'Canlı Akış',
+    liveFeedEmpty: 'Henüz mesaj yok.',
+    systemStatus: 'Sistem durumu',
+    unreachable: 'Sunucuya ulaşılamadı. Yeniden deneniyor…',
+    nav: {
+      overview: 'Genel Bakış',
+      live: 'Canlı Analiz',
+      queue: 'Moderasyon Kuyruğu',
+      engines: 'Tespit Motorları',
+      rules: 'Kurallar & Eşikler',
+      history: 'Olay Geçmişi',
+      health: 'Sistem Sağlığı',
+    },
   },
 
-  analiz: {
-    title: 'Analiz',
-    placeholder: 'Analiz edilecek metni girin', // pages-spec 2.1
-    submit: 'Analiz et', // design-system 5
-    submitting: 'Analiz ediliyor',
+  panel: {
+    generalFamily: 'Genel',
+    noDetection: 'Tespit yok',
+    unavailable: 'veri yok',
+    ranges: { live: 'Canlı', today: 'Bugün', week: '7 Gün' } as Record<string, string>,
+    rangeWindow: { live: 'son 1 saat', today: 'bugün', week: 'son 7 gün' } as Record<string, string>,
+    rangeCount: { live: 'son 1 saatte tespit', today: 'bugün tespit', week: 'son 7 günde tespit' } as Record<string, string>,
+    kpi: {
+      analysed: 'Analiz edilen mesaj',
+      detected: 'Tespit edilen saldırganlık',
+      automatic: 'Otomatik işlem',
+      pending: 'İnsan incelemesi bekleyen',
+      pendingTotal: (n: string) => `toplam ${n} bekleyen`,
+      noPrevious: 'önceki dönem yok',
+    },
+    engines: 'Tespit motorları',
+    enginesNote: 'Her saldırganlık türü için ayrı motor, ayrı eşik, ayrı eylem',
+    enginesEmpty: 'Yapay zekâ hizmeti şu anda hiçbir kategori bildirmiyor.',
+    threshold: (t: string) => `Eşik ${t}`,
+    noThreshold: 'Eşik yok',
+    status: { live: 'Aktif', stub: 'Modül hazır değil', unknown: 'Durum bilinmiyor' } as Record<string, string>,
+    chartTitle: 'Kategoriye göre tespit (zaman)',
+    chartEmpty: 'Bu aralıkta tespit yok.',
+    patterns: 'Kaçış kalıpları',
+    patternsEmpty: 'Bu aralıkta etkin bir gizleme kalıbı görülmedi.',
+    patternCount: (n: string) => `${n} tespit`,
+    recent: 'Son tespitler',
+    recentEmpty: 'Henüz tespit yok.',
+    goQueue: 'Kuyruğa git',
+    score: 'skor',
+    actions: {
+      approve: 'Onayla',
+      hide: 'Gizle',
+      remove: 'Kaldır',
+      queue: 'Kuyruğa ekle',
+      false_positive: 'Yanlış pozitif bildir',
+    } as Record<string, string>,
+    actionDone: {
+      approve: 'Onaylandı',
+      hide: 'Gizlendi',
+      remove: 'Kaldırıldı',
+      queue: 'Kuyruğa eklendi',
+      false_positive: 'Yanlış pozitif bildirildi',
+    } as Record<string, string>,
+    actionFailed: 'İşlem kaydedilemedi.',
     retry: 'Tekrar dene',
-    inputLabel: 'Analiz edilecek metin', // ours: accessible name for the text area
-    presetsLabel: 'Hazır örnekler', // ours: accessible name for the preset group
+    loadMore: 'Daha fazla yükle',
+    loadFailed: 'Veriler alınamadı.',
+    system: {
+      model: 'Model sürümü',
+      latency: 'Gecikme p95',
+      devices: 'Aktif cihaz (5 dk)',
+      engines: 'Aktif motor',
+    },
+  },
+
+  live: {
+    placeholder: 'Analiz etmek için bir mesaj yazın…',
+    inputLabel: 'Analiz edilecek mesaj',
+    presets: 'Hazır örnekler',
+    clear: 'Temizle',
+    language: 'Dil: TR',
+    submit: 'Analiz Et',
+    submitting: 'Analiz ediliyor',
+    characters: (n: string) => `${n} / 5000`,
+    emptyTitle: 'Henüz bir analiz yapılmadı',
+    emptyText:
+      'Yukarıya bir mesaj yazın ve “Analiz Et”e basın. Her kategori aynı metni kendi motoru ve kendi eşiğiyle ayrı ayrı değerlendirir.',
+    input: 'Girdi',
+    normalized: 'Normalize',
+    normalizationStub: 'Normalleştirme modülü hazır değil',
+    normalizationNone: 'Normalleştirilmiş metin yanıtta yok',
+    noChanges: 'Değişiklik yok',
+    detected: 'Tespit',
+    below: 'Eşik altında',
+    undecided: 'Karar yok',
+    noMatch: 'Eşleşme yok',
+    noMatchNote: 'Bu kategori metinde eşiğe yaklaşan bir bulgu bildirmedi.',
+    moduleStub: 'Modül hazır değil',
+    action: (a: string) => `Eylem: ${a}`,
+    noAction: 'Eylem: yok',
+    explanation: 'Açıklama',
+    noSpans: 'Yanıt, metinde işaretlenecek bir bölüm bildirmedi.',
+    finalDecision: (word: string) => `Nihai karar: ${word}`,
+    notRun: (modules: string) => `Çalışmayan modüller: ${modules}`,
+  },
+
+  queue: {
+    tabs: { pending: 'Bekleyen', reviewed: 'İncelenen', auto: 'Otomatik işlenen' } as Record<string, string>,
+    detectedOnly: 'Yalnızca tespit edilenler',
+    allCategories: 'Tüm kategoriler',
+    search: 'Mesajda veya kullanıcıda ara',
+    empty: 'Şu anda incelenecek mesaj bulunmamaktadır.',
+    selected: (n: string) => `${n} seçili`,
+    clearSelection: 'Seçimi kaldır',
+    detail: 'Detay',
+    selectHint: 'Ayrıntılarını görmek için listeden bir mesaj seçin.',
+    scores: 'Motor skorları',
+    category: 'Kategori',
+    score: 'Skor',
+    threshold: 'Eşik',
+    outcome: 'Sonuç',
+    context: 'Önceki mesajlar',
+    noContext: 'Bu kullanıcının önceki mesajı yok.',
+    history: 'Geçmiş',
+    noHistory: 'Henüz moderatör işlemi yok.',
+    decision: 'Sistem kararı',
+    keyboard: 'A onayla · H gizle · R kaldır',
+    status: { pending: 'Bekliyor', reviewed: 'İncelendi', auto: 'Otomatik', none: 'İşlem gerekmedi' } as Record<string, string>,
+    selectLabel: 'Mesajı seç',
+    notFound: 'Mesaj bulunamadı.',
+  },
+
+  engines: {
+    module: 'Modül',
+    action: 'Varsayılan eylem',
+    thresholdSource: 'Eşik kaynağı',
+    derived: 'Geliştirme verisinde türetildi',
+    placeholder: 'Geçici değer',
+    today: 'bugün tespit',
+    test: 'Test et',
+    queue: 'Kuyrukta gör',
+  },
+
+  rules: {
+    note: 'Eşikler ve eylemler karar katmanının yapılandırmasından okunur ve bu panelden değiştirilemez. Her kategori yalnızca kendi eşiğiyle karşılaştırılır.',
+    source: (file: string) => `Kaynak: ${file}`,
+    columns: {
+      category: 'Kategori',
+      code: 'Kod',
+      family: 'Aile',
+      threshold: 'Eşik',
+      action: 'Eylem',
+      module: 'Modül',
+      source: 'Eşik kaynağı',
+      status: 'Durum',
+    },
+  },
+
+  history: {
+    tabs: { all: 'Tümü', moderator: 'Moderatör', system: 'Sistem' } as Record<string, string>,
+    system: 'Sistem',
+    unknownActor: 'Moderatör',
+    searchResults: (q: string) => `“${q}” için sonuçlar`,
+    clearSearch: 'Aramayı temizle',
+    empty: 'Bu filtrede olay yok.',
+    export: 'Dışa aktar',
+    open: 'Kuyrukta aç',
+  },
+
+  health: {
+    devices: 'Aktif cihaz (5 dk)',
+    rps: 'İstek/sn (son dakika)',
+    latency: 'Analiz gecikmesi p95',
+    errors: 'Hata oranı (30 dk)',
+    latencyChart: 'Analiz gecikmesi (ms, dakikalık)',
+    requestsChart: 'İstek sayısı (dakikalık)',
+    last30: 'son 30 dakika',
+    services: 'Servisler',
+    alertDegraded: 'Bir veya daha fazla servis sağlıklı değil.',
+    alertSlow: (ms: string) => `Analiz gecikmesi yüksek: p95 ${ms} ms üzerinde.`,
+    ok: 'Çalışıyor',
+    down: 'Yanıt vermiyor',
+    uptime: 'Çalışma süresi',
+    goroutines: 'Goroutine',
+    ping: 'Yanıt süresi',
+    breaker: 'Devre kesici',
+    artifact: 'Model',
+    degradedModules: 'Hazır olmayan modüller',
+    queue: 'Analiz kuyruğu',
+    queueDepth: 'Bekleyen / kapasite',
+    rejected: 'Reddedilen',
+    batches: 'Model çağrısı',
+    writer: 'Veritabanı yazıcı',
+    written: 'Yazılan',
+    dropped: 'Düşürülen',
+    cache: 'Önbellek',
+    cacheHits: 'İsabet / ıskalama',
+    seriesP50: 'p50',
+    seriesP95: 'p95',
+    seriesAnalyses: 'Analiz',
+    seriesAll: 'Tüm istekler',
+    pythonStatus: { ok: 'Çalışıyor', loading: 'Yükleniyor', error: 'Hata', unreachable: 'Ulaşılamıyor' } as Record<string, string>,
+    go: 'Go API',
+    postgres: 'PostgreSQL',
+    python: 'Model sunucusu',
+    none: 'yok',
   },
 
   status: {
@@ -55,11 +250,6 @@ export const copy = {
     notRunHeading: 'Çalışmayan modüller', // ours
     moduleStatusMissing: 'Yanıt modül durumunu içermiyor.', // ours
     evaluated: (total: number, n: number) => `${total} kategoriden ${n}${accusative(n)} değerlendirildi`, // design-system 4.12
-  },
-
-  comparison: {
-    keyword: 'Anahtar kelime filtresi', // design-system 4.14
-    ours: 'Bu sistem',
   },
 
   stages: {
@@ -113,28 +303,6 @@ export const copy = {
     noOutput: 'Bu aşama için yanıtta veri yok.', // ours
   },
 
-  consequence: {
-    heading: 'Kullanıcıya görünen', // pages-spec 2.5
-    displayName: 'Kullanıcı', // ours: mock post author
-    handle: '@kullanici',
-    timestamp: 'şimdi',
-    queued: 'Bu gönderi incelemeye alındı.', // ours
-    withheld: 'Bu gönderi yayımlanmadı.', // ours
-    incomplete: 'Değerlendirme tamamlanmadı; gönderi onaylanmış sayılmaz.', // ours
-    sensitive:
-      'Bu gönderide, bazı insanların saldırgan, kırıcı veya rahatsız edici bulabileceği hassas içerikler var.', // verbatim, NSosyal i18n
-    show: 'Göster',
-    idle: 'Analiz sonrası gönderinin kullanıcıya nasıl görüneceği burada gösterilir.', // ours
-    actions: {
-      comment: 'Yorum',
-      repost: 'Yeniden paylaş',
-      rocket: 'Roket',
-      stats: 'İstatistik',
-      bookmark: 'Kaydet',
-      share: 'Paylaş',
-    },
-  },
-
   errors: {
     network: 'Analiz servisi yanıt vermedi.', // pages-spec 4
     rejected: 'Analiz servisi isteği kabul etmedi.', // ours (4xx)
@@ -148,20 +316,4 @@ export const copy = {
     database: 'Veritabanı şu anda yanıt vermiyor.', // ours (503 database_unavailable)
   },
 
-  kategoriler: {
-    title: 'Kategoriler',
-    placeholderNote: (labels: string) => `Eşiği henüz geliştirme verisinde türetilmedi, değer geçicidir: ${labels}.`, // ours: thresholds.yaml placeholder rows
-    generalGroup: 'Genel', // ours: heading for the offensive score, which belongs to no family
-    empty: 'Yapay zekâ hizmeti şu anda hiçbir kategori bildirmiyor.', // ours
-    live: 'canlı', // ours: module status column
-    loadError: 'Kategori listesi alınamadı.', // ours
-    columns: {
-      code: 'Kod',
-      label: 'Etiket',
-      definition: 'Tanım',
-      threshold: 'Eşik',
-      action: 'Eylem',
-      module: 'Modül durumu',
-    },
-  },
 } as const

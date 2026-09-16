@@ -5,7 +5,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:mock": "vite --mode mock",
     "build": "vue-tsc -b && vite build",
     "build:backend": "vue-tsc -b && vite build --outDir ../backend/web/dist --emptyOutDir && node scripts/keep-dist.mjs && node scripts/check-offline.mjs ../backend/web/dist",
     "preview": "vite preview",
