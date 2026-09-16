@@ -1,6 +1,7 @@
 """FastAPI inference service: the one bridge between the Go backend and the pipeline.
 
     python -m uvicorn serving.app:create_app --factory --host 127.0.0.1 --port 8001   (from AI/)
+    python serving/app.py [--host 127.0.0.1] [--port 8001]                            (same, from anywhere)
 
 Listens on localhost only; the Go backend is its only client and starts it
 (backend config `python`). Contract: backend/docs/inference-contract.md.
@@ -20,9 +21,17 @@ answers 503, which the Go backend treats as "retry when healthy".
 from __future__ import annotations
 
 import logging
+import sys
 import threading
 import time
+from pathlib import Path
 from typing import Any
+
+# Run as a file (`python serving/app.py`, PyCharm's Run button), Python puts
+# serving/ on sys.path instead of AI/, so `serving`, `pipeline` and `modules`
+# would not import. Every artifact path is resolved from __file__, not the cwd.
+if __package__ in (None, ""):
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -119,3 +128,31 @@ def create_app(state: State | None = None, load_in_background: bool = True) -> F
 
     return app
 
+
+def main(argv: list[str] | None = None) -> int:
+    """Same service as the uvicorn command in the module docstring."""
+    import argparse
+    import socket
+
+    import uvicorn
+
+    parser = argparse.ArgumentParser(description="NSosyal inference service")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8001)
+    args = parser.parse_args(argv)
+
+    # Checked before loading anything: the usual cause is the Go backend, which
+    # starts this service itself, already running it.
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
+        if probe.connect_ex((args.host, args.port)) == 0:
+            print(f"port {args.port} is already in use - the inference service is probably running already "
+                  f"(the Go backend starts it). Check http://{args.host}:{args.port}/health, or stop that "
+                  f"process first.", file=sys.stderr)
+            return 1
+
+    uvicorn.run("serving.app:create_app", factory=True, host=args.host, port=args.port, access_log=False)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
