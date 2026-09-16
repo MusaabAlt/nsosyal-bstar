@@ -163,7 +163,7 @@ func Default() Config {
 		Python: Python{
 			Enabled:           false,
 			Command:           "python",
-			Args:              []string{"-m", "uvicorn", "serving.app:app", "--host", "127.0.0.1", "--port", "8001"},
+			Args:              []string{"-m", "uvicorn", "serving.app:create_app", "--factory", "--host", "127.0.0.1", "--port", "8001", "--no-access-log"},
 			WorkDir:           "../AI",
 			HealthInterval:    2 * time.Second,
 			StartupGrace:      120 * time.Second,

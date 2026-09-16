@@ -111,9 +111,9 @@ func run() error {
 	})
 	sup := supervisor.New(supervisor.Config{
 		Manage:            cfg.Python.Enabled,
-		Command:           cfg.Python.Command,
+		Command:           resolveCommand(path, cfg.Python.Command),
 		Args:              cfg.Python.Args,
-		WorkDir:           cfg.Python.WorkDir,
+		WorkDir:           resolveFrom(path, cfg.Python.WorkDir),
 		HealthInterval:    cfg.Python.HealthInterval,
 		StartupGrace:      cfg.Python.StartupGrace,
 		RestartBackoffMin: cfg.Python.RestartBackoffMin,
@@ -250,6 +250,15 @@ func resolveFrom(configPath, p string) string {
 		return p
 	}
 	return filepath.Join(filepath.Dir(configPath), p)
+}
+
+// resolveCommand resolves a command given as a path ("../.venv/Scripts/python.exe")
+// from the config file's folder; a bare name ("python") is left for PATH lookup.
+func resolveCommand(configPath, command string) string {
+	if !strings.ContainsAny(command, `/\`) {
+		return command
+	}
+	return resolveFrom(configPath, command)
 }
 
 func newLogger(cfg config.Log) *slog.Logger {

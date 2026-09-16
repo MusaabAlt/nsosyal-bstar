@@ -35,9 +35,12 @@ inference:
   breaker_open_for: 5s
 
 python:
-  enabled: false                # true on the demo laptop: Go starts and restarts FastAPI
-  command: "python"
-  args: ["-m", "uvicorn", "serving.app:app", "--host", "127.0.0.1", "--port", "8001"]
+  # Go starts the FastAPI service (AI/serving) and restarts it if it dies. If
+  # something already answers on 127.0.0.1:8001 (e.g. `make mock`), Go uses it
+  # instead of starting a second one. Paths are relative to this file's folder.
+  enabled: true
+  command: "../.venv/Scripts/python.exe"   # the project venv (Windows); set NSOSYAL_PYTHON_COMMAND elsewhere
+  args: ["-m", "uvicorn", "serving.app:create_app", "--factory", "--host", "127.0.0.1", "--port", "8001", "--no-access-log"]
   workdir: "../AI"
   health_interval: 2s
   startup_grace: 120s           # BERTurk load time; not treated as a crash

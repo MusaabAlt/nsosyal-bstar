@@ -1,8 +1,15 @@
 # Inference service contract (Python ⇄ Go)
 
-The Python inference service (FastAPI, built by the model team) listens on
-`127.0.0.1:8001` only. The Go backend is its only client. `cmd/mockinfer`
-implements this contract with sample data and is the reference for its shape.
+The Python inference service (`AI/serving`, FastAPI) listens on `127.0.0.1:8001`
+only. The Go backend is its only client and starts it (`python` in
+`backend/config.yaml`). `cmd/mockinfer` implements the same contract with
+sample data.
+
+```bash
+cd AI
+pip install -r serving/requirements.txt -r modules/m1_lexicon/requirements.txt -r modules/m3_encoder/requirements.txt
+python -m uvicorn serving.app:create_app --factory --host 127.0.0.1 --port 8001
+```
 
 ## `POST /predict_batch`
 

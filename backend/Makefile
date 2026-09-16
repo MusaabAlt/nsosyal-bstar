@@ -11,7 +11,7 @@
 TEST_DATABASE_URL ?= postgres://nsosyal:nsosyal_dev@127.0.0.1:5432/nsosyal_test?sslmode=disable
 BIN := bin/nsosyal-server$(if $(filter Windows_NT,$(OS)),.exe,)
 
-.PHONY: run build frontend mock test test-integration vet fmt \
+.PHONY: run build frontend mock ai ai-setup test test-integration vet fmt \
         migrate-up migrate-down migrate-reset migrate-status db-up db-down \
         run-loadtest loadtest
 
@@ -30,6 +30,14 @@ frontend:
 ## mock: the stand-in Python service (30ms per batch + 5ms per text)
 mock:
 	go run ./cmd/mockinfer
+
+## ai-setup: install the real inference service into the project venv (../.venv)
+ai-setup:
+	cd ../AI && ../.venv/Scripts/python.exe -m pip install -r serving/requirements.txt -r modules/m1_lexicon/requirements.txt -r modules/m3_encoder/requirements.txt
+
+## ai: run the real inference service by hand (the server also starts it itself)
+ai:
+	cd ../AI && ../.venv/Scripts/python.exe -m uvicorn serving.app:create_app --factory --host 127.0.0.1 --port 8001 --no-access-log
 
 ## test: unit tests (no database needed; Postgres tests are skipped)
 test:
