@@ -52,7 +52,8 @@ function suppressedList(view: GuardView): string {
     <div v-if="stage.active.length > 0" class="stage-guards">
       <article v-for="(view, i) in stage.active" :key="`${view.guard.code}-${i}`" class="stage-guards__item">
         <h4 class="stage-guards__name">{{ guardLabel(view.guard.code) }}</h4>
-        <p class="stage-guards__sentence">
+        <!-- m1 raises SUBSTRING_COLLISION with nothing suppressed when it rejects the match before scoring it. -->
+        <p v-if="view.guard.suppressed.length > 0" class="stage-guards__sentence">
           {{ copy.stages.guardPrevented(guardLabel(view.guard.code), suppressedList(view)) }}
         </p>
         <div v-if="containingWord(view, stage.text)" class="stage-guards__word">

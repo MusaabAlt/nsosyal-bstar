@@ -180,3 +180,16 @@ describe('consequence column', () => {
     expect(w.find('.post__text').text()).toBe('Bu bir test cumlesi')
   })
 })
+
+describe('real pipeline shapes (m1 terlik, m3 checkpoint missing)', () => {
+  it('a substring collision m1 rejected before scoring reads as a deliberate silence, not a broken sentence', () => {
+    const r = load(guardJson)
+    r.content = []
+    r.guards[0]!.suppressed = []
+    const guards = render(r).find('.stage-guards')
+    expect(guards.text()).toContain('Alt dizi çakışması')
+    expect(guards.text()).toContain('bilerek işaretlemedi')
+    expect(guards.text()).not.toContain('bastırdı: .')
+    expect(guards.find('.evidence').text()).toBe('amcam')
+  })
+})
