@@ -1,5 +1,4 @@
 {
-  "placeholder": true,
   "source": "AI/decision/thresholds.yaml",
   "categories": [
     {
@@ -7,112 +6,18 @@
       "family": "A",
       "threshold": 0.5,
       "action": "nudge",
-      "status": "stub"
+      "derived": false,
+      "status": "live",
+      "module": "m1_lexicon"
     },
     {
-      "code": "A2",
-      "family": "A",
-      "threshold": 0.5,
+      "code": "binary_offensive",
+      "family": "",
+      "threshold": 0.320188,
       "action": "review",
-      "status": "stub"
-    },
-    {
-      "code": "A3",
-      "family": "A",
-      "threshold": 0.5,
-      "action": "block",
-      "status": "stub"
-    },
-    {
-      "code": "A4",
-      "family": "A",
-      "threshold": 0.5,
-      "action": "review",
-      "status": "stub"
-    },
-    {
-      "code": "B1",
-      "family": "B",
-      "threshold": 0.5,
-      "action": "review",
-      "status": "stub"
-    },
-    {
-      "code": "B2",
-      "family": "B",
-      "threshold": 0.5,
-      "action": "escalate",
-      "status": "stub"
-    },
-    {
-      "code": "B3",
-      "family": "B",
-      "threshold": 0.5,
-      "action": "review",
-      "status": "stub"
-    },
-    {
-      "code": "B4",
-      "family": "B",
-      "threshold": 0.5,
-      "action": "escalate",
-      "status": "stub"
-    },
-    {
-      "code": "B5",
-      "family": "B",
-      "threshold": 0.5,
-      "action": "block",
-      "status": "stub"
-    },
-    {
-      "code": "C1",
-      "family": "C",
-      "threshold": 0.5,
-      "action": "review",
-      "status": "stub"
-    },
-    {
-      "code": "C2",
-      "family": "C",
-      "threshold": 0.5,
-      "action": "review",
-      "status": "stub"
-    },
-    {
-      "code": "C3",
-      "family": "C",
-      "threshold": 0.5,
-      "action": "review",
-      "status": "stub"
-    },
-    {
-      "code": "C4",
-      "family": "C",
-      "threshold": 0.5,
-      "action": "escalate",
-      "status": "stub"
-    },
-    {
-      "code": "C5",
-      "family": "C",
-      "threshold": 0.5,
-      "action": "review",
-      "status": "stub"
-    },
-    {
-      "code": "D1",
-      "family": "D",
-      "threshold": 0.5,
-      "action": "nudge",
-      "status": "stub"
-    },
-    {
-      "code": "CLEAN",
-      "family": "CLEAN",
-      "threshold": null,
-      "action": null,
-      "status": "stub"
+      "derived": true,
+      "status": "live",
+      "module": "m3_encoder"
     }
   ]
 }

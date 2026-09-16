@@ -111,9 +111,12 @@ type fakeInference struct {
 	representative bool
 }
 
+// todaysCapabilities mirrors AI/serving/capabilities.py.
+var todaysCapabilities = []domain.Capability{{Code: "A1", Module: "m1_lexicon"}, {Code: "binary_offensive", Module: "m3_encoder"}}
+
 func (f fakeInference) ArtifactHash() string { return f.hash }
 func (f fakeInference) Health() inference.Health {
-	return inference.Health{Status: "ok", ArtifactHash: f.hash, Breaker: inference.BreakerClosed, DegradedModules: f.degraded, Representative: f.representative}
+	return inference.Health{Status: "ok", ArtifactHash: f.hash, Breaker: inference.BreakerClosed, DegradedModules: f.degraded, Representative: f.representative, Capabilities: todaysCapabilities}
 }
 
 func mock(t *testing.T, name string) json.RawMessage {
@@ -501,7 +504,8 @@ func TestCommentResponseCarriesDisplayNormalizationAndMarker(t *testing.T) {
 	if !resp.Representative || resp.Normalization == nil || resp.Normalization.Text != "Seni bitireceğim" {
 		t.Fatalf("response = %s", rr.Body)
 	}
-	if d.CategoriesTotal != 16 || d.CategoriesEvaluated != 5 || d.CategoriesHidden != 4 || d.PatternsCheckedOther == nil || *d.PatternsCheckedOther != 11 ||
+	// flagged sample: m0, m2, m3 ran; of today's two capabilities only binary_offensive (m3) was evaluated.
+	if d.CategoriesTotal != 2 || d.CategoriesEvaluated != 1 || d.CategoriesHidden != 0 || d.PatternsCheckedOther == nil || *d.PatternsCheckedOther != 11 ||
 		len(d.ContentMargins) != 2 || d.Normalization == nil || d.Normalization.Replaced != 1 {
 		t.Fatalf("display = %s", rr.Body)
 	}
@@ -524,20 +528,22 @@ func TestNoNormalizationIsNull(t *testing.T) {
 
 func TestCategoriesEndpoint(t *testing.T) {
 	e := newEnv(t)
-	e.api.Inference = fakeInference{hash: "h", degraded: []string{"m2_deobf", "m6_target", "m1_lexicon", "m3_encoder", "m5_sarcasm"}, representative: true}
+	e.api.Inference = fakeInference{hash: "h", degraded: []string{"m2_deobf", "m6_target", "m3_encoder", "m5_sarcasm"}, representative: true}
 	rr := e.do(http.MethodGet, "/api/categories", "")
 	if rr.Code != 200 {
 		t.Fatalf("%d %s", rr.Code, rr.Body)
 	}
 	var body struct {
-		Placeholder    bool                  `json:"placeholder"`
 		Representative bool                  `json:"representative"`
 		Categories     []categories.Category `json:"categories"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	if len(body.Categories) != 16 || !body.Placeholder || !body.Representative || body.Categories[0].Status != "stub" {
+	// Only what the AI detects today; m1 live, m3 degraded (checkpoint missing).
+	if len(body.Categories) != 2 || !body.Representative ||
+		body.Categories[0].Code != "A1" || body.Categories[0].Status != "live" ||
+		body.Categories[1].Code != "binary_offensive" || body.Categories[1].Status != "stub" || !body.Categories[1].Derived {
 		t.Fatalf("categories = %s", rr.Body)
 	}
 }

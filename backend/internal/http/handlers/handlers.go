@@ -6,7 +6,7 @@
 //	GET  /api/moderation/flagged     non-clean comments with per-type reasons
 //	GET  /api/stats                  live numbers for the dashboard
 //	GET  /api/health                 Go, Python and Postgres status
-//	GET  /api/categories             the sixteen categories with threshold, action and status
+//	GET  /api/categories             what the AI detects, with threshold, action and status
 package handlers
 
 import (
@@ -64,7 +64,7 @@ type Inference interface {
 }
 
 type Categories interface {
-	List(degraded []string, pythonKnown bool) (categories.List, error)
+	List(capabilities []domain.Capability, degraded []string, pythonKnown bool) (categories.List, error)
 }
 
 // CachedAnalysis is what the cache keeps for one text: the result and m2's
@@ -328,13 +328,14 @@ func (a *API) createComment(w http.ResponseWriter, r *http.Request) {
 		Result: result, Summary: summary, QueueWaitMS: tm.QueueWaitMS, FromCache: tm.CacheHit, CreatedAt: createdAt,
 	})
 
-	disp, err := display.Build(result, normalization)
+	health := a.Inference.Health()
+	disp, err := display.Build(result, normalization, health.Capabilities)
 	if err != nil {
 		// The result itself parsed; only the extras are unreadable. Answer
 		// without them rather than failing the analysis.
 		a.Log.Warn("display numbers", "comment_id", commentID, "error", err)
 		normalization = nil
-		disp, _ = display.Build(result, nil)
+		disp, _ = display.Build(result, nil, health.Capabilities)
 	}
 	if normalization == nil {
 		normalization = json.RawMessage("null")
@@ -347,7 +348,7 @@ func (a *API) createComment(w http.ResponseWriter, r *http.Request) {
 		Result:         result,
 		Normalization:  normalization,
 		Display:        disp,
-		Representative: a.Inference.Health().Representative,
+		Representative: health.Representative,
 		Timing:         tm,
 	})
 }
@@ -532,7 +533,7 @@ type categoriesResponse struct {
 func (a *API) getCategories(w http.ResponseWriter, r *http.Request) {
 	h := a.Inference.Health()
 	known := h.Status == "ok"
-	list, err := a.Categories.List(h.DegradedModules, known)
+	list, err := a.Categories.List(h.Capabilities, h.DegradedModules, known)
 	if err != nil {
 		a.Log.Error("categories", "error", err)
 		respond.Error(w, http.StatusServiceUnavailable, respond.CodeInternal, "category configuration could not be read", 0)

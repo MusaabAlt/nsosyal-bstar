@@ -1,7 +1,7 @@
 // Package display computes the few numbers docs/UI asks the screen to show
 // that the AnalysisResult does not carry:
 //
-//	"16 kategoriden N'i değerlendirildi"         design-system 4.12
+//	"2 kategoriden 1'i değerlendirildi"          design-system 4.12
 //	"Skor kendi eşiğini 0.32 puan aşıyor"        design-system 4.9
 //	"Kontrol edilen diğer N kalıpta eşleşme yok" pages-spec stage 3
 //	"Eşik altındaki N kategori gösterilmiyor"    pages-spec stage 5
@@ -10,6 +10,10 @@
 // them from the result and sends them beside it. Nothing here decides
 // anything: which modules ran, which code fired and every threshold come from
 // Python; this package only counts and subtracts what Python already sent.
+//
+// "Categories" means what the AI can detect today, as the inference service
+// reports it in /health (AI/serving/capabilities.py), not the sixteen codes
+// the contract defines.
 package display
 
 import (
@@ -17,46 +21,16 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+
+	"github.com/MusaabAlt/nsosyal-bstar/backend/internal/domain"
 )
 
-// Modules in the pipeline (AI/contracts/codes.py ModuleName).
-var AllModules = []string{"m0_charsafe", "m1_lexicon", "m2_deobf", "m3_encoder", "m4_implicit", "m5_sarcasm", "m6_target"}
+// BinaryOffensive is the decision layer's channel-level offensive score. It
+// is not a ContentCode, but it is a category the AI detects.
+const BinaryOffensive = "binary_offensive"
 
-// ContentCodes in contract order (AI/contracts/codes.py ContentCode).
-var ContentCodes = []string{
-	"A1", "A2", "A3", "A4", "B1", "B2", "B3", "B4", "B5",
-	"C1", "C2", "C3", "C4", "C5", "D1", "CLEAN",
-}
-
-// coverage says which modules must have run for a category to count as
-// evaluated, taken from the module specs and ADRs:
-//   - any: at least one of these produced a score for the code
-//   - all: these must also have run for the code to exist
-//
-// A1-A3 are scored by m1 and m3 on the A1 carrier; A2/A3 are assigned from
-// m6's target (ADR-005). A4 is m1 only. B1-B3 and B5 are m3's B head; B4
-// (doxing) is m6. C1-C5 are m3's C head with m4's thresholds (ADR-006).
-// D1 is m5's own model (ADR-003). CLEAN is a real judgement only when every
-// other category was evaluated.
-type rule struct{ any, all []string }
-
-var coverage = map[string]rule{
-	"A1": {any: []string{"m1_lexicon", "m3_encoder"}},
-	"A2": {any: []string{"m1_lexicon", "m3_encoder"}, all: []string{"m6_target"}},
-	"A3": {any: []string{"m1_lexicon", "m3_encoder"}, all: []string{"m6_target"}},
-	"A4": {any: []string{"m1_lexicon"}},
-	"B1": {any: []string{"m3_encoder"}},
-	"B2": {any: []string{"m3_encoder"}},
-	"B3": {any: []string{"m3_encoder"}},
-	"B4": {any: []string{"m6_target"}},
-	"B5": {any: []string{"m3_encoder"}},
-	"C1": {any: []string{"m3_encoder"}, all: []string{"m4_implicit"}},
-	"C2": {any: []string{"m3_encoder"}, all: []string{"m4_implicit"}},
-	"C3": {any: []string{"m3_encoder"}, all: []string{"m4_implicit"}},
-	"C4": {any: []string{"m3_encoder"}, all: []string{"m4_implicit"}},
-	"C5": {any: []string{"m3_encoder"}, all: []string{"m4_implicit"}},
-	"D1": {any: []string{"m5_sarcasm"}},
-}
+// Capability is one thing the AI detects and the module that produces it.
+type Capability = domain.Capability
 
 // m2Patterns are the form codes m2 checks (m2 spec section 4 table).
 // EMOJI_SUB is listed there but declared unhandled in v1, so it is not
@@ -64,44 +38,6 @@ var coverage = map[string]rule{
 var m2Patterns = []string{
 	"LEET", "REPEAT", "SPACED", "PUNCT_SPLIT", "CHAR_DROP", "WORD_MERGE",
 	"ABBREV", "DEASCII", "VOWEL_DROP", "SUFFIX_ON_MASKED", "DIALECT", "PHONETIC",
-}
-
-// Evaluated lists, in contract order, the categories whose modules ran.
-func Evaluated(ran map[string]bool) []string {
-	out := []string{}
-	for _, code := range ContentCodes {
-		if code == "CLEAN" {
-			continue
-		}
-		if covered(coverage[code], ran) {
-			out = append(out, code)
-		}
-	}
-	if len(out) == len(ContentCodes)-1 {
-		out = append(out, "CLEAN")
-	}
-	return out
-}
-
-func covered(r rule, ran map[string]bool) bool {
-	for _, m := range r.all {
-		if !ran[m] {
-			return false
-		}
-	}
-	return slices.ContainsFunc(r.any, func(m string) bool { return ran[m] })
-}
-
-// LiveModules is every module not in the degraded list (used with /health,
-// which reports only the degraded ones).
-func LiveModules(degraded []string) map[string]bool {
-	ran := map[string]bool{}
-	for _, m := range AllModules {
-		if !slices.Contains(degraded, m) {
-			ran[m] = true
-		}
-	}
-	return ran
 }
 
 // NormalizationSummary counts the changes m2 reported (pages-spec stage 4:
@@ -113,13 +49,16 @@ type NormalizationSummary struct {
 
 // Display is sent beside the result in POST /api/comments.
 type Display struct {
-	CategoriesTotal     int `json:"categories_total"`
-	CategoriesEvaluated int `json:"categories_evaluated"`
-	CategoriesHidden    int `json:"categories_hidden"`
+	// nil when the inference service did not report its capabilities.
+	CategoriesTotal     *int `json:"categories_total"`
+	CategoriesEvaluated *int `json:"categories_evaluated"`
+	CategoriesHidden    *int `json:"categories_hidden"`
 	// nil when m2 did not run: nothing was checked.
 	PatternsCheckedOther *int `json:"patterns_checked_other"`
 	// Same order as result.content; nil where the threshold is null.
 	ContentMargins []*float64 `json:"content_margins"`
+	// Score minus threshold of signals.decision.binary_offensive; nil without both.
+	BinaryOffensiveMargin *float64 `json:"binary_offensive_margin"`
 	// nil when no normalization was sent.
 	Normalization *NormalizationSummary `json:"normalization"`
 }
@@ -144,6 +83,14 @@ type resultFields struct {
 				Module string `json:"module"`
 			} `json:"degraded"`
 		} `json:"pipeline"`
+		Decision *struct {
+			BinaryOffensive *struct {
+				Threshold *float64 `json:"threshold"`
+				Channels  map[string]struct {
+					Score *float64 `json:"score"`
+				} `json:"channels"`
+			} `json:"binary_offensive"`
+		} `json:"decision"`
 	} `json:"signals"`
 }
 
@@ -163,8 +110,21 @@ type Change struct {
 	To       string  `json:"to"`
 }
 
+// BinaryOffensiveScore picks the channel score the decision layer used: raw
+// first (the only channel with a derived threshold), then normalized.
+func binaryOffensiveScore(channels map[string]struct {
+	Score *float64 `json:"score"`
+}) *float64 {
+	for _, name := range []string{"raw", "normalized"} {
+		if c, ok := channels[name]; ok && c.Score != nil {
+			return c.Score
+		}
+	}
+	return nil
+}
+
 // Build computes the display numbers for one result.
-func Build(result json.RawMessage, normalization json.RawMessage) (Display, error) {
+func Build(result, normalization json.RawMessage, capabilities []Capability) (Display, error) {
 	var r resultFields
 	if err := json.Unmarshal(result, &r); err != nil {
 		return Display{}, fmt.Errorf("display: %w", err)
@@ -181,23 +141,25 @@ func Build(result json.RawMessage, normalization json.RawMessage) (Display, erro
 		}
 	}
 
-	evaluated := Evaluated(ran)
-	returned := map[string]bool{}
-	for _, c := range r.Content {
-		returned[c.Code] = true
-	}
-	hidden := 0
-	for _, code := range evaluated {
-		if code != "CLEAN" && !returned[code] {
-			hidden++
-		}
-	}
+	d := Display{ContentMargins: make([]*float64, len(r.Content))}
 
-	d := Display{
-		CategoriesTotal:     len(ContentCodes),
-		CategoriesEvaluated: len(evaluated),
-		CategoriesHidden:    hidden,
-		ContentMargins:      make([]*float64, len(r.Content)),
+	if len(capabilities) > 0 {
+		returned := map[string]bool{}
+		for _, c := range r.Content {
+			returned[c.Code] = true
+		}
+		total, evaluated, hidden := len(capabilities), 0, 0
+		for _, c := range capabilities {
+			if !ran[c.Module] {
+				continue
+			}
+			evaluated++
+			// binary_offensive always has its own bar; only content codes can be hidden.
+			if c.Code != BinaryOffensive && !returned[c.Code] {
+				hidden++
+			}
+		}
+		d.CategoriesTotal, d.CategoriesEvaluated, d.CategoriesHidden = &total, &evaluated, &hidden
 	}
 
 	if ran["m2_deobf"] {
@@ -215,6 +177,13 @@ func Build(result json.RawMessage, normalization json.RawMessage) (Display, erro
 		if c.Threshold != nil {
 			margin := c.Score - *c.Threshold
 			d.ContentMargins[i] = &margin
+		}
+	}
+
+	if dec := r.Signals.Decision; dec != nil && dec.BinaryOffensive != nil && dec.BinaryOffensive.Threshold != nil {
+		if score := binaryOffensiveScore(dec.BinaryOffensive.Channels); score != nil {
+			margin := *score - *dec.BinaryOffensive.Threshold
+			d.BinaryOffensiveMargin = &margin
 		}
 	}
 

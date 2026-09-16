@@ -3,7 +3,6 @@ package display
 import (
 	"encoding/json"
 	"flag"
-	"fmt"
 	"math"
 	"os"
 	"path/filepath"
@@ -15,6 +14,9 @@ import (
 var update = flag.Bool("update", false, "rewrite the frontend golden file")
 
 var mocksDir = filepath.Join("..", "..", "..", "frontend", "src", "api", "mocks")
+
+// Today's capabilities, as AI/serving/capabilities.py reports them.
+var today = []Capability{{Code: "A1", Module: "m1_lexicon"}, {Code: BinaryOffensive, Module: "m3_encoder"}}
 
 func readJSON(t *testing.T, name string) json.RawMessage {
 	t.Helper()
@@ -45,53 +47,55 @@ func textOf(t *testing.T, raw json.RawMessage) string {
 	return r.Text
 }
 
+func intIs(p *int, want int) bool { return p != nil && *p == want }
+
 func TestSamplePayloads(t *testing.T) {
 	type want struct {
 		evaluated, hidden int
 		checkedOther      *int
-		margins           []*float64
-		replaced          int
-		normalization     bool
+		margins           []float64
+		binaryMargin      *float64
 	}
 	eleven := 11
 	f := func(v float64) *float64 { return &v }
 	cases := map[string]want{
-		// Default pipeline today: only m0 and m4 run, nothing is evaluated.
-		"degraded": {evaluated: 0, hidden: 0, margins: []*float64{}},
+		// Default pipeline at the sample commit: only m0 and m4 ran.
+		"degraded": {evaluated: 0, hidden: 0, margins: []float64{}},
 		// Only m0 ran.
-		"clean": {evaluated: 0, hidden: 0, margins: []*float64{}},
-		// m0, m2, m3 ran: A1, B1, B2, B3, B5. Content returned B2 and C4, so A1, B1, B3, B5 are hidden.
-		"flagged": {evaluated: 5, hidden: 4, checkedOther: &eleven, margins: []*float64{f(0.37), f(-0.38)}, replaced: 1, normalization: true},
-		// m0, m1 ran: A1 and A4. A1 was returned, A4 is hidden.
-		"guard": {evaluated: 2, hidden: 1, margins: []*float64{f(0.22)}},
+		"clean": {evaluated: 0, hidden: 0, margins: []float64{}},
+		// m0, m2, m3 ran: binary_offensive evaluated (raw 0.44 vs 0.5); A1 not (m1 did not run).
+		"flagged": {evaluated: 1, hidden: 0, checkedOther: &eleven, margins: []float64{0.37, -0.38}, binaryMargin: f(-0.06)},
+		// m0, m1 ran: A1 evaluated and returned.
+		"guard": {evaluated: 1, hidden: 0, margins: []float64{0.22}},
 	}
 
 	golden := map[string]Display{}
 	for _, name := range []string{"degraded", "clean", "flagged", "guard"} {
 		t.Run(name, func(t *testing.T) {
 			raw := readJSON(t, name+".json")
-			d, err := Build(raw, normalizationFor(t, textOf(t, raw)))
+			d, err := Build(raw, normalizationFor(t, textOf(t, raw)), today)
 			if err != nil {
 				t.Fatal(err)
 			}
 			w := cases[name]
-			if d.CategoriesTotal != 16 || d.CategoriesEvaluated != w.evaluated || d.CategoriesHidden != w.hidden {
-				t.Errorf("total %d evaluated %d hidden %d", d.CategoriesTotal, d.CategoriesEvaluated, d.CategoriesHidden)
+			if !intIs(d.CategoriesTotal, 2) || !intIs(d.CategoriesEvaluated, w.evaluated) || !intIs(d.CategoriesHidden, w.hidden) {
+				t.Errorf("total %v evaluated %v hidden %v", d.CategoriesTotal, d.CategoriesEvaluated, d.CategoriesHidden)
 			}
 			if (d.PatternsCheckedOther == nil) != (w.checkedOther == nil) ||
-				(d.PatternsCheckedOther != nil && *d.PatternsCheckedOther != *w.checkedOther) {
-				t.Errorf("patterns checked other = %v, want %v", ptrStr(d.PatternsCheckedOther), ptrStr(w.checkedOther))
+				(w.checkedOther != nil && *d.PatternsCheckedOther != *w.checkedOther) {
+				t.Errorf("patterns checked other = %v", d.PatternsCheckedOther)
 			}
 			if len(d.ContentMargins) != len(w.margins) {
 				t.Fatalf("margins = %d entries, want %d", len(d.ContentMargins), len(w.margins))
 			}
 			for i := range w.margins {
-				if math.Abs(*d.ContentMargins[i]-*w.margins[i]) > 1e-9 {
-					t.Errorf("margin %d = %v, want %v", i, *d.ContentMargins[i], *w.margins[i])
+				if math.Abs(*d.ContentMargins[i]-w.margins[i]) > 1e-9 {
+					t.Errorf("margin %d = %v, want %v", i, *d.ContentMargins[i], w.margins[i])
 				}
 			}
-			if (d.Normalization != nil) != w.normalization || (d.Normalization != nil && d.Normalization.Replaced != w.replaced) {
-				t.Errorf("normalization = %+v", d.Normalization)
+			if (d.BinaryOffensiveMargin == nil) != (w.binaryMargin == nil) ||
+				(w.binaryMargin != nil && math.Abs(*d.BinaryOffensiveMargin-*w.binaryMargin) > 1e-9) {
+				t.Errorf("binary margin = %v, want %v", d.BinaryOffensiveMargin, w.binaryMargin)
 			}
 			golden[name] = d
 		})
@@ -115,53 +119,72 @@ func TestSamplePayloads(t *testing.T) {
 	}
 }
 
-func ptrStr(p *int) string {
-	if p == nil {
-		return "nil"
+// The real pipeline's shape since m3 0.1.0: only the raw channel is published.
+func TestBinaryOffensiveRawChannelOnly(t *testing.T) {
+	result := json.RawMessage(`{"content":[],"per_module_ms":{"m3_encoder":40},
+		"signals":{"pipeline":{"degraded":[]},"decision":{"binary_offensive":{"threshold":0.320188,"channels":{"raw":{"score":0.9}}}}}}`)
+	d, err := Build(result, nil, today)
+	if err != nil {
+		t.Fatal(err)
 	}
-	return fmt.Sprint(*p)
+	if d.BinaryOffensiveMargin == nil || math.Abs(*d.BinaryOffensiveMargin-(0.9-0.320188)) > 1e-9 {
+		t.Fatalf("binary margin = %v", d.BinaryOffensiveMargin)
+	}
+	if !intIs(d.CategoriesEvaluated, 1) || !intIs(d.CategoriesHidden, 0) {
+		t.Fatalf("evaluated %v hidden %v", d.CategoriesEvaluated, d.CategoriesHidden)
+	}
 }
 
-func TestEvaluatedRules(t *testing.T) {
-	all := LiveModules(nil)
-	if got := Evaluated(all); len(got) != 16 || got[15] != "CLEAN" {
-		t.Fatalf("all modules live: %v", got)
+func TestNoBinaryScoreNoMargin(t *testing.T) {
+	// m3 failed (checkpoint missing): the channel score is null.
+	result := json.RawMessage(`{"signals":{"decision":{"binary_offensive":{"threshold":0.32,"channels":{"raw":{"score":null}}}}}}`)
+	d, err := Build(result, nil, today)
+	if err != nil {
+		t.Fatal(err)
 	}
-	// Without m6 no target can be assigned, so A2, A3 and B4 are not evaluated, and CLEAN is not a real judgement.
-	noTarget := LiveModules([]string{"m6_target"})
-	got := Evaluated(noTarget)
-	for _, code := range []string{"A2", "A3", "B4", "CLEAN"} {
-		for _, g := range got {
-			if g == code {
-				t.Errorf("%s evaluated without m6", code)
-			}
-		}
+	if d.BinaryOffensiveMargin != nil {
+		t.Fatal("margin without a score")
 	}
-	if len(got) != 12 {
-		t.Errorf("evaluated without m6 = %v", got)
+}
+
+func TestA1EvaluatedButNotReturnedIsHidden(t *testing.T) {
+	result := json.RawMessage(`{"content":[],"per_module_ms":{"m1_lexicon":1},"signals":{"pipeline":{"degraded":[]}}}`)
+	d, err := Build(result, nil, today)
+	if err != nil {
+		t.Fatal(err)
 	}
-	if got := Evaluated(LiveModules(AllModules)); len(got) != 0 {
-		t.Errorf("nothing live but evaluated %v", got)
+	if !intIs(d.CategoriesEvaluated, 1) || !intIs(d.CategoriesHidden, 1) {
+		t.Fatalf("evaluated %v hidden %v", d.CategoriesEvaluated, d.CategoriesHidden)
+	}
+}
+
+func TestWithoutCapabilitiesCountsAreNotGuessed(t *testing.T) {
+	d, err := Build(json.RawMessage(`{"content":[]}`), nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if d.CategoriesTotal != nil || d.CategoriesEvaluated != nil || d.CategoriesHidden != nil {
+		t.Fatal("counts invented without capabilities")
 	}
 }
 
 func TestRemovedCharactersAreCounted(t *testing.T) {
 	result := json.RawMessage(`{"content":[],"form":{"patterns":[]},"per_module_ms":{"m2_deobf":1},"signals":{"pipeline":{"degraded":[]}}}`)
 	norm := json.RawMessage(`{"text":"salak","changes":[{"code":"PUNCT_SPLIT","from_span":[1,2],"to_span":null,"from":".","to":""},{"code":"PUNCT_SPLIT","from_span":[3,4],"to_span":null,"from":"..","to":""}]}`)
-	d, err := Build(result, norm)
+	d, err := Build(result, norm, today)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if d.Normalization == nil || d.Normalization.Removed != 3 || d.Normalization.Replaced != 0 {
 		t.Fatalf("summary = %+v", d.Normalization)
 	}
-	if d.PatternsCheckedOther == nil || *d.PatternsCheckedOther != 12 {
+	if !intIs(d.PatternsCheckedOther, 12) {
 		t.Fatalf("m2 ran with no pattern: checked other = %v", d.PatternsCheckedOther)
 	}
 }
 
 func TestNullThresholdHasNoMargin(t *testing.T) {
-	d, err := Build(json.RawMessage(`{"content":[{"code":"B2","score":0.9,"threshold":null}]}`), nil)
+	d, err := Build(json.RawMessage(`{"content":[{"code":"B2","score":0.9,"threshold":null}]}`), nil, today)
 	if err != nil {
 		t.Fatal(err)
 	}
