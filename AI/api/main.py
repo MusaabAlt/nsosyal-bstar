@@ -3,6 +3,8 @@
     python -m api.main [--host 127.0.0.1] [--port 8080]
 
     GET  /health            -> {"status": "ok", "artifact_hash": ...}
+    GET  /playground        -> api/playground.html, developer page for trying /analyze by hand
+    GET  /dene              -> api/dene.html, simple Turkish page for non-developers
     POST /analyze {"text"}  -> full AnalysisResult contract JSON
 
 Every request gets a JSON response: 400 for a bad request, 413 for an
@@ -16,11 +18,17 @@ import argparse
 import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 from typing import Any
 
 from pipeline.run import Pipeline
 
 MAX_BODY_BYTES = 64 * 1024
+# Self-contained pages (no external scripts, styles or fonts) that only display /analyze responses.
+PAGES = {
+    "/playground": Path(__file__).resolve().parent / "playground.html",
+    "/dene": Path(__file__).resolve().parent / "dene.html",
+}
 
 
 class BadRequest(Exception):
@@ -75,8 +83,17 @@ def make_handler(pipeline: Pipeline) -> type[BaseHTTPRequestHandler]:
 
         def do_GET(self) -> None:  # noqa: N802 - http.server naming
             def handle() -> None:
-                if self.path == "/health":
+                path = self.path.split("?", 1)[0]
+                if path == "/health":
                     self._send(HTTPStatus.OK, {"status": "ok", "artifact_hash": pipeline.artifact_hash})
+                elif path in PAGES:
+                    body = PAGES[path].read_bytes()
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(body)))
+                    self.send_header("Cache-Control", "no-store")
+                    self.end_headers()
+                    self.wfile.write(body)
                 else:
                     self._send(HTTPStatus.NOT_FOUND, {"error": "not found"})
 
@@ -101,7 +118,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--port", type=int, default=8080)
     args = parser.parse_args(argv)
     server = ThreadingHTTPServer((args.host, args.port), make_handler(Pipeline()))
-    print(f"serving on http://{args.host}:{args.port}")
+    base = f"http://{args.host}:{args.port}"
+    print(f"serving on {base}  (sayfalar: {base}/dene  {base}/playground)")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

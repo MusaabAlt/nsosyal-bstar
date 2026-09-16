@@ -7,7 +7,7 @@ You build everything a person sees and everything that serves it: `frontend/`, `
 ## Not yours
 
 - `AI/contracts/` is frozen and owned by Musaab. You render the contract; you never change it. A field you need that is not in it (for example a Turkish label or the de-obfuscated text) is a question for Musaab, not an edit.
-- Every module under `AI/modules/` belongs to its owner (Musaab, Abdullah, Mohammed; `m6_target` unassigned). Nobody edits another person's module.
+- Every module under `AI/modules/` belongs to its owner (Musaab, Abdullah, Mohammed; `m6_target` is Abdullah's — v1, see `docs/team/abdullah/START_HERE.md`). Nobody edits another person's module.
 - Thresholds live only in `AI/decision/thresholds.yaml`, and only Musaab edits shared rows. The UI never compares a score with a threshold and never decides anything: the decision layer already did.
 
 ## Day one

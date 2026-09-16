@@ -56,6 +56,29 @@ class ApiTest(unittest.TestCase):
         self.assertEqual(response.status, 400)
         self.assertIn("Content-Length", json.loads(response.read())["error"])
 
+    def get_page(self, path: str) -> tuple[int, str, str]:
+        conn = self.serve(_ExplodingPipeline())  # serving a page never runs the pipeline
+        conn.request("GET", path)
+        response = conn.getresponse()
+        return response.status, response.getheader("Content-Type"), response.read().decode("utf-8")
+
+    def test_playground_page_is_served(self) -> None:
+        status, content_type, body = self.get_page("/playground")
+        self.assertEqual(status, 200)
+        self.assertTrue(content_type.startswith("text/html"))
+        self.assertIn("/analyze", body)
+        self.assertNotIn("http://", body)   # offline: no external resources
+        self.assertNotIn("https://", body)
+
+    def test_dene_page_is_served(self) -> None:
+        status, content_type, body = self.get_page("/dene")
+        self.assertEqual(status, 200)
+        self.assertTrue(content_type.startswith("text/html"))
+        self.assertIn("/analyze", body)
+        self.assertNotIn("http://", body)
+        self.assertNotIn("https://", body)
+        self.assertNotIn("temiz", body.lower())   # the public page never calls a text clean
+
     def test_pipeline_failure_gets_500_json(self) -> None:
         status, data = self.post(self.serve(_ExplodingPipeline()), json.dumps({"text": "x"}).encode())
         self.assertEqual(status, 500)

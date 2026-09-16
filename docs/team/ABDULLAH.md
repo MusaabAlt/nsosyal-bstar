@@ -9,7 +9,7 @@ You carry the heaviest modelling load in the project: the shared Turkish encoder
 ## Not yours
 
 - `AI/contracts/` is frozen and owned by Musaab. You never edit it; if you think you need to, stop and ask.
-- `m2_deobf` is Mohammed's; you read its `normalized_text`, you never change it. `m1_lexicon` and `m4_implicit` are Musaab's. `m6_target` is unassigned and **not yours unless Musaab tells you otherwise**. Nobody edits another person's module.
+- `m2_deobf` is Mohammed's; you read its `normalized_text`, you never change it. `m1_lexicon` and `m4_implicit` are Musaab's. `m6_target` is now **yours** — Abdullah (v1, see [`abdullah/START_HERE.md`](abdullah/START_HERE.md)). Nobody edits another person's module.
 - Thresholds live only in `AI/decision/thresholds.yaml`. Your own rows (B1, B2, B3, B5, D1) you may propose, derived on dev, as a separate reviewed change. The shared rows (A1–A3, C1–C5, `binary_offensive`) only Musaab edits, even though your heads produce those scores.
 
 ## Day one

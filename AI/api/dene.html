@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Metni kontrol et</title>
+<!-- Simple public page served by api/main.py at GET /dene.
+     Self-contained: no external scripts, fonts or styles, works offline.
+     Everything shown is read from the POST /analyze response; the page decides nothing. -->
+<style>
+  :root {
+    --bg: #f5f5f2; --card: #ffffff; --ink: #1c1c1a; --muted: #62625d; --line: #deddd7;
+    --accent: #2f5d8a; --found: #b3261e; --notfound: #62625d;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #151514; --card: #1f1f1d; --ink: #ecebe6; --muted: #a3a29c; --line: #34342f;
+            --accent: #8fb8e0; --found: #ef6a60; --notfound: #a3a29c; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 18px/1.55 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 640px; margin: 0 auto; padding: 28px 16px 48px; }
+  h1 { font-size: 26px; margin: 0 0 16px; }
+  textarea { width: 100%; min-height: 130px; resize: vertical; padding: 14px; font: inherit; color: var(--ink);
+             background: var(--card); border: 1px solid var(--line); border-radius: 12px; }
+  .check { width: 100%; margin-top: 12px; padding: 14px; font: inherit; font-weight: 700; border: 0; border-radius: 12px;
+           background: var(--accent); color: #fff; cursor: pointer; }
+  @media (prefers-color-scheme: dark) { .check { color: #111; } }
+  .check:disabled { opacity: .6; cursor: wait; }
+  .examples { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 14px; font-size: 15px; }
+  .examples button { font: inherit; padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+                     background: var(--card); color: var(--ink); cursor: pointer; }
+  .muted { color: var(--muted); }
+  .status { min-height: 1.6em; margin-top: 10px; font-size: 15px; }
+  .card { margin-top: 18px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 20px; }
+  .headline { font-size: 28px; font-weight: 800; line-height: 1.25; margin: 0; }
+  .headline.found { color: var(--found); }
+  .headline.notfound { color: var(--notfound); }
+  .caveat { margin: 8px 0 0; font-size: 15px; color: var(--muted); }
+  .findings { margin: 16px 0 0; padding-left: 22px; }
+  .findings li { margin: 4px 0; }
+  .confidence { margin: 16px 0 0; padding-top: 14px; border-top: 1px solid var(--line); }
+  .confidence strong { font-weight: 700; }
+  footer { margin-top: 32px; font-size: 14px; }
+  footer a { color: var(--accent); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Metni kontrol et</h1>
+  <label for="text" class="muted" style="font-size:15px">Kontrol etmek istediğiniz metni yazın</label>
+  <textarea id="text" placeholder="Metni buraya yazın…"></textarea>
+  <button id="check" class="check">Kontrol et</button>
+  <div class="examples" id="examples"><span class="muted">Örnek dene:</span></div>
+  <div id="status" class="status muted"></div>
+
+  <section id="card" class="card" hidden aria-live="polite">
+    <p id="headline" class="headline"></p>
+    <p id="caveat" class="caveat" hidden>Sistem henüz tüm kontrolleri yapmıyor; bu sonuç kesin değildir.</p>
+    <ul id="findings" class="findings" hidden></ul>
+    <p class="confidence">Sistemin eminliği: <strong id="confidence"></strong></p>
+  </section>
+
+  <footer class="muted">Geliştirici ayrıntıları: <a href="/playground">/playground</a></footer>
+</main>
+
+<script>
+"use strict";
+
+// ---- Mapping table: response codes -> plain Turkish. Only codes present in a response are ever shown. ----
+const TEXT = {
+  found: "Saldırgan içerik bulundu",
+  notFound: "Saldırgan içerik bulunamadı",
+  profanity: (span) => `Kaba/küfürlü ifade: «${span}»`,
+  implicitOffensive: "Küfür içermeyen saldırgan ifade",
+  hiddenWord: "Kelime gizlenerek yazılmış",
+  undetermined: "Belirlenemedi",
+};
+const FORM_PATTERN_TEXT = {       // m0_charsafe form patterns
+  ZERO_WIDTH: "Görünmez karakter",
+  HOMOGLYPH: "Benzer görünen harf",
+  DOTLESS_I: "Türkçe İ/ı değişimi",
+};
+// Confidence bands for DISPLAY ONLY - not a decision threshold; the verdict comes from the API.
+// c = max(p, 1 - p) from m3's raw_score. 0.6632 is the study's deferral point (phase 04,
+// operating point high_automation, 0.663171); 0.90 is a display choice.
+const CONFIDENCE_BANDS = [
+  { min: 0.90, label: "Yüksek" },
+  { min: 0.6632, label: "Orta" },
+  { min: 0, label: "Düşük – bir insan kontrol etmeli" },
+];
+const EXAMPLES = [
+  ["Sıradan cümle","Bugün hava çok güzel, parkta yürüyüş yaptık."],
+  ["Küfürlü", "Sen çok aptal birisin."],
+  ["Küfürsüz ima", "Senin gibilerin bu ülkede yeri yok."],
+  ["Tuzak", "Eski bir sikke buldum."],
+];
+const WARMUP_TEXT = "Merhaba";
+const TURKISH_LETTERS = /^[a-zçğıöşüâîû\s]+$/u;
+
+const $ = (id) => document.getElementById(id);
+
+async function postAnalyze(text) {
+  const response = await fetch("/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({ text }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+function spanText(r, item) {
+  return Array.isArray(item.span) ? (r.text || "").slice(item.span[0], item.span[1]) : "";
+}
+
+function looksHidden(span, roots) {
+  // "Kelime gizlenerek yazılmış": the matched text is not simply its root plus Turkish letters
+  // (e.g. "@ptal", "a p t a l", "ap<görünmez>tal"). A plain inflected form such as "aptallar"
+  // starts with its root and is not reported as hidden.
+  const lower = span.toLocaleLowerCase("tr");
+  if (roots.some((root) => lower.startsWith(root.toLocaleLowerCase("tr")))) return false;
+  return !TURKISH_LETTERS.test(lower) || /^(\S[\s.\-_*]+)+\S$/u.test(lower);
+}
+
+function findings(r) {
+  const lines = [];
+  const decision = (r.signals && r.signals.decision) || {};
+  const binaryFired = Boolean(decision.binary_offensive && decision.binary_offensive.fired === true);
+  const fired = (r.content || []).filter((s) => s.fired === true);
+  const roots = (r.signals && r.signals.m1_lexicon && r.signals.m1_lexicon.matched_roots) || [];
+
+  const m1Profanity = fired.filter((s) => /^A/.test(s.code) && (s.source || "").startsWith("m1_lexicon"));
+  let hidden = false;
+  for (const s of m1Profanity) {
+    const span = spanText(r, s);
+    if (span) lines.push(TEXT.profanity(span));
+    if (span && looksHidden(span, roots)) hidden = true;
+  }
+  if (binaryFired && fired.length === 0) lines.push(TEXT.implicitOffensive);
+  const patterns = new Set(((r.form && r.form.patterns) || [])
+    .filter((p) => (p.source || "") === "m0_charsafe" && FORM_PATTERN_TEXT[p.code])
+    .map((p) => p.code));
+  for (const code of patterns) lines.push(FORM_PATTERN_TEXT[code]);
+  if (hidden) lines.push(TEXT.hiddenWord);
+  return { lines: [...new Set(lines)], offensive: binaryFired || fired.length > 0 };
+}
+
+function confidence(r) {
+  const degraded = ((r.signals && r.signals.pipeline && r.signals.pipeline.degraded) || []).some((d) => d.module === "m3_encoder");
+  const p = r.signals && r.signals.m3_encoder && r.signals.m3_encoder.raw_score;
+  if (degraded || typeof p !== "number") return TEXT.undetermined;
+  const c = Math.max(p, 1 - p);
+  return CONFIDENCE_BANDS.find((band) => c >= band.min).label;
+}
+
+function render(r) {
+  const { lines, offensive } = findings(r);
+  const headline = $("headline");
+  headline.textContent = offensive ? TEXT.found : TEXT.notFound;
+  headline.className = `headline ${offensive ? "found" : "notfound"}`;
+  $("caveat").hidden = offensive;
+  const list = $("findings");
+  list.replaceChildren(...lines.map((line) => Object.assign(document.createElement("li"), { textContent: line })));
+  list.hidden = lines.length === 0;
+  $("confidence").textContent = confidence(r);
+  $("card").hidden = false;
+}
+
+async function check(text) {
+  const button = $("check");
+  if (!text.trim()) { $("status").textContent = "Lütfen bir metin yazın."; return; }
+  button.disabled = true;
+  $("status").textContent = "Kontrol ediliyor…";
+  try {
+    render(await postAnalyze(text));
+    $("status").textContent = "";
+  } catch (err) {
+    $("status").textContent = "Bir sorun oluştu, lütfen tekrar deneyin.";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+for (const [label, sentence] of EXAMPLES) {
+  const b = document.createElement("button");
+  b.textContent = label;
+  b.title = sentence;
+  b.addEventListener("click", () => { $("text").value = sentence; check(sentence); });
+  $("examples").append(b);
+}
+$("check").addEventListener("click", () => check($("text").value));
+
+// Warm-up: the first request loads the models; send one hidden request on page load.
+postAnalyze(WARMUP_TEXT).catch(() => {});
+</script>
+</body>
+</html>

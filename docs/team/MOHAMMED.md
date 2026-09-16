@@ -9,7 +9,7 @@ It is a full job on its own. It is the highest value-to-effort module in the pro
 ## Not yours
 
 - `AI/contracts/` is frozen and owned by Musaab. You never edit it.
-- `m0_charsafe`, `m1_lexicon` and `m4_implicit` are Musaab's; `m3_encoder` and `m5_sarcasm` are Abdullah's. `m6_target` is unassigned and **not yours unless Musaab tells you otherwise**. Nobody edits another person's module.
+- `m0_charsafe`, `m1_lexicon` and `m4_implicit` are Musaab's; `m3_encoder` and `m5_sarcasm` are Abdullah's. `m6_target` is Abdullah's (v1, see `docs/team/abdullah/START_HERE.md`). Nobody edits another person's module.
 - Thresholds live only in `AI/decision/thresholds.yaml`, and only Musaab edits shared rows. `budgets.clean_to_dirty_flip_rate` is the budget your tier 2 is measured against; you do not set it.
 
 ## Day one

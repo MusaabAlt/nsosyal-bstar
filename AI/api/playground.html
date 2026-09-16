@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tr-moderation – geliştirici sayfası</title>
+<!-- Developer playground served by api/main.py at GET /playground.
+     Self-contained: no external scripts, fonts or styles, works offline.
+     It only DISPLAYS what POST /analyze returns; it never decides anything itself. -->
+<style>
+  :root {
+    --bg: #f6f6f3; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc;
+    --accent: #2f5d8a; --code-bg: #f0efea; --track: #e7e6e0;
+    --clean: #2e7d4f; --nudge: #2f6fa8; --review: #b7791f; --escalate: #c4541d; --block: #b3261e; --none: #6b6b66;
+    --hit: #ffe08a; --guard: #cfe3f7;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #9c9b95; --line: #33332f;
+      --accent: #8fb8e0; --code-bg: #262623; --track: #33332f;
+      --clean: #5fbf86; --nudge: #6fa8dc; --review: #e0a846; --escalate: #ec8a52; --block: #ef6a60; --none: #9c9b95;
+      --hit: #6b5a1c; --guard: #24425e;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+         font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+  main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 0 0 10px; }
+  .sub { color: var(--muted); margin: 0 0 20px; font-size: 13px; }
+  .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 14px; }
+  textarea { width: 100%; min-height: 96px; resize: vertical; padding: 10px; font: inherit; color: var(--ink);
+             background: var(--bg); border: 1px solid var(--line); border-radius: 8px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 10px; }
+  button { font: inherit; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink);
+           padding: 6px 12px; cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; padding: 8px 18px; }
+  @media (prefers-color-scheme: dark) { button.primary { color: #111; } }
+  button:disabled { opacity: .55; cursor: wait; }
+  .chip { font-size: 13px; }
+  .hint { color: var(--muted); font-size: 13px; }
+  .verdict { display: flex; flex-wrap: wrap; align-items: baseline; gap: 14px; }
+  .verdict .big { font-size: 40px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; line-height: 1.1; }
+  .explanation { font-size: 16px; margin-top: 8px; }
+  .table-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  td code, .mono { font-family: ui-monospace, SFMono-Regular, Consolas, "Liberation Mono", monospace; font-size: 13px; }
+  .badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid currentColor; }
+  .ok { color: var(--clean); } .stub { color: var(--muted); } .degraded { color: var(--block); }
+  .warn { color: var(--escalate); }
+  .yes { color: var(--block); font-weight: 700; } .no { color: var(--muted); }
+  .highlight { font-size: 17px; line-height: 1.9; white-space: pre-wrap; word-break: break-word;
+               padding: 10px; background: var(--bg); border-radius: 8px; }
+  mark.hit { background: var(--hit); color: inherit; border-radius: 3px; padding: 0 1px; }
+  mark.guard { background: var(--guard); color: inherit; border-radius: 3px; padding: 0 1px; }
+  mark.hit.guard { background: linear-gradient(var(--hit) 55%, var(--guard) 55%); }
+  ul.plain { margin: 6px 0 0; padding-left: 18px; }
+  pre { margin: 0; padding: 12px; background: var(--code-bg); border-radius: 8px; overflow-x: auto; font-size: 12.5px; }
+  details summary { cursor: pointer; color: var(--accent); }
+  .grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; }
+  .history button { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
+  .error { color: var(--block); font-weight: 600; }
+  /* m3 score bar: fill = raw_score, tick = binary_offensive threshold from the response */
+  .bar { position: relative; height: 18px; background: var(--track); border-radius: 9px; margin: 22px 0 6px; }
+  .bar .fill { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 9px; background: var(--muted); }
+  .bar .fill.over { background: var(--block); }
+  .bar .tick { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--ink); }
+  .bar .tick span { position: absolute; top: -18px; left: 50%; transform: translateX(-50%); white-space: nowrap; font-size: 12px; }
+  .bar-scale { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <h1>tr-moderation – geliştirici sayfası</h1>
+  <p class="sub">Yerel, çevrimdışı. Metni bu sunucudaki <code>POST /analyze</code> uç noktasına gönderir ve yanıtı olduğu gibi gösterir.
+    Basit sayfa: <a href="/dene">/dene</a></p>
+
+  <section class="panel">
+    <label for="text" class="hint">Çözümlenecek metin</label>
+    <textarea id="text" placeholder="Bir metin yazın…"></textarea>
+    <div class="row">
+      <button id="analyze" class="primary">Çözümle</button>
+      <span class="hint">Ctrl+Enter</span>
+      <span id="status" class="hint"></span>
+    </div>
+    <div class="row" id="examples"><span class="hint">Örnekler:</span></div>
+    <div class="row" id="traps"><span class="hint">Tuzaklar:</span></div>
+    <div class="row history" id="history-row" hidden><span class="hint">Geçmiş:</span></div>
+  </section>
+
+  <div id="result" hidden>
+    <section class="panel">
+      <h2>1 · Karar</h2>
+      <div class="verdict">
+        <span id="verdict" class="big"></span>
+        <span id="verdict-driver" class="hint"></span>
+        <button id="copy" class="chip">Sonucu kopyala</button>
+        <span id="copy-status" class="hint"></span>
+      </div>
+      <h2 style="margin-top:14px">2 · Açıklama</h2>
+      <div id="explanation" class="explanation"></div>
+    </section>
+
+    <section class="panel">
+      <h2>3 · Modüller</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Modül</th><th>Durum</th><th>Skor / sinyal</th><th>Eşik</th><th>Tetiklendi</th><th>ms</th></tr></thead>
+          <tbody id="modules"></tbody>
+        </table>
+      </div>
+      <div id="m3-block" hidden>
+        <p class="hint" style="margin:14px 0 0">m3 saldırganlık skoru <span id="trunc" class="badge warn" hidden>128 belirteçte kesildi</span></p>
+        <div class="bar" id="m3-bar"><div class="fill" id="m3-fill"></div><div class="tick" id="m3-tick"><span id="m3-tick-label"></span></div></div>
+        <div class="bar-scale"><span>0</span><span id="m3-value"></span><span>1</span></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>4 · İçerik kodları ve eşleşen bölümler</h2>
+      <div id="highlight" class="highlight"></div>
+      <p class="hint" style="margin:8px 0 0"><mark class="hit">içerik eşleşmesi</mark> &nbsp; <mark class="guard">koruma (guard) eşleşmesi</mark></p>
+      <div class="table-wrap" style="margin-top:10px">
+        <table>
+          <thead><tr><th>Kod</th><th>Kaynak</th><th>Aralık</th><th>Metin</th><th>Skor</th><th>Eşik</th><th>Tetiklendi</th></tr></thead>
+          <tbody id="content"></tbody>
+        </table>
+      </div>
+      <div id="guards-block"></div>
+    </section>
+
+    <section class="panel">
+      <h2>5 · Notlar ve gecikme</h2>
+      <div class="grid2">
+        <div><strong id="latency"></strong><ul id="notes" class="plain"></ul></div>
+        <div class="table-wrap"><table><tbody id="per-module"></tbody></table></div>
+      </div>
+    </section>
+
+    <section class="panel">
+      <h2>6 · Ham JSON</h2>
+      <details><summary>Yanıtın tamamını göster</summary><pre id="raw"></pre></details>
+    </section>
+  </div>
+</main>
+
+<script>
+"use strict";
+
+const EXAMPLES = [
+  ["Temiz", "Bugün hava çok güzel, parkta yürüyüş yaptık."],
+  ["Küfür", "Sen çok aptal birisin."],
+  ["Alt dizi tuzağı (sikke)", "Eski sikke koleksiyonu"],
+  ["Küfürsüz ima", "Senin gibilerin bu ülkede yeri yok."],
+];
+const TRAPS = [
+  ["sikke", "Eski bir sikke buldum."],
+  ["götürmek", "Çantayı eve götürmek lazım."],
+  ["SıKıNTıLı", "Bugün çok SıKıNTıLı bir gün."],
+];
+const MODULE_ORDER = ["m0_charsafe", "m1_lexicon", "m2_deobf", "m3_encoder", "m4_implicit", "m5_sarcasm", "m6_target"];
+const VERDICT_COLOUR = { clean: "--clean", nudge: "--nudge", review: "--review", escalate: "--escalate", block: "--block" };
+const VERDICT_LABEL = { clean: "temiz", nudge: "uyarı", review: "inceleme", escalate: "üst incelemeye", block: "engelle" };
+const HISTORY_LIMIT = 10;
+const WARMUP_TEXT = "Merhaba";
+const history = [];  // in memory only
+let last = null;     // last response, for "Sonucu kopyala"
+
+const $ = (id) => document.getElementById(id);
+
+function el(tag, props = {}, ...children) {
+  const node = document.createElement(tag);
+  for (const [k, v] of Object.entries(props)) {
+    if (k === "class") node.className = v; else node.setAttribute(k, v);
+  }
+  for (const child of children) node.append(child instanceof Node ? child : document.createTextNode(String(child)));
+  return node;
+}
+
+const fmt = (v) => (typeof v === "number" ? (Number.isInteger(v) ? String(v) : v.toFixed(4)) : v);
+const fmtThreshold = (v) => (v === null || v === undefined ? "—" : String(v));  // exact, never rounded
+const moduleOf = (source) => (source || "").split("@")[0];
+const firedCell = (fired) =>
+  fired === true ? el("span", { class: "yes" }, "evet") : fired === false ? el("span", { class: "no" }, "hayır") : el("span", { class: "no" }, "—");
+
+async function postAnalyze(text) {
+  const response = await fetch("/analyze", {
+    method: "POST",
+    headers: { "Content-Type": "application/json; charset=utf-8" },
+    body: JSON.stringify({ text }),
+  });
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error || `HTTP ${response.status}`);
+  return data;
+}
+
+async function analyze(text) {
+  const button = $("analyze");
+  button.disabled = true;
+  $("status").textContent = "çözümleniyor…";
+  $("status").className = "hint";
+  const started = performance.now();
+  try {
+    const data = await postAnalyze(text);
+    render(data);
+    remember(text);
+    $("status").textContent = `${Math.round(performance.now() - started)} ms içinde tamamlandı (gidiş-dönüş)`;
+  } catch (err) {
+    $("status").textContent = `hata: ${err.message}`;
+    $("status").className = "error";
+  } finally {
+    button.disabled = false;
+  }
+}
+
+function remember(text) {
+  const existing = history.indexOf(text);
+  if (existing !== -1) history.splice(existing, 1);
+  history.unshift(text);
+  history.length = Math.min(history.length, HISTORY_LIMIT);
+  const row = $("history-row");
+  row.replaceChildren(el("span", { class: "hint" }, "Geçmiş:"));
+  for (const item of history) {
+    const b = el("button", { class: "chip", title: item }, item.length > 48 ? item.slice(0, 47) + "…" : item || "(boş)");
+    b.addEventListener("click", () => { $("text").value = item; analyze(item); });
+    row.append(b);
+  }
+  row.hidden = false;
+}
+
+function render(r) {
+  last = r;
+  $("result").hidden = false;
+  $("copy-status").textContent = "";
+  const decision = (r.signals && r.signals.decision) || {};
+  const binary = decision.binary_offensive || null;
+
+  // 1. verdict
+  const verdict = r.verdict;
+  $("verdict").textContent = verdict ? `${verdict} · ${VERDICT_LABEL[verdict] || ""}` : "karar yok";
+  $("verdict").style.color = `var(${VERDICT_COLOUR[verdict] || "--none"})`;
+  const degraded = ((r.signals && r.signals.pipeline && r.signals.pipeline.degraded) || []);
+  $("verdict-driver").textContent = degraded.length
+    ? `değerlendirme eksik: ${degraded.length} modül devre dışı`
+    : "tüm modüller sonuç verdi";
+
+  // 2. explanation
+  $("explanation").textContent = r.explanation || "";
+
+  // 3. module table
+  const degradedBy = Object.fromEntries(degraded.map((d) => [d.module, d]));
+  const perModule = r.per_module_ms || {};
+  const names = [...new Set([...MODULE_ORDER, ...Object.keys(perModule)])].filter((n) => /^m\d_/.test(n)).sort();
+  const tbody = $("modules");
+  tbody.replaceChildren();
+  for (const name of names) {
+    const d = degradedBy[name];
+    const kinds = d ? d.kinds : [];
+    const status = !d ? ["çalışıyor", "ok"] : kinds.includes("stub") && kinds.length === 1 ? ["taslak (stub)", "stub"] : [`devre dışı (${kinds.join("/")})`, "degraded"];
+    const sig = (r.signals && r.signals[name]) || {};
+    const scores = (r.content || []).filter((s) => moduleOf(s.source) === name);
+    const guards = (r.guards || []).filter((g) => moduleOf(g.source) === name);
+    let summary = "—", threshold = "—", fired = null;
+
+    if (name === "m3_encoder" && typeof sig.raw_score === "number") {
+      summary = `raw_score ${fmt(sig.raw_score)}`;
+      if (binary) {
+        threshold = `binary_offensive ${fmtThreshold(binary.threshold)}`;
+        fired = binary.channels && binary.channels.raw ? binary.channels.raw.fired : binary.fired;
+      }
+    } else if (name === "m1_lexicon" && "lexicon_hit" in sig) {
+      summary = `lexicon_hit ${sig.lexicon_hit}` + (sig.matched_roots && sig.matched_roots.length ? ` (${sig.matched_roots.join(", ")})` : "");
+    } else if (name === "m0_charsafe" && "charsafe_changed" in sig) {
+      summary = `değişti ${sig.charsafe_changed}, görünmez ${sig.invisible_removed}, benzer harf ${sig.homoglyphs_mapped}`;
+    } else if (name === "m6_target" && r.target) {
+      summary = `hedef ${r.target.type} (${fmt(r.target.confidence)})`;
+    }
+    if (scores.length) {
+      summary = scores.map((s) => `${s.code} ${fmt(s.score)}`).join(", ") + (summary === "—" ? "" : ` · ${summary}`);
+      threshold = scores.map((s) => `${s.code} ${fmtThreshold(s.threshold)}`).join(", ");
+      fired = scores.some((s) => s.fired);
+    }
+    if (guards.length) {
+      summary += ` · korumalar: ${guards.map((x) => `${x.code}${x.active ? " (etkin)" : ""}`).join(", ")}`;
+    }
+    tbody.append(el("tr", {},
+      el("td", {}, el("code", {}, name)),
+      el("td", {}, el("span", { class: `badge ${status[1]}` }, status[0])),
+      el("td", {}, summary),
+      el("td", {}, threshold),
+      el("td", {}, firedCell(fired)),
+      el("td", { class: "mono" }, perModule[name] !== undefined ? perModule[name].toFixed(1) : "—"),
+    ));
+  }
+  renderM3Bar(r, binary);
+
+  // 4. spans
+  renderHighlight(r.text || "", r.content || [], r.guards || []);
+  const ctable = $("content");
+  ctable.replaceChildren();
+  if (!(r.content || []).length) {
+    ctable.append(el("tr", {}, el("td", { colspan: "7", class: "hint" }, "içerik skoru yok")));
+  }
+  for (const s of r.content || []) {
+    const span = Array.isArray(s.span) ? s.span : null;
+    ctable.append(el("tr", {},
+      el("td", {}, el("strong", {}, s.code)),
+      el("td", {}, el("code", {}, s.source)),
+      el("td", { class: "mono" }, span ? `[${span[0]}, ${span[1]})` : "—"),
+      el("td", {}, span ? (r.text || "").slice(span[0], span[1]) : "—"),
+      el("td", { class: "mono" }, fmt(s.score)),
+      el("td", { class: "mono" }, fmtThreshold(s.threshold)),
+      el("td", {}, firedCell(s.fired)),
+    ));
+  }
+  const gblock = $("guards-block");
+  gblock.replaceChildren();
+  if ((r.guards || []).length) {
+    const list = el("ul", { class: "plain" });
+    for (const g of r.guards) {
+      const span = Array.isArray(g.span) ? ` «${(r.text || "").slice(g.span[0], g.span[1])}»` : "";
+      list.append(el("li", {}, `${g.code}${span} — skor ${fmt(g.score)}, eşik ${fmtThreshold(g.threshold)}, etkin ${g.active}` +
+        (g.suppressed && g.suppressed.length ? `, bastırdı ${g.suppressed.join(", ")}` : "") + (g.evidence ? ` (${g.evidence})` : "")));
+    }
+    gblock.append(el("p", { class: "hint", style: "margin:12px 0 0" }, "Korumalar (guards)"), list);
+  }
+
+  // 5. notes and latency
+  $("latency").textContent = `Toplam ${fmt(r.latency_ms)} ms${r.fast_path ? " (hızlı yol)" : ""}`;
+  const notes = $("notes");
+  notes.replaceChildren(...(r.notes || []).map((n) => el("li", {}, n)));
+  if (!(r.notes || []).length) notes.append(el("li", { class: "hint" }, "not yok"));
+  const pm = $("per-module");
+  pm.replaceChildren(el("tr", {}, el("th", {}, "Modül"), el("th", {}, "ms")));
+  for (const [name, ms] of Object.entries(perModule)) {
+    pm.append(el("tr", {}, el("td", {}, el("code", {}, name)), el("td", { class: "mono" }, ms.toFixed(2))));
+  }
+
+  // 6. raw JSON
+  $("raw").textContent = JSON.stringify(r, null, 2);
+}
+
+function renderM3Bar(r, binary) {
+  const score = r.signals && r.signals.m3_encoder && r.signals.m3_encoder.raw_score;
+  const block = $("m3-block");
+  if (typeof score !== "number") { block.hidden = true; return; }
+  block.hidden = false;
+  const threshold = binary && typeof binary.threshold === "number" ? binary.threshold : null;
+  const fired = binary && binary.channels && binary.channels.raw ? binary.channels.raw.fired === true : false;
+  const fill = $("m3-fill");
+  fill.style.width = `${(Math.min(Math.max(score, 0), 1) * 100).toFixed(2)}%`;
+  fill.className = fired ? "fill over" : "fill";
+  const tick = $("m3-tick");
+  tick.hidden = threshold === null;
+  if (threshold !== null) {
+    tick.style.left = `${(threshold * 100).toFixed(4)}%`;
+    $("m3-tick-label").textContent = `eşik ${fmtThreshold(threshold)}`;
+  }
+  $("m3-value").textContent = `skor ${fmt(score)}${fired ? " · eşiği aştı" : ""}`;
+  // m3 reports truncation as a module note: "[m3_encoder] truncated: N tokens, scored the first 128"
+  $("trunc").hidden = !(r.notes || []).some((n) => n.startsWith("[m3_encoder] truncated"));
+}
+
+function renderHighlight(text, content, guards) {
+  // Per character: inside a content span, a guard span, or both. Spans are [start, end) into the original text.
+  const marks = Array.from({ length: text.length }, () => ({ hit: false, guard: false }));
+  const paint = (items, key) => {
+    for (const item of items) {
+      if (!Array.isArray(item.span)) continue;
+      for (let i = Math.max(0, item.span[0]); i < Math.min(text.length, item.span[1]); i++) marks[i][key] = true;
+    }
+  };
+  paint(content, "hit");
+  paint(guards, "guard");
+  const box = $("highlight");
+  box.replaceChildren();
+  if (!text) { box.append(el("span", { class: "hint" }, "(boş metin)")); return; }
+  let i = 0;
+  while (i < text.length) {
+    const { hit, guard } = marks[i];
+    let j = i + 1;
+    while (j < text.length && marks[j].hit === hit && marks[j].guard === guard) j++;
+    const chunk = text.slice(i, j);
+    if (hit || guard) box.append(el("mark", { class: [hit ? "hit" : "", guard ? "guard" : ""].join(" ").trim() }, chunk));
+    else box.append(document.createTextNode(chunk));
+    i = j;
+  }
+}
+
+function copyLine(r) {
+  // One line for a manual test log: text | verdict | m1 | m3 score.
+  const m1 = (r.signals && r.signals.m1_lexicon) || {};
+  const m3 = (r.signals && r.signals.m3_encoder) || {};
+  const roots = m1.matched_roots && m1.matched_roots.length ? m1.matched_roots.join(",") : "-";
+  const m1Part = "lexicon_hit" in m1 ? `m1: lexicon_hit=${m1.lexicon_hit} kökler=${roots}` : "m1: yok";
+  const m3Part = typeof m3.raw_score === "number" ? `m3: ${m3.raw_score}` : "m3: yok";
+  const oneLine = (r.text || "").replace(/\s+/g, " ");
+  return `«${oneLine}» | karar: ${r.verdict || "yok"} | ${m1Part} | ${m3Part}`;
+}
+
+async function copyResult() {
+  if (!last) return;
+  const line = copyLine(last);
+  try {
+    await navigator.clipboard.writeText(line);
+  } catch {
+    const area = el("textarea");
+    area.value = line;
+    document.body.append(area);
+    area.select();
+    document.execCommand("copy");
+    area.remove();
+  }
+  $("copy-status").textContent = "kopyalandı";
+}
+
+function addButtons(rowId, items) {
+  for (const [label, sentence] of items) {
+    const b = el("button", { class: "chip", title: sentence }, label);
+    b.addEventListener("click", () => { $("text").value = sentence; analyze(sentence); });
+    $(rowId).append(b);
+  }
+}
+
+addButtons("examples", EXAMPLES);
+addButtons("traps", TRAPS);
+$("analyze").addEventListener("click", () => analyze($("text").value));
+$("copy").addEventListener("click", copyResult);
+$("text").addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) { e.preventDefault(); analyze($("text").value); }
+});
+
+// Warm-up: the first request loads the models (several seconds). Send one hidden request on
+// page load so the first real analysis is fast. Its result is never shown or added to history.
+$("status").textContent = "sistem hazırlanıyor…";
+postAnalyze(WARMUP_TEXT)
+  .then(() => { if ($("status").textContent === "sistem hazırlanıyor…") $("status").textContent = "hazır"; })
+  .catch(() => { if ($("status").textContent === "sistem hazırlanıyor…") $("status").textContent = ""; });
+</script>
+</body>
+</html>

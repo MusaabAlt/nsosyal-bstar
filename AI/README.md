@@ -5,10 +5,13 @@ speech gets its own engine, its own threshold and its own action. Runs fully
 offline on CPU - no platform API, no network call at inference.
 
 **Status: skeleton.** Contracts, decision layer, pipeline, evaluation harness
-and the reference module `m0_charsafe` are implemented. `m4_implicit` emits
-nothing yet by design (C1-C5 come from m3's C head, ADR-006); m1, m2, m3, m5 and m6 are
-documented stubs, and every number in `decision/thresholds.yaml` is a
-placeholder until derived on dev.
+and the reference module `m0_charsafe` are implemented. `m1_lexicon` is
+implemented on terlik (`f9159be`). `m3_encoder` is PARTIAL (`0bb9d25`):
+inference wraps the frozen epoch-1 BERTurk baseline and publishes `raw_score`,
+but the A, B and C heads are deferred. `m4_implicit` emits nothing yet by
+design (C1-C5 come from m3's C head, ADR-006); m2, m5 and m6 are documented
+stubs, and every number in `decision/thresholds.yaml` is a placeholder until
+derived on dev.
 
 ## Quick start
 
