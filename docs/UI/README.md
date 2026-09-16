@@ -1,3 +1,9 @@
+> **Status (2026-09-16): history.** The built panel no longer follows these
+> files. It follows the claude.ai/design project "ATI-SOSYAL Paneli" (seven
+> pages, NSosyal's look, dark and light) with real data only. The rules about
+> offline use, "every number comes from the API" and "the UI decides nothing"
+> are still kept. What was built and why: [`docs/FULLSTACK.md`](../FULLSTACK.md).
+
 # Handover — Moderation Console UI
 
 Three files. Read them in this order.

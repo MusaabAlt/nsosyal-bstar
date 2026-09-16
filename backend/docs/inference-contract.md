@@ -60,8 +60,9 @@ Response `200`:
 
 `normalization` sits beside `result` on purpose. The `AnalysisResult` contract
 is frozen and deliberately leaves the de-obfuscated text out
-(HANDOVER decision 21). The screen shows it in stage 4 (Normalleştirme) only
-when this optional field is present.
+(HANDOVER decision 21). The panel's Canlı Analiz page shows it in the
+normalization strip only when this optional field is present. The service does
+not send it yet: `m2_deobf` is still a stub.
 
 Other statuses:
 - `503` (any body): the models are still loading. Go stops sending batches until `/health` says `ok`.
@@ -86,8 +87,8 @@ Other statuses:
 |---|---|
 | `status` | `ok`, `loading` or `error`. Answer `loading` while models load, never a timeout. |
 | `artifact_hash` | Same value as in batch responses. |
-| `degraded_modules` | Modules that are stubs or failed to load. Kategoriler marks their categories `modül hazır değil`. |
-| `capabilities` | What the AI can detect **today** and which module produces it (`AI/serving/capabilities.py`). Kategoriler lists only these, and "N kategoriden M'i değerlendirildi" counts only these. `binary_offensive` is the decision layer's channel-level offensive score, shown as "Genel saldırganlık". Update the list in the same change that makes a module emit a new code. |
+| `degraded_modules` | Modules that are stubs or failed to load. The panel marks their categories `Modül hazır değil` (Tespit Motorları, Kurallar & Eşikler). |
+| `capabilities` | What the AI can detect **today** and which module produces it (`AI/serving/capabilities.py`). The panel lists only these (engine cards, result cards, charts, Kurallar & Eşikler), and "N kategoriden M'i değerlendirildi" counts only these. `binary_offensive` is the decision layer's channel-level offensive score, shown as "Genel saldırganlık". Update the list in the same change that makes a module emit a new code. |
 | `representative` | `true` only for a service that returns sample data. The screen then shows the `Temsili veri` marker. The real service sends `false`. |
 
 ## Limits Go enforces

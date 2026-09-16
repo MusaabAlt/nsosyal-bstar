@@ -15,7 +15,11 @@ uyguladığı eşik onarımı tanı çalışmasından gelir: eşik politikasın�
 sonucu [`diagnosis/results/12_threshold_policy/`](diagnosis/results/12_threshold_policy/)
 altındadır.
 
-[`frontend/`](frontend/) ve [`backend/`](backend/) arayüz çalışması için boş iskeletlerdir.
+[`backend/`](backend/) (Go) ve [`frontend/`](frontend/) (Vue 3) canlı demo için moderasyon
+panelidir: Go sunucusu paneli ve REST API'yi sunar, [`AI/serving/`](AI/serving/) altındaki
+FastAPI çıkarım servisini başlatır ve her analizi PostgreSQL'e yazar. Neyin nasıl
+kurulduğu, sayfalar, uç noktalar ve çalıştırma adımları
+[`docs/FULLSTACK.md`](docs/FULLSTACK.md) dosyasındadır.
 
 Başlamak için önce [`AI/CLAUDE.md`](AI/CLAUDE.md), ardından
 [`AI/docs/HANDOVER.md`](AI/docs/HANDOVER.md) okunmalıdır. Kimin neyden sorumlu olduğu

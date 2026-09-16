@@ -1,0 +1,307 @@
+# Full stack: what was built on the `fullstack` branch
+
+This document explains everything the `fullstack` branch added to the
+repository (merged into `master` as pull request #1): the Go backend, the Vue
+moderation panel and the FastAPI inference service in `AI/serving`. It is the
+starting point for anyone who has to run, change or present that work.
+
+More detail lives next to the code:
+
+| Topic | File |
+|---|---|
+| Backend: running, configuration, endpoints | [`backend/README.md`](../backend/README.md) |
+| Go ⇄ Python contract | [`backend/docs/inference-contract.md`](../backend/docs/inference-contract.md) |
+| Frontend: pages, structure, commands | [`frontend/README.md`](../frontend/README.md) |
+| Original console specification (history) | [`docs/UI/`](UI/README.md) |
+
+---
+
+## 1. The big picture
+
+The demo runs on **one offline laptop**. Up to about 70 people on the room's
+Wi-Fi send messages; a moderator watches the panel on the same laptop or on
+a projector. Three processes run on the laptop:
+
+```
+ phones / laptops on the LAN                      the demo laptop
+ ───────────────────────────        ┌────────────────────────────────────────────────┐
+                                    │                                                │
+   browser ── HTTP :8080 ─────────► │  Go server (backend/)                          │
+                                    │   • serves the Vue panel (embedded in binary)  │
+                                    │   • /api/*  REST API                           │
+                                    │   • queue + micro-batching, cache, rate limits │
+                                    │        │                       │               │
+                                    │        │ HTTP 127.0.0.1:8001   │ SQL :5432     │
+                                    │        ▼                       ▼               │
+                                    │  Python inference         PostgreSQL           │
+                                    │  (AI/serving, FastAPI)    comments, decisions, │
+                                    │  runs AI/pipeline         moderator actions,   │
+                                    │  started + watched by Go  request metrics      │
+                                    └────────────────────────────────────────────────┘
+```
+
+- **Go server** (`backend/`): the only process the network can reach. It
+  serves the panel and the API, protects the model from overload, stores
+  everything in Postgres and starts the Python service itself.
+- **Python inference service** (`AI/serving/`): a thin HTTP wrapper around
+  `AI/pipeline`. Listens on localhost only. It decides nothing itself; it
+  returns the pipeline's `AnalysisResult` unchanged.
+- **PostgreSQL**: every analysed message, the decision the AI made, every
+  moderator action and every request's timing.
+
+### What happens when someone analyses a message
+
+1. The browser sends `POST /api/comments {session_id, text}`.
+2. Go checks the rate limit, the text and the session, then looks in its
+   cache (key: exact text + model version).
+3. On a cache miss the text joins a bounded queue. Workers group waiting
+   texts into small batches and send each batch to Python
+   (`POST /predict_batch`).
+4. Python runs the pipeline and returns the `AnalysisResult`.
+5. Go answers the browser at once with the result, a few display numbers
+   (package `display`) and timings. The database write happens in the
+   background, so a slow disk never slows the answer.
+6. The panel reads the stored data through `/api/panel/*` for its
+   dashboards, queue and history.
+
+### The one rule everything follows
+
+**Every number on screen is real, and nobody but the AI decides.**
+
+- The decision layer in Python sets `verdict`, `fired`, `active` and
+  `suppressed`. Go stores them and never recomputes them. The UI never
+  compares a score with a threshold (a test in
+  `frontend/src/design-rules.test.ts` enforces this).
+- Counts, percentages and changes are computed by Go from stored rows.
+- A value that does not exist is shown as unavailable (`veri yok`, `—`),
+  never as `0`.
+- The panel shows only the categories the AI can detect **today**
+  (`AI/serving/capabilities.py`), not the sixteen codes the contract defines.
+
+---
+
+## 2. AI: the inference service (`AI/serving/`)
+
+Added so the Go backend has a stable HTTP service to call. It does not touch
+any module, the contracts or the thresholds.
+
+| File | What it does |
+|---|---|
+| `app.py` | FastAPI app. `GET /health` and `POST /predict_batch`. Loads the pipeline in a background thread (BERTurk takes a while); until then `/health` says `loading` and `/predict_batch` answers `503`. Runs one analysis at a time (a lock), because the modules are not documented as thread-safe. One failing text never fails the batch. Runnable as `python serving/app.py` or with uvicorn. |
+| `capabilities.py` | The list of what the AI detects today and which module produces it. Today: `A1` from `m1_lexicon` (terlik) and `binary_offensive` from `m3_encoder` (BERTurk), shown as "Genel saldırganlık". **Update this list in the same change that makes a module emit a new code.** |
+| `requirements.txt` | fastapi, uvicorn, httpx (tests). Kept out of the AI core requirements on purpose. |
+| `test_app.py` | Health, loading (503), results matched by id with the text unchanged, one failing item, load failure, oversized text. |
+
+Install and run by hand (the Go server normally does this for you):
+
+```bash
+cd AI
+../.venv/Scripts/python.exe -m pip install -r serving/requirements.txt -r modules/m1_lexicon/requirements.txt -r modules/m3_encoder/requirements.txt
+../.venv/Scripts/python.exe -m uvicorn serving.app:create_app --factory --host 127.0.0.1 --port 8001
+```
+
+The full request/response shapes are in
+[`backend/docs/inference-contract.md`](../backend/docs/inference-contract.md).
+
+**Not done yet:** `normalization` (m2's de-obfuscated text) is part of the
+contract but is never sent, because `m2_deobf` is still a stub. The panel
+shows "Normalleştirme modülü hazır değil" until it is.
+
+---
+
+## 3. Backend (`backend/`, Go)
+
+### Packages
+
+| Package | Responsibility |
+|---|---|
+| `cmd/server` | Entry point. Wires everything together; shuts down in order (HTTP → queue → DB writer → Python → pool). |
+| `cmd/migrate` | Apply or roll back the schema by hand (`up`, `down`, `reset`, `status`). |
+| `cmd/mockinfer` | A stand-in for the Python service that returns the sample payloads. For development and load tests without the model. |
+| `internal/config` | Defaults → `config.yaml` → `.env` → environment variables (`queue.size` → `NSOSYAL_QUEUE_SIZE`). |
+| `internal/queue` | Bounded queue + micro-batching workers. Full queue → `503 queue_full` at once. |
+| `internal/inference` | HTTP client for Python with a circuit breaker; caches the last `/health`. |
+| `internal/supervisor` | Starts the Python service from the project venv, health-checks it, restarts it with backoff, kills the whole process tree. If something already answers on :8001 it only watches it. |
+| `internal/cache` | LRU of results, keyed by sha256(exact text) + artifact hash. The text is never normalised for the key: `s4l4k` and `salak` must stay different. |
+| `internal/store` | Postgres pool, embedded migrations, read queries, the async batched writer (COPY in batches, one bad row never loses the batch), and the panel queries (`panel.go`). |
+| `internal/display` | The few numbers the screen shows that the result does not carry ("2 kategoriden 2'si değerlendirildi", margins, hidden categories). Counts and subtracts only. |
+| `internal/categories` | Category rows for the panel: threshold and action from `AI/decision/thresholds.yaml` (re-read when the file changes), live/stub status from Python's health. |
+| `internal/metrics` | In-memory latency windows (p50/p95/p99) for the last 5 minutes. |
+| `internal/http/middleware` | Panic recovery, request logging, per-IP rate limits (POST = analyse limit, GET = read limit), request deadline, dev CORS. |
+| `internal/http/handlers` | The endpoints (`handlers.go`, `panel.go`). |
+| `internal/http/respond` | One JSON error shape: `{"error": {"code", "message", "retry_after_ms"}}`. |
+| `web` | The built Vue panel embedded into the binary with `go:embed`. |
+
+### Database
+
+| Table | Written by | Holds |
+|---|---|---|
+| `sessions` | `POST /api/sessions` | Anonymous nickname + IP. No passwords, no accounts. |
+| `comments` | async writer | Text, sha256, full `AnalysisResult` as JSON, latency, cache flag. |
+| `analysis_results` | async writer | One row per content code: score, threshold, fired, engine, source. |
+| `moderation_decisions` | async writer | The AI's verdict, fired codes, active guards, degraded flag, explanation. |
+| `moderator_actions` | `POST /api/panel/actions` | What a moderator did: `approve`, `hide`, `remove`, `queue`, `false_positive`. Migration `00002`. |
+| `request_metrics` | async writer | Every API request's path, status and latency. |
+
+Migrations are embedded in the binary and run on start
+(`database.migrate_on_start: true`).
+
+### Endpoints
+
+Original API:
+
+| Method & path | Purpose |
+|---|---|
+| `POST /api/sessions` | Create an anonymous session `{nickname}`. |
+| `POST /api/comments` | Analyse a text `{session_id, text}` → result, display numbers, timing, comment id. |
+| `GET /api/comments` | Feed, newest first, cursor pagination. |
+| `GET /api/moderation/flagged` | Non-clean comments with per-type reasons. |
+| `GET /api/stats` | DB counts, latency, queue, cache and writer stats. |
+| `GET /api/health` | Go, Python and Postgres status. Always `200` while Go is up. |
+| `GET /api/categories` | Categories the AI detects today, with threshold, action, module and status. |
+
+Panel API (added for the ATI-SOSYAL panel, `handlers/panel.go`):
+
+| Method & path | Purpose |
+|---|---|
+| `GET /api/panel/overview?range=live\|today\|week` | KPIs with change against the previous period, per-category time series, escape patterns, queue counts, system facts. Cached 1 s. |
+| `GET /api/panel/items?status&detected&code&q&limit&cursor` | Analysed messages with their result and latest moderator action. |
+| `GET /api/panel/items/{id}` | One message, its moderator history and the sender's previous 3 messages. |
+| `GET /api/panel/queue-counts` | Pending, pending-and-detected, reviewed, automatic. |
+| `POST /api/panel/actions` | Record an action for 1–100 comment ids. `404` if none is stored yet (retry). |
+| `GET /api/panel/events?kind&q&limit&cursor` | History: moderator actions and the system's detections. |
+| `GET /api/panel/metrics` | Per-minute request counts and latency for 30 minutes, requests/s, error rate, active devices, slow flag. |
+
+### Definitions the panel relies on
+
+These are decisions, written down so nobody has to reverse-engineer them:
+
+- **Detected** = the decision layer fired at least one content code *or* the
+  binary offensive score. The verdict is not used, because while modules are
+  stubs every verdict is `review`, including clean sentences.
+- **Queue status** of a comment:
+  - `reviewed` – its latest moderator action is approve, hide or remove;
+  - `pending` – its latest action is queue or false_positive, or it has no
+    action and the verdict is `review`, `escalate` or missing;
+  - `auto` – no action and the verdict is `block` or `nudge`.
+- **Automatic action** = verdict `block` or `nudge`.
+- **Change %** compares the part of the window that has passed with the same
+  length of time just before it. `null` when the earlier period is empty.
+- **Active devices** = distinct IPs that sent a comment in the last 5 minutes
+  (people who only read are not counted).
+- **Slow** = analysis p95 over 200 ms in the last 5 minutes.
+- Time windows: `live` = last hour in 5-minute buckets, `today` = since local
+  midnight in 1-hour buckets, `week` = last 7 days in 1-day buckets.
+
+---
+
+## 4. Frontend (`frontend/`, Vue 3)
+
+The frontend went through two designs on this branch.
+
+1. **First:** a two-page "moderation console" (Analiz with a nine-stage
+   report, and Kategoriler), built strictly from `docs/UI/`. That spec is
+   kept in `docs/UI/` as history.
+2. **Now:** the **ATI-SOSYAL Moderasyon Paneli**, from the claude.ai/design
+   project "ATI-SOSYAL Paneli". It uses NSosyal's own look: pill sidebar,
+   brand gradient, cards, dark and light mode. Every value comes from the
+   Go API; nothing is sample data.
+
+### Pages
+
+| Route | Page | Shows | Data |
+|---|---|---|---|
+| `/` | Genel Bakış | 4 KPI tiles, one card per detection engine (count, trend, threshold, status), detections-over-time chart, escape patterns, recent detections with Onayla / Gizle / Kaldır. Tabs: Canlı, Bugün, 7 Gün. | `panel/overview`, `panel/items` |
+| `/analiz` | Canlı Analiz | Composer with presets → normalization strip, one result card per category (score, threshold marker, fired or not, action, module time), explanation with highlighted spans, final decision with "Yanlış pozitif bildir" and "Kuyruğa ekle". | `POST /api/comments`, `categories`, `panel/actions` |
+| `/kuyruk` | Moderasyon Kuyruğu | Tabs Bekleyen / İncelenen / Otomatik işlenen, filters (only detected, category, search), list with checkboxes and bulk actions, detail panel (scores table, system decision, previous messages, history). Keys A / H / R. | `panel/items`, `panel/items/{id}`, `panel/queue-counts`, `panel/actions` |
+| `/motorlar` | Tespit Motorları | One card per category: module, status, threshold, default action, whether the threshold is derived or a placeholder, today's count and trend. | `panel/overview?range=today` |
+| `/kurallar` | Kurallar & Eşikler | Read-only table of every category's threshold and action, with the source file. | `categories` |
+| `/gecmis` | Olay Geçmişi | Moderator actions and system detections grouped by day; tabs Tümü / Moderatör / Sistem; header search lands here; CSV export. | `panel/events` |
+| `/saglik` | Sistem Sağlığı | Devices, requests/s, p95 latency, error rate; latency and request charts; Go / Postgres / model / queue status; warning banners. | `health`, `stats`, `panel/metrics` |
+
+Always visible: the sidebar (with the pending badge), the header search, the
+**Sistem durumu** rail on wide screens, the **Canlı Akış** dock with the
+newest messages, the dark/light switch (remembered per browser) and the
+**Temsili veri** marker whenever the model service reports sample data.
+
+Pages poll every 3–10 seconds and pause while the browser tab is hidden.
+
+**Deliberately not built** (no real data behind them): Gizlenmiş Küfür
+Sözlüğü, Değerlendirme, Ayarlar, per-engine F1 / precision / recall,
+restart buttons, user accounts.
+
+### Rules kept from the original spec
+
+- Works fully offline: Inter is bundled, icons are inline SVG, and
+  `npm run check:offline` fails the build on any external URL.
+- Spans are code-point offsets (`src/lib/spans.ts`), so emoji never shift a
+  highlight.
+- The UI reads `fired`, never compares scores with thresholds, never sums
+  or averages scores (enforced by `design-rules.test.ts`).
+- A degraded result is never shown as clean: the final decision says
+  "Değerlendirme tamamlanmadı" and lists the modules that did not run.
+
+---
+
+## 5. Running it
+
+First time, on the demo laptop (Windows, Git Bash):
+
+```bash
+# Python venv for the AI service (from the repo root)
+python -m venv .venv
+cd AI && ../.venv/Scripts/python.exe -m pip install -r requirements.txt -r serving/requirements.txt \
+  -r modules/m1_lexicon/requirements.txt -r modules/m3_encoder/requirements.txt && cd ..
+
+# Postgres: a local install, or `make db-up` in backend/ (Docker, port 5433)
+cp backend/.env.example backend/.env      # put the real database URL in it
+
+cd frontend && npm install && cd ..
+```
+
+Every time:
+
+```bash
+cd backend
+make build                 # builds the panel into web/dist, then bin/nsosyal-server.exe
+bin/nsosyal-server.exe     # migrates, starts Python, serves http://<laptop-ip>:8080
+```
+
+During development: `make run` in `backend/` plus `npm run dev` in
+`frontend/` (http://127.0.0.1:5173, proxies `/api` to the Go server).
+
+**Port 8080 on this laptop is taken by Apache.** Set
+`NSOSYAL_SERVER_ADDR=0.0.0.0:8090` in `backend/.env`, and
+`API_PROXY_TARGET=http://127.0.0.1:8090` in `frontend/.env.local` for the dev
+server. Check the port before every demo.
+
+### Tests
+
+```bash
+cd backend && go test ./...                         # unit tests (Postgres tests skipped)
+cd backend && make test-integration                 # + Postgres tests, on the nsosyal_test database
+cd frontend && npm test && npm run typecheck
+cd AI && ../.venv/Scripts/python.exe -m unittest serving.test_app
+cd backend && make run-loadtest   # then, in another terminal: make loadtest  (k6, 150 users)
+```
+
+---
+
+## 6. Known limits and open items
+
+- **Most AI modules are still stubs** (`m2_deobf`, `m5_sarcasm`,
+  `m6_target`). Every result is therefore marked incomplete and every
+  verdict is `review`. The panel shows this honestly; the numbers become
+  more interesting on their own as modules land.
+- **Presets:** "Gizlenmiş hakaret" and "Zararsız benzerlik" use the old sample
+  texts (`Seni b1tireceğim`, `amcam geldi`), which the real model does not
+  flag today. Replace them with real demo sentences in
+  `frontend/src/api/presets.ts`.
+- **Normalization** is never sent until m2 exists (section 2).
+- **Moderator identity** is the browser's anonymous session nickname
+  ("Operatör"); there are no accounts.
+- **Thresholds cannot be edited from the panel.** They live in
+  `AI/decision/thresholds.yaml` and belong to the decision layer's owner.
+  `A1`'s threshold is still a placeholder there.
+- **History categories:** a system event lists its fired content codes;
+  when only the binary offensive score fired it shows "Genel saldırganlık".
