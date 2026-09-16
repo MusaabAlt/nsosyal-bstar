@@ -156,3 +156,22 @@ that has the m3 artifact files (artifacts/MANIFEST.md) and torch 2.11.0 / transf
 5.15.0. Two consecutive generations were byte-identical on the machine that wrote it.
 `module_output.example.json` regenerated identically. No contract code, type or field
 changed. The contract is re-frozen immediately after this change.
+
+## Amendment — contract example regenerated for the m4 note (2026-09-16)
+
+- **Decided by:** project owner (explicit instruction for this one regeneration)
+
+**Change.** `m4_implicit` now returns one plain note, `C1–C5 not implemented yet`, so a
+reader of the result sees that the C family is not covered. m4 stays a non-stub module
+that does not degrade the result (ADR-006 amendment unchanged): `signals.pipeline.degraded`
+is still m2_deobf, m6_target, m5_sarcasm.
+
+**Regenerated.** `contracts/fixtures/analysis_result.example.json`, with
+`python -m pipeline.contract_example --write`, never by hand. The only difference is
+the added line `"[m4_implicit] C1–C5 not implemented yet"` in `notes`. `artifact_hash`
+is unchanged: no module version and no decision config changed.
+`module_output.example.json` is unchanged. No other file in `contracts/` was touched.
+
+**Gate.** The `contracts/ untouched` gate in `scripts/check.sh` fails for this commit
+only, on the owner's explicit acceptance. Every other gate must pass. The contract is
+re-frozen immediately after.

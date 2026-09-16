@@ -9,7 +9,7 @@ from types import MappingProxyType
 from contracts.codes import ModuleName
 from contracts.module_api import PROVIDABLE_FIELDS, Context, ModuleOutput
 from contracts.schema import ContentScore, GuardResult
-from modules.m4_implicit.module import ImplicitModule
+from modules.m4_implicit.module import NOTE_C_FAMILY, ImplicitModule
 
 
 class ImplicitModuleContractTest(unittest.TestCase):
@@ -86,12 +86,14 @@ class ImplicitModuleContractTest(unittest.TestCase):
 
 
 class ImplicitModuleRoleTest(unittest.TestCase):
-    def test_not_a_stub_and_emits_nothing(self) -> None:
-        # ADR-006 amendment: C1-C5 come from m3; an empty output is m4's real answer today.
+    def test_not_a_stub_and_emits_only_its_note(self) -> None:
+        # ADR-006 amendment: C1-C5 come from m3; no scores plus one plain note is m4's real answer today.
         module = ImplicitModule()
         self.assertFalse(getattr(module, "stub", False))
         out = module.process(Context(text="Bu bir test cumlesi"))
-        self.assertEqual((out.content, out.guards, out.target, out.notes), ([], [], None, []))
+        self.assertTrue(out.ok)
+        self.assertEqual((out.content, out.guards, out.target, out.notes), ([], [], None, [NOTE_C_FAMILY]))
+        self.assertEqual(NOTE_C_FAMILY, "C1–C5 not implemented yet")
 
 
 # Behaviour tests are added with the implementation, from spec.md §10 Acceptance criteria.

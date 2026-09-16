@@ -110,6 +110,7 @@
     "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m2_deobf (stub), m6_target (stub), m5_sarcasm (stub)",
     "[m2_deobf] stub: detection not implemented",
     "[m6_target] stub: detection not implemented",
+    "[m4_implicit] C1–C5 not implemented yet",
     "[m5_sarcasm] stub: detection not implemented"
   ]
 }

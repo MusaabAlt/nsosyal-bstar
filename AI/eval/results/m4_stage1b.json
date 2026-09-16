@@ -1,0 +1,189 @@
+{
+  "protocol": "protocols/m4_stage1b_protocol.md",
+  "protocol_commit": "37a7a1c66259a5fc2e79820ed84edd68fb8297d7",
+  "command": "python -m eval.m4_stage1b --r 3 --precision-drop-budget 0.02 --n-boot 2000 --seed 42 --out eval/results/m4_stage1b.json",
+  "inputs": {
+    "predictions": {
+      "file": "diagnosis/results/01_baseline_berturk/dev_predictions.csv",
+      "sha256": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346"
+    },
+    "cal_eval_split": {
+      "file": "diagnosis/results/04_calibration/cal_eval_split.json",
+      "sha256": "6d1e3ed7f7285eb871ef9cf7876fc629c7dabc8546245c39151290e0a72af899"
+    },
+    "frozen_slice": {
+      "file": "AI/eval/frozen/study_slice_dev.json",
+      "sha256": "94754632fb66d543b7c1e84bc4e396b65585f8adba90a4f2fc87aca8f2acbed8"
+    },
+    "dev_split": {
+      "file": "diagnosis/data/splits/split_seed42.json",
+      "sha256": "73a323b9e5750faecd557470bb53e27fe26b7fdf7a1ad9da1d365f224dc6d7f2"
+    }
+  },
+  "module_versions": {
+    "m0_charsafe": "0.2.0",
+    "m2_deobf": "0.0.0",
+    "m6_target": "0.0.0",
+    "m1_lexicon": "0.1.0"
+  },
+  "fit_cal": {
+    "n": 2382,
+    "r": 3.0,
+    "stage1": {
+      "t": 0.320188,
+      "flagged": 594,
+      "cost": 0.20235096557514692
+    },
+    "stage1b": {
+      "t_hit": 0.102285,
+      "t_free": 0.341456,
+      "flagged": 594,
+      "flag_count_gap": 0,
+      "flagged_hit": 226,
+      "flagged_free": 368,
+      "cost": 0.20235096557514692
+    }
+  },
+  "eval": {
+    "n": 2382,
+    "stage1": {
+      "confusion": {
+        "tp": 343,
+        "fp": 184,
+        "fn": 117,
+        "tn": 1738
+      },
+      "flagged": 527,
+      "flag_rate": 0.22124265323257766,
+      "precision": 0.650853889943074,
+      "recall": 0.7456521739130435,
+      "fpr": 0.09573361082206035,
+      "cost": 0.22460117548278757,
+      "primary_frozen": {
+        "lexicon_free_recall": 0.6366906474820144,
+        "lexicon_hit_recall": 0.9120879120879121,
+        "slice_gap": 0.27539726460589764,
+        "lexicon_free": {
+          "tp": 177,
+          "fp": 158,
+          "fn": 101,
+          "tn": 1637
+        },
+        "lexicon_hit": {
+          "tp": 166,
+          "fp": 26,
+          "fn": 16,
+          "tn": 101
+        }
+      },
+      "secondary_terlik": {
+        "lexicon_free_recall": 0.6312056737588653,
+        "lexicon_hit_recall": 0.9269662921348315,
+        "slice_gap": 0.29576061837596623,
+        "lexicon_free": {
+          "tp": 178,
+          "fp": 168,
+          "fn": 104,
+          "tn": 1717
+        },
+        "lexicon_hit": {
+          "tp": 165,
+          "fp": 16,
+          "fn": 13,
+          "tn": 21
+        }
+      }
+    },
+    "stage1b": {
+      "confusion": {
+        "tp": 346,
+        "fp": 178,
+        "fn": 114,
+        "tn": 1744
+      },
+      "flagged": 524,
+      "flag_rate": 0.21998320738874896,
+      "precision": 0.6603053435114504,
+      "recall": 0.7521739130434782,
+      "fpr": 0.09261186264308012,
+      "cost": 0.218303946263644,
+      "primary_frozen": {
+        "lexicon_free_recall": 0.6330935251798561,
+        "lexicon_hit_recall": 0.9340659340659341,
+        "slice_gap": 0.300972408886078,
+        "lexicon_free": {
+          "tp": 176,
+          "fp": 152,
+          "fn": 102,
+          "tn": 1643
+        },
+        "lexicon_hit": {
+          "tp": 170,
+          "fp": 26,
+          "fn": 12,
+          "tn": 101
+        }
+      },
+      "secondary_terlik": {
+        "lexicon_free_recall": 0.6063829787234043,
+        "lexicon_hit_recall": 0.9831460674157303,
+        "slice_gap": 0.376763088692326,
+        "lexicon_free": {
+          "tp": 171,
+          "fp": 157,
+          "fn": 111,
+          "tn": 1728
+        },
+        "lexicon_hit": {
+          "tp": 175,
+          "fp": 21,
+          "fn": 3,
+          "tn": 16
+        }
+      }
+    }
+  },
+  "slice_agreement_eval": {
+    "frozen_free__terlik_free": 2006,
+    "frozen_free__terlik_hit": 67,
+    "frozen_hit__terlik_free": 161,
+    "frozen_hit__terlik_hit": 148
+  },
+  "ties_at_runtime_rule_eval": {
+    "stage1_rows_equal_t": 0,
+    "stage1b_hit_rows_equal_t_hit": 0,
+    "stage1b_free_rows_equal_t_free": 0
+  },
+  "bootstrap": {
+    "n_boot": 2000,
+    "seed": 42,
+    "primary_free_recall_delta_ci95": [
+      -0.02702702702702703,
+      0.018656716417910446
+    ],
+    "secondary_free_recall_delta_ci95": [
+      -0.04460966542750929,
+      -0.009933774834437087
+    ],
+    "precision_delta_ci95": [
+      -0.0013143376387355632,
+      0.020353089362624255
+    ],
+    "dropped_resamples": {
+      "primary": 0,
+      "secondary": 0,
+      "precision": 0
+    }
+  },
+  "decision": {
+    "primary_free_recall_delta": -0.003597122302158362,
+    "primary_ci95_lower_gt_0": false,
+    "precision_drop": -0.0094514535683764,
+    "precision_drop_budget": 0.02,
+    "precision_within_budget": true,
+    "adopt_stage1b": false,
+    "verdict": "KEEP stage 1"
+  },
+  "note": "EVAL half was already used in the study to evaluate S1b; this CI is conditional on that reuse.",
+  "runtime_s": 25.8
+}
