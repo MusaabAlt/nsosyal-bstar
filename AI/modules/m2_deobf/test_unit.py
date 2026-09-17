@@ -11,7 +11,7 @@ from types import MappingProxyType
 from contracts.codes import FormCode, ModuleName
 from contracts.module_api import PROVIDABLE_FIELDS, Context, ModuleOutput
 from contracts.schema import ContentScore, GuardResult
-from modules.m2_deobf.module import AMBIGUOUS_DEASCII, DeobfModule
+from modules.m2_deobf.module import MAX_TIER2_TOKENS, AMBIGUOUS_DEASCII, DeobfModule
 
 FIXTURES = Path(__file__).with_name("fixtures") / "cases.jsonl"
 
@@ -268,6 +268,22 @@ class DeobfModuleBehaviourTest(unittest.TestCase):
         self.assertEqual(out.signals["_repairs"], [{"code": "LEET", "span": [16, 21], "before": "5al4k", "after": "salak"}])
         self.assertEqual(out.signals["_repair_counts"], {"LEET": 1})
         self.assertEqual(out.signals["codes"], ["LEET"])
+
+    def test_output_does_not_depend_on_previously_processed_posts(self) -> None:
+        """The tier-2 latency guard is charged per distinct word of THIS post. A guard that counted
+        cache misses let an earlier post's cached words slip past the cap, so the same text was
+        repaired differently on a warm module (found by the derived-labels determinism check)."""
+        if not self.module.tier2_enabled:
+            self.fail("PRECONDITION: tier 2 (zeyrek) unavailable; install modules/m2_deobf/requirements.txt")
+        many = " ".join(f"cumlesi{k}x" for k in range(MAX_TIER2_TOKENS + 5)) + " cumlesi gunes"
+        fresh = DeobfModule()
+        cold = fresh.process(Context(text=many, charsafe_text=many))
+        warm_up = DeobfModule()
+        warm_up.process(Context(text="cumlesi gunes", charsafe_text="cumlesi gunes"))   # caches both words
+        warm = warm_up.process(Context(text=many, charsafe_text=many))
+        self.assertEqual(warm.normalized_text, cold.normalized_text)
+        self.assertEqual(warm.signals["_repair_counts"], cold.signals["_repair_counts"])
+        self.assertEqual(warm.signals["_analyser_calls"], cold.signals["_analyser_calls"])
 
     def test_long_post_is_repaired_consistently_under_the_latency_guard(self) -> None:
         # The guard counts analyser calls, not tokens: a repeated surface is cached, so every copy is repaired.

@@ -106,7 +106,7 @@ def _is_letter(ch: str) -> bool:
 
 class DeobfModule(BaseModule):
     name = ModuleName.M2_DEOBF
-    version = "0.1.0"
+    version = "0.1.1"    # 0.1.1: tier-2 latency guard made history-independent (charged per post, not per cache miss)
     provides = frozenset({"normalized_text", "form"})
     # ADR-001 runtime enforcement: whether content scores / guards carry spans.
     # emits no content scores or guards (its form patterns carry spans when a map exists).
@@ -117,8 +117,9 @@ class DeobfModule(BaseModule):
         self._tier2_wanted = tier2
         self._analyzer = None
         self._tier2_note: str | None = None
-        self._parse_cache: dict[str, bool] = {}
-        self._misses: list[str] = []
+        self._parse_cache: dict[str, bool] = {}   # speed only: NEVER allowed to change an output
+        self._charged: list[str] = []            # distinct words looked up for THIS post (the latency guard's unit)
+        self._charged_set: set[str] = set()
 
     # -- load -----------------------------------------------------------------
     def _load(self) -> None:
@@ -186,7 +187,7 @@ class DeobfModule(BaseModule):
                           "after": r.after} for r in all_repairs],
             "_repair_counts": counts,
             "_protected_tokens": sum(1 for t in tokens if t.protected),
-            "_analyser_calls": len(self._misses),
+            "_analyser_calls": len(self._charged),
         }
         if mapped:
             signals["_offsets"] = offsets
@@ -355,9 +356,14 @@ class DeobfModule(BaseModule):
 
     # -- tier 2 ---------------------------------------------------------------
     def _is_word(self, word: str) -> bool:
-        """Legal Turkish word form per the analyser; cached, because the same surface recurs
-        across posts and the analyser costs milliseconds per call. `_misses` records the calls
-        made for the current post: the latency guard counts those, not tokens."""
+        """Legal Turkish word form per the analyser; cached across posts because the same surface
+        recurs and the analyser costs milliseconds per call. The latency guard is charged once per
+        DISTINCT word looked up in the current post, whether or not the cross-post cache already
+        holds it: a guard that counted cache misses made a post's repairs depend on the posts
+        processed before it (found by the derived-labels determinism check, 2026-09-18)."""
+        if word not in self._charged_set:
+            self._charged_set.add(word)
+            self._charged.append(word)
         cached = self._parse_cache.get(word)
         if cached is None:
             try:
@@ -365,14 +371,14 @@ class DeobfModule(BaseModule):
             except Exception:
                 cached = False
             self._parse_cache[word] = cached
-            self._misses.append(word)
         return cached
 
     def _tier2(self, text: str, items: list[Item], mapped: bool, repairs: list[Repair],
                notes: list[str]) -> list[Item]:
         tokens = self._tokens(items)
         self._protect(text, items, tokens, mapped)
-        self._misses = []                 # analyser calls made for THIS post; the latency guard counts these
+        self._charged = []                # distinct words looked up for THIS post; the latency guard counts these
+        self._charged_set: set[str] = set()
         capped = False
         for token in tokens:
             if token.protected:
@@ -387,8 +393,8 @@ class DeobfModule(BaseModule):
             positions = [k for k, c in enumerate(surface) if c in DEASCII_MAP][:MAX_DEASCII_POSITIONS]
             if not positions:
                 continue
-            if len(self._misses) >= MAX_TIER2_TOKENS and surface not in self._parse_cache:
-                capped = True             # a cached surface still repairs; only new analyser work stops
+            if len(self._charged) >= MAX_TIER2_TOKENS and surface not in self._charged_set:
+                capped = True             # a surface already charged in THIS post still repairs; new work stops
                 continue
             if self._is_word(surface):
                 continue
