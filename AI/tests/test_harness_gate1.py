@@ -58,8 +58,10 @@ class _Channel(BaseModule):
 
 
 class _Stub(BaseModule):
-    name = ModuleName.M2_DEOBF
-    provides = frozenset({"normalized_text", "form"})
+    """Takes the name of a module that is DECLARED a stub in eval/implementation_status.json."""
+
+    name = ModuleName.M5_SARCASM
+    provides = frozenset({"content"})
     emits_spans = False
     stub = True
 
@@ -147,7 +149,7 @@ class DegradationInHarnessTest(_Harness):
         evaluator = self.evaluator(_Stub())
         _, result, predicted = evaluator.run_item({"id": "f1", "text": "temiz", "expected": []})
         with self.subTest(stage="DEGRADATION"):
-            self.assertEqual([d["module"] for d in result.signals["pipeline"]["degraded"]], ["m2_deobf"])
+            self.assertEqual([d["module"] for d in result.signals["pipeline"]["degraded"]], ["m5_sarcasm"])
         with self.subTest(stage="FINAL_ACTION"):
             self.assertIs(result.verdict, actions.DEGRADED_ACTION)
             self.assertEqual(predicted, set())        # scoring is unchanged: degradation is not a prediction
@@ -163,7 +165,7 @@ class DegradationInHarnessTest(_Harness):
             self.assertIn("degraded_items=1", text)
 
     def test_implementation_status_disagreeing_with_the_stub_flag_is_reported(self) -> None:
-        declared = {"modules": {"m2_deobf": {"status": "IMPLEMENTED", "not_built": []}}}
+        declared = {"modules": {"m5_sarcasm": {"status": "IMPLEMENTED", "not_built": []}}}
         path = self.dir / "status.json"
         path.write_text(json.dumps(declared), encoding="utf-8")
         with mock.patch.object(harness, "IMPLEMENTATION_STATUS_PATH", path):
@@ -278,8 +280,8 @@ class PipelineBudgetBinaryTest(_Harness):
     def test_degraded_modules_are_listed_for_the_full_pipeline_run(self) -> None:
         traps = self.jsonl("traps.jsonl", [{"id": "t1", "text": "x", "must_not_fire": ["*"]}])
         report = pipeline_budget_report(modules=[_Stub(), _Binary(0.0)], traps_path=traps, texts=["x"], runs=1)
-        self.assertEqual(report["degraded_modules"], ["m2_deobf"])
-        self.assertEqual(report["trap_observations"][0]["degraded"], ["m2_deobf"])
+        self.assertEqual(report["degraded_modules"], ["m5_sarcasm"])
+        self.assertEqual(report["trap_observations"][0]["degraded"], ["m5_sarcasm"])
         self.assertEqual(report["trap_observations"][0]["verdict"], actions.DEGRADED_ACTION.value)
 
 

@@ -50,7 +50,7 @@ from modules.m3_encoder.test_unit import artifact_available
 from pipeline.run import Pipeline
 from pipeline.thread_counter import ThreadBlock
 
-STUBS = ["m2_deobf", "m6_target", "m5_sarcasm"]      # registry order; m1, m3, m4 are not stubs
+STUBS = ["m6_target", "m5_sarcasm"]      # registry order; m0, m2, m1, m3, m4 are not stubs
 
 
 def most_severe(*candidates: Action) -> Action:
@@ -172,7 +172,13 @@ class EndToEndTest(unittest.TestCase):
             self.assertEqual(result.content, [], diagnose(result))
             self.assertEqual(result.guards, [], diagnose(result))
             self.assertIsNone(result.target)
-            self.assertEqual(result.form.patterns, [])
+            # "cumlesi" is ASCII-flattened Turkish: m2 restores "cümlesi" on the parallel channel (DEASCII,
+            # spec §4) and reports it with the original span; nothing else in the sentence changes.
+            self.assertEqual([(p.code, p.source, text[p.span[0]:p.span[1]]) for p in result.form.patterns],
+                             [(FormCode.DEASCII, "m2_deobf", "cumlesi")], diagnose(result))
+            self.assertEqual(result.signals["m2_deobf"]["codes"], ["DEASCII"], diagnose(result))
+            self.assertNotIn("_repairs", result.signals["m2_deobf"])                  # internal, stripped
+            self.assertFalse(result.signals["m1_lexicon"]["lexicon_hit_norm"], diagnose(result))
         self.check_binary(result, fired=False)      # the frozen contract example pins raw_score 0.021 here
         with self.subTest(stage="DECISION_THRESHOLD"):
             self.assertIsNone(result.signals["decision"]["family_a"])
@@ -203,14 +209,16 @@ class EndToEndTest(unittest.TestCase):
             score = result.content[0]
             self.assertEqual(score.threshold, float(self.cfg["categories"]["A1"]["threshold"]), diagnose(result))
             self.assertGreaterEqual(score.score, score.threshold, diagnose(result))
-            self.assertEqual([b["code"] for b in result.signals["decision"]["threshold_branches"]], ["A1"],
-                             diagnose(result))
+            # m1 scans both channels (raw and m2's normalized), so two A1 scores reach the decision layer.
+            self.assertEqual(sorted((b["code"], b["source"]) for b in result.signals["decision"]["threshold_branches"]),
+                             [("A1", "m1_lexicon@normalized"), ("A1", "m1_lexicon@raw")], diagnose(result))
         self.check_binary(result, fired=True)
         with self.subTest(stage="GUARD_APPLICATION"):
             # channel_scores are recorded AFTER guards ran: `fired` here means "not suppressed".
             self.assertEqual(result.guards, [])
             channel = result.signals["decision"]["channel_scores"]
-            self.assertEqual([(c["code"], c["fired"]) for c in channel], [("A1", True)], diagnose(result))
+            self.assertEqual(sorted((c["code"], c["source"], c["fired"]) for c in channel),
+                             [("A1", "m1_lexicon@normalized", True), ("A1", "m1_lexicon@raw", True)], diagnose(result))
             self.assertTrue(result.content[0].fired, diagnose(result))
         with self.subTest(stage="FINAL_ACTION/post_offensive"):
             self.assertTrue(result.signals["decision"]["post_offensive"], diagnose(result))

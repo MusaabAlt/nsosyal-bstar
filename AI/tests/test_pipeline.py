@@ -84,7 +84,7 @@ class PipelineTest(unittest.TestCase):
 
     def test_stub_modules_are_degraded_and_named(self) -> None:
         result = Pipeline().analyze("Bu bir test cumlesi")
-        stubs = ["m2_deobf", "m6_target", "m5_sarcasm"]  # registry order; m1, m3 and m4 are not stubs
+        stubs = ["m6_target", "m5_sarcasm"]  # registry order; m0, m2, m1, m3 and m4 are not stubs
         degraded = result.signals["pipeline"]["degraded"]
         # Gate 1 (G0-F): a non-stub module that is degraded here - m3 without its git-ignored
         # artifact, m1 without terlik - is a named precondition failure, never masked out.

@@ -21,12 +21,12 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 | component | slice | status | blocking decision / data / artifact | tests | commit |
 |---|---|---|---|---|---|
 | m0_charsafe | five passes, signals, offsets; spec §3 / §4 now describe the implemented passes and the `_offsets` interface | **VERIFIED** (2026-09-17): 46 unit tests, interface tests, e2e; uncontended eval: capture 1.0 per pattern, damage 0.0 on 35 clean items, 0/33 traps, every latency band within its placeholder budget; spec §7 fixture list checked (`SIKINTI`, `IŞIK`, `İSTANBUL` in mixed casing, zero-width, Cyrillic, 35 clean items, empty / space / 5000 chars) | Q3 (whether charsafe must precede m3) and Q14 (now closed by the spec update) were the only open rows; Q3 is policy and does not block m0 | 46 unit; 12 interface; 7 e2e | see log |
-| m2_deobf | protection pass, tier 1 (LEET, REPEAT, SPACED, PUNCT_SPLIT, accent, PHONETIC) | NOT_STARTED | — | to add | — |
-| m2_deobf | tier 2 DEASCII (morphology-validated, ambiguity-safe), SUFFIX_ON_MASKED | NOT_STARTED | — | to add | — |
-| m2_deobf | ABBREV, VOWEL_DROP, WORD_MERGE, CHAR_DROP, DIALECT | NOT_STARTED | needs a Turkish lexicon / curated maps not in the repository; declared unhandled in v1 (spec §3 allows declaring a pattern unhandled) | — | — |
+| m2_deobf | protection pass, tier 1 (LEET, REPEAT, SPACED, PUNCT_SPLIT, accent as HOMOGLYPH, PHONETIC), spans, `_offsets` (ADR-008), idempotency | **VERIFIED** (2026-09-17): 32 unit tests; generated per-pattern set (protocol `m2_obfuscation_eval_protocol.md`, 195 pairs): capture 1.0 per tier-1 pattern, damage 0.0 on 49 clean items, 0/33 traps, clean-to-dirty flip rate 0.0 on the full pipeline, latency within the 10 ms placeholder | — | 32 unit; e2e | see log |
+| m2_deobf | tier 2 DEASCII (zeyrek-validated, ambiguity-safe), SUFFIX_ON_MASKED (reported, text unchanged) | IMPLEMENTED_NOT_VERIFIED for DEASCII: capture 0.71 [0.46, 0.92] on 14 generated pairs, below the spec §11 80 % line — a measured negative (README.md: the misses are the no-guessing rule); SUFFIX_ON_MASKED 1.0 | zeyrek 0.1.3 (MIT) declared in `modules/m2_deobf/requirements.txt`; tier 1 runs without it | 32 unit | see log |
+| m2_deobf | ABBREV, VOWEL_DROP, WORD_MERGE, CHAR_DROP, DIALECT | NOT_STARTED, declared unhandled in v1 | need a Turkish lexicon / curated maps not in the repository (spec §3 allows declaring a pattern unhandled; README.md) | — | — |
 | m2_deobf | EMOJI_SUB | BLOCKED_BY_DATA | curated emoji→word map for Turkish does not exist (spec §3, declared out of scope) | — | — |
-| m2_deobf | normalized-channel offset interface (Q5) | IN_PROGRESS | engineering proposal ADR-008 (see §3) | — | — |
-| m2_deobf | headline number (spec §8) | BLOCKED_BY_DATA | needs m3 scoring both channels + a labelled paired set; real-obfuscation slice must be collected by a human | — | — |
+| m2_deobf | normalized-channel offset interface (Q5, carrier) | IMPLEMENTED_NOT_VERIFIED on the m1 side (next commit) | ADR-008 proposed; owner to ratify | interface tests to add | — |
+| m2_deobf | headline number (spec §8), real-obfuscation slice, human spot-check | BLOCKED_BY_DATA | needs m3 scoring both channels (after the m3 `norm_score` step) + a labelled paired set outside training data; the real slice and the spot-check are human tasks (protocol §5, §6) | — | — |
 | m6_target | B4 regex layer (phone, TC ID checksum, IBAN mod-97, plate, address with personal cue) | NOT_STARTED | — | to add | — |
 | m6_target | target resolution v1 (mention, second person, group gazetteer, non-human nouns) | NOT_STARTED | — | to add | — |
 | m6_target | `siz`, institution vs members, religion vs followers, sports supporters | BLOCKED_BY_POLICY | Q28: written rules by the owner | — | — |
@@ -55,6 +55,7 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 
 | date | component | what | tests | commit |
 |---|---|---|---|---|
+| 2026-09-17 | m2_deobf | implemented from the stub: protection pass, tier 1 (LEET, REPEAT, SPACED, PUNCT_SPLIT, accent, PHONETIC), tier 2 (DEASCII via zeyrek validation with the declared ambiguities never resolved, SUFFIX_ON_MASKED reported), spans + `_offsets` (ADR-008), internal per-repair signals (decision #21); generated per-pattern fixtures under a pre-registered protocol; contract example regenerated (fixtures only) | 32 unit; full suite 341 OK / 2 skipped; capture 1.0 tier 1, DEASCII 0.71, damage 0.0, flip 0.0, 0/33 traps | see below |
 | 2026-09-17 | m0_charsafe | verified against spec §7 / §8: fixture list complete, 46 unit tests (mixed-casing test added), uncontended eval within every band, 0/33 traps; spec §3 records `_offsets` and the signals, §4 describes the five implemented passes (Q14 closed) | 46 unit + 12 interface + 7 e2e OK | see below |
 | 2026-09-17 | baseline | Gate 1.5 executed: commits A–E; reference eval run recorded (`BASELINE_WORKTREE.md` §8) | 319 OK / 4 skipped | `9976eb4` |
 
@@ -70,8 +71,8 @@ Q1, Q2, Q3, Q5 (the contract half is the ADR-008 proposal; the policy half — w
 
 ## 5. GPU handoffs
 
-None yet. Index: `AI/docs/training/GPU_HANDOFF.md` (created with the first handoff).
+Index: `AI/docs/training/GPU_HANDOFF.md` — m3 multi-head (`m3_encoder.md`), m4 stage 2 (`m4_stage2.md`), m5 sarcasm (`m5_sarcasm.md`); all blocked on data or policy, code complete for m3 and m5 (`AI/training/`).
 
 ## 6. Data blockers
 
-None yet written. Directory: `AI/docs/blockers/`.
+`AI/docs/blockers/m1_a4_sacred_concepts.md`, `m3_head_labels.md`, `m5_sarcasm_corpus_gate.md`.

@@ -2,8 +2,21 @@
   "text": "Bu bir test cumlesi",
   "verdict": "review",
   "form": {
-    "patterns": [],
-    "active": []
+    "patterns": [
+      {
+        "code": "DEASCII",
+        "confidence": 0.55,
+        "evidence": "cumlesi",
+        "span": [
+          12,
+          19
+        ],
+        "source": "m2_deobf"
+      }
+    ],
+    "active": [
+      "DEASCII"
+    ]
   },
   "content": [],
   "target": null,
@@ -16,7 +29,14 @@
       "homoglyphs_mapped": 0,
       "charsafe_changed": false
     },
-    "m2_deobf": {},
+    "m2_deobf": {
+      "changed": true,
+      "codes": [
+        "DEASCII"
+      ],
+      "tier2_enabled": true,
+      "offsets_identity": false
+    },
     "m6_target": {},
     "m1_lexicon": {
       "lexicon_hit": false,
@@ -33,15 +53,6 @@
     "m5_sarcasm": {},
     "pipeline": {
       "degraded": [
-        {
-          "module": "m2_deobf",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
         {
           "module": "m6_target",
           "kinds": [
@@ -92,7 +103,7 @@
       "post_offensive": false
     }
   },
-  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m2_deobf henüz uygulanmadı, m6_target henüz uygulanmadı, m5_sarcasm henüz uygulanmadı.",
+  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m6_target henüz uygulanmadı, m5_sarcasm henüz uygulanmadı.",
   "latency_ms": 0.0,
   "per_module_ms": {
     "m0_charsafe": 0.0,
@@ -105,10 +116,9 @@
   },
   "fast_path": false,
   "trace_id": "example-trace-id",
-  "artifact_hash": "4dd6d64b047ddd2d1c01dc6b66e96a8aadb41b63d02a3f155e6acabe08f4ab7f",
+  "artifact_hash": "5f3c2943bf87962f826d7811507df910a4be05b355f72f17c22d122bbfeec265",
   "notes": [
-    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m2_deobf (stub), m6_target (stub), m5_sarcasm (stub)",
-    "[m2_deobf] stub: detection not implemented",
+    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m6_target (stub), m5_sarcasm (stub)",
     "[m6_target] stub: detection not implemented",
     "[m4_implicit] C1–C5 not implemented yet",
     "[m5_sarcasm] stub: detection not implemented"
