@@ -226,6 +226,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--spot-check", type=int, default=20, help="hits and collisions printed for review")
     args = parser.parse_args(argv)
+    # The spot-check prints Turkish surfaces; a cp1252 console (Windows default) would
+    # raise after the file is written and mask a successful run as a failure.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
 
     try:
         meta = provenance()
