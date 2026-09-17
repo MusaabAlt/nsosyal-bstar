@@ -1,0 +1,6 @@
+# Training-time dependencies for training/m3_encoder (never installed for inference).
+# Same pins as modules/m3_encoder/requirements.txt so an artifact trained here loads there.
+# GPU: install torch==2.11.0 from the cu128 index first (docs/training/m3_encoder.md).
+torch==2.11.0
+transformers==5.15.0
+numpy>=1.26

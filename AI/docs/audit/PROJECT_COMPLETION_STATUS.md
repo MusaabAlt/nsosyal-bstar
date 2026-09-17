@@ -36,16 +36,16 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 | m1_lexicon | terlik vs karaliste comparison (spec §6, §8) | **VERIFIED**: pre-registered protocol, result committed (`eval/results/m1_terlik_vs_karaliste.json`): recall 0.392 vs 0.386 (Δ +0.007 [−0.022, +0.037]), FPR 0.026 vs 0.067 (Δ −0.042 [−0.050, −0.034]); 311 karaliste-only, 156 terlik-only rows | — | script + protocol | see log |
 | m1_lexicon | HOMONYM guard (spec §3, §7) | **VERIFIED** for the declared table (`am` as a time abbreviation); table documented in README with its context rule | new entries need a source row | 23 unit | see log |
 | m1_lexicon | A4 sacred-concept extension | BLOCKED_BY_DATA | owner-approved root table with sources (spec §4.3) — see `docs/blockers/` | — | — |
-| m3_encoder | binary `raw_score` on the frozen artifact | IMPLEMENTED_NOT_VERIFIED | — | 14 unit; interfaces; e2e | baseline |
-| m3_encoder | `norm_score` on the normalized channel | NOT_STARTED | after m2 | — | — |
-| m3_encoder | A head | BLOCKED_BY_POLICY + WAITING_FOR_GPU_ARTIFACT | label source undecided (RESOURCES item 5); training code + handoff to build | — | — |
-| m3_encoder | B head | BLOCKED_BY_DATA + WAITING_FOR_GPU_ARTIFACT | no B-labelled corpus (RESOURCES item 6) | — | — |
-| m3_encoder | C head | BLOCKED_BY_DATA + WAITING_FOR_GPU_ARTIFACT | C slice being labelled, no date (RESOURCES item 7) | — | — |
-| m3_encoder | banned-dataset written check, truncation policy in spec | NOT_STARTED | — | — | — |
+| m3_encoder | binary `raw_score` on `ctx.text` and `norm_score` on the normalized channel (frozen artifact); truncation notes + `truncated_differently`; sha256 verification; no network | **VERIFIED** on what exists (2026-09-17): 18 unit tests, interface tests (path / key / artifact id agreement, both channels), e2e consistency `fired == score >= t` on every case; publishing `norm_score` follows spec §4 and supersedes the 2026-09-15 note (no yaml row reads it: the decision layer stays raw-only) | Q3 (which text the raw channel scores) is the owner's | 18 unit; 13 interface; 8 e2e | see log |
+| m3_encoder | multi-head artifact loader (`NSOSYAL_M3_ARTIFACT`): content from TRAINED heads only, per channel, sha256-verified, fail-closed on tamper | **VERIFIED** with a CPU smoke artifact (random-initialised encoder from the local config): `training/tests/test_training_m3.py` | — | 4 training tests | see log |
+| m3_encoder | A head | BLOCKED_BY_POLICY + WAITING_FOR_GPU_ARTIFACT — training code complete (`training/m3_encoder`), handoff `docs/training/m3_encoder.md` | label source undecided (RESOURCES item 5, `docs/blockers/m3_head_labels.md`) | smoke test | see log |
+| m3_encoder | B head | BLOCKED_BY_DATA + WAITING_FOR_GPU_ARTIFACT — code and handoff complete | no B-labelled corpus (RESOURCES item 6, `docs/blockers/m3_head_labels.md`) | smoke test | see log |
+| m3_encoder | C head | BLOCKED_BY_DATA + WAITING_FOR_GPU_ARTIFACT — code and handoff complete | C slice being labelled, no date (RESOURCES item 7) | smoke test | see log |
+| m3_encoder | banned-dataset written check (`DATASETS.md`), truncation policy declared in spec §5, corpus count corrected (Q17) | **VERIFIED** (documents exist, dated) | — | — | see log |
 | m4_implicit | stage 1 (binary threshold) | VERIFIED at the decision layer | — | test_binary_offensive (12) | baseline |
-| m4_implicit | stage 2 | BLOCKED_BY_POLICY + WAITING_FOR_GPU_ARTIFACT | pre-registered precision budget (Q23); influence tooling on GPU | — | — |
+| m4_implicit | stage 2 | BLOCKED_BY_POLICY + WAITING_FOR_GPU_ARTIFACT — handoff `docs/training/m4_stage2.md` written | pre-registered precision budget (Q23); labelled C slice; influence tooling on GPU | — | see log |
 | m4_implicit | C1–C5 rows, fixture set | BLOCKED_BY_DATA | C head + labelled slice | — | — |
-| m5_sarcasm | everything | BLOCKED_BY_DATA | entry gate: corpus not named/requested (Q27) | — | — |
+| m5_sarcasm | everything | BLOCKED_BY_DATA — training code (`training/m5_sarcasm`) and handoff `docs/training/m5_sarcasm.md` written; module stays a documented stub | entry gate: corpus not named / requested (Q27, `docs/blockers/m5_sarcasm_corpus_gate.md`) | — | see log |
 | decision layer | fusion, guards, thread rule, family A, binary boundary | VERIFIED | placeholders remain placeholders (Q25) | 45 + 12 | baseline |
 | pipeline / counter / API | mechanics | VERIFIED | — | 35 + 20 + 6 | baseline |
 | eval infrastructure | Gate 1 observability | VERIFIED | — | 15 + 5 + 12 | baseline |
@@ -55,6 +55,7 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 
 | date | component | what | tests | commit |
 |---|---|---|---|---|
+| 2026-09-17 | m3_encoder | both channels scored (norm_score, spec §4), truncated_differently signal, multi-head artifact loader with sha256 verification, spec §5 truncation policy and corpus count, DATASETS.md; training packages for m3 (multi-head) and m5 (sequential transfer) with CPU smoke test; Colab handoffs for m3 / m4 stage 2 / m5; blocker documents for A4, m3 labels, m5 corpus; contract example regenerated (fixtures only) | 18 unit + 4 training + 13 interface + 8 e2e; full suite 370 OK / 1 skipped | see below |
 | 2026-09-17 | m1_lexicon | HOMONYM guard with a declared context table; dual-register fixtures; terlik-vs-karaliste comparison run under its protocol and committed; README records every list, the span rule and the comparison; e2e case for the m6 → m1 NON_HUMAN_TARGET path (Q2 verdict recorded, not judged) | 23 unit; eval 1.0 per code, 0/33 traps; 78 integration tests OK | see below |
 | 2026-09-17 | m6_target | implemented from the stub: target resolution v1 (mentions, frozen deictic set, vocatives, endings, gazetteers `gazetteers/*.txt` with suffix awareness + vowel harmony, `-ki` members form excluded), B4 doxing with validated patterns; guideline with the three ambiguities declared PENDING; fixtures per spec §9; MANIFEST rows for the gazetteers; contract example regenerated (fixtures only) | 24 unit; full suite 359 OK / 1 skipped; eval 1.0 on every code, 0/33 traps | see below |
 | 2026-09-17 | m1_lexicon | ADR-008 consumer side: normalized-channel spans through m2's `_offsets` (same-length fallback kept); span tightening: a terlik match containing a space is cut to the shortest token-boundary prefix terlik still matches, nested hits dropped (pre-existing span defect against spec §8, found by the interface test) | 21 unit + 13 interface + 7 e2e OK; eval 1.0 per code, 0/33 traps | see below |

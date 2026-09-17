@@ -1,0 +1,6 @@
+# Training-time dependencies for training/m5_sarcasm (never installed for inference).
+# The inference module gets its own pins in modules/m5_sarcasm/requirements.txt once the
+# model is chosen and measured (m5 spec §6: small or distilled, within its latency budget).
+torch==2.11.0
+transformers==5.15.0
+numpy>=1.26
