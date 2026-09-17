@@ -57,6 +57,50 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 | eval infrastructure | Gate 1 observability | VERIFIED | — | 15 + 5 + 12 | baseline |
 | full pipeline | end-to-end on real m0, m2, m6, m1, m3 (+ m4 note, m5 stub) | **VERIFIED for the connected behaviour** (2026-09-17): 8 e2e cases with stage-named assertions; reference run above; every verdict still `review`-or-worse because m5 degrades the result (fail closed) | Q1, Q2, Q3 outcomes recorded, not judged; m5 stub keeps every verdict degraded | 8 e2e; run_all | see log |
 
+## 1a. Session handoff (2026-09-17, end of the implementation session)
+
+**Branch / HEAD:** `audit/m1-m6` at `d6a6640d3a305ba471a256727ec715a703613a5e` (11 commits since the
+baseline `9976eb4`); working tree clean; no process running. Verification at this HEAD:
+370 tests OK / 1 skipped (the declared m5 skip), `python -m pipeline.contract_example --check`
+exit 0, reference run `eval/results/post_m6/` at `f6b48ed` (docs-only commits since; code identical).
+
+**Module states**
+
+| state | modules / slices |
+|---|---|
+| VERIFIED | m0 (all); m2 tier 1, protection pass, spans, offsets; m6 target resolution v1 and B4 on its fixtures; m1 raw + normalized channels, SUBSTRING_COLLISION, HOMONYM, NON_HUMAN_TARGET, terlik-vs-karaliste comparison; m3 binary scoring on both channels, artifact verification, multi-head loader (smoke artifact); m4 stage 1; decision layer; pipeline / counter / API; eval infrastructure; end-to-end connection of the real modules |
+| PARTIAL (implemented, measured negative or unbuilt slices declared) | m2 DEASCII (0.71 capture, no-guessing rule) and the five lexicon-dependent patterns declared unhandled; m6 without a name gazetteer or a labelled slice; m1 without A4; m3 without trained heads |
+| BLOCKED_BY_POLICY | m6 ambiguities (Q28, behaviour declared pending); m3 A-head label source; m4 stage-2 precision budget (Q23); every placeholder threshold / action (Q25); verdict questions Q1, Q2, Q3; ADR-008 and `training/` placement await ratification |
+| BLOCKED_BY_DATA | m1 A4 table; m3 B corpus and C slice; m5 corpus (entry gate); m6 hand-labelled target slice; m2 real-obfuscation slice and human spot-check; m2 lexicons for ABBREV / VOWEL_DROP / WORD_MERGE / CHAR_DROP / DIALECT |
+| WAITING_FOR_GPU_ARTIFACT | m3 multi-head fine-tune (code + handoff complete); m4 stage 2 (procedure written); m5 sequential transfer (code + handoff complete) |
+
+**Human decisions still required**
+
+| id | decision | where it is parked |
+|---|---|---|
+| Q1 | verdict while a target-dependent code is assigned under degradation (nudge vs review) | `OPEN_QUESTIONS.md`; e2e cases exclude it |
+| Q2 | binary_offensive vs guard precedence — concrete instance: the binary score fires on clean collision traps 008 / 017 / 030 / 032 (`review`); should a guard or the trap rule reach it? | `TEST_SYSTEM_AUDIT.md` §6.2; `binary` trap rule exists, attached to nothing |
+| Q3 | m3 raw channel scores `ctx.text`, not charsafe; m0 spec §1 says charsafe precedes any model | e2e ZWSP case records the state without judging |
+| Q5 | ratify ADR-008 (normalized-channel offset map) — implemented on both sides | `protocols/ADR-008-normalized-channel-offsets.md` |
+| Q6 | m6's two target routes (`result.target` vs `signals.target_*`) and the two placeholders on the same confidence | `MODULE_CONTRACTS.md` U-M6-1/2 |
+| Q28 | `siz`, institution vs members (incl. `-deki` forms), religion vs followers, sports supporters | `protocols/m6_target_guideline.md` §2 (v1 behaviour declared PENDING) |
+| Q23 | pre-registered stage-2 precision budget | `docs/training/m4_stage2.md` |
+| Q25 | derive every placeholder threshold / action on dev | `thresholds.yaml` |
+| A-head labels | accept terlik-derived labels for the A head, or require human labels; which m3 output is compared with the baseline | `docs/blockers/m3_head_labels.md` |
+| m5 gate | name and request the sarcasm corpus | `docs/blockers/m5_sarcasm_corpus_gate.md` |
+| A4 table | owner-approved sacred-concept roots with sources | `docs/blockers/m1_a4_sacred_concepts.md` |
+| training placement | ratify `AI/training/` as the home of training code | `training/README.md` |
+| Q12 / Q16 / Q20 | m1 latency criterion, two-tier judgement, collision base rate | `OPEN_QUESTIONS.md` |
+
+**Next executable dependency:** the m3 A-head run on Colab (`docs/training/m3_encoder.md`) the
+moment the A-label decision lands; independently of that decision, the binary head alone can be
+trained with the same command (no `--labels-*`) to validate the handoff end to end on a GPU.
+Everything else locally executable in this phase is done.
+
+**Nothing lives only in the chat:** every finding, decision proposal, measured number and
+blocker is in the audit documents (`docs/audit/`), the protocols, the blockers, the handoffs,
+the READMEs and the commit messages listed in §2.
+
 ## 2. Log of work (newest first)
 
 | date | component | what | tests | commit |
