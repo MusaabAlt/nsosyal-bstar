@@ -270,6 +270,31 @@ class PipelineToDecisionSignalsTest(unittest.TestCase):
             self.assertEqual(set(block["emits_spans"]), {m.name.value for m in modules})
             self.assertTrue(all(isinstance(v, bool) for v in block["emits_spans"].values()))
 
+    def test_m2_offsets_reach_m1_and_map_every_normalized_character(self) -> None:
+        """ADR-008: m2's `_offsets` has one ORIGINAL index per normalized character, non-decreasing,
+        in range; it composes m0's map; m1 maps a normalized-channel hit through it to the original
+        surface. Real m0, m2 and m1."""
+        require_terlik(self)
+        from modules.m2_deobf.module import DeobfModule
+        text = "Sen s a l a k ve 5al4k mısın"
+        spy = _Spy(ModuleName.M3_ENCODER)
+        pipeline = Pipeline(modules=[CharSafeModule(), DeobfModule(), LexiconModule(), spy], config=fusion.load_config())
+        result = pipeline.analyze(text)
+        ctx = spy.seen[0]
+        offsets = ctx.signals[ModuleName.M2_DEOBF.value]["_offsets"]
+        with self.subTest(stage="INTERFACE_CONTRACT/m2 offsets"):
+            self.assertEqual(len(offsets), len(ctx.normalized_text))
+            self.assertTrue(all(isinstance(o, int) and 0 <= o < len(text) for o in offsets))
+            self.assertEqual(list(offsets), sorted(offsets))
+            self.assertEqual(ctx.normalized_text, "sen salak ve salak mısın")
+        with self.subTest(stage="PIPELINE_MERGE/m1 spans on the normalized channel"):
+            normalized = [s for s in result.signals["decision"]["channel_scores"] if s["source"].endswith("@normalized")]
+            self.assertEqual([text[s["span"][0]:s["span"][1]] for s in normalized], ["s a l a k", "5al4k"])
+            self.assertTrue(result.signals["m1_lexicon"]["lexicon_hit_norm"])
+        with self.subTest(stage="INTERFACE_CONTRACT/response"):
+            self.assertNotIn("_offsets", result.signals["m2_deobf"])
+            self.assertNotIn("_repairs", result.signals["m2_deobf"])
+
     def test_decision_block_has_the_keys_the_response_and_counter_read(self) -> None:
         result = Pipeline(modules=[_Spy(ModuleName.M0_CHARSAFE)], config=fusion.load_config()).analyze("x")
         decision = result.signals["decision"]

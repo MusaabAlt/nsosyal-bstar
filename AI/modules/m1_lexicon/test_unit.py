@@ -156,6 +156,35 @@ class LexiconModuleBehaviourTest(unittest.TestCase):
         out = self.run_m1(text, charsafe_text="aptal herif", signals=signals)
         self.assertEqual([s.span for s in out.content], [(0, 6)])
 
+    def test_normalized_channel_spans_map_through_m2_offsets(self) -> None:
+        # ADR-008: m2 publishes the original index of every normalized character (fixed values here;
+        # modules.m2_deobf is never imported). The raw surface "xxxxx" (5 chars at 4..9) stands for a
+        # repaired token; the normalized channel reads "salak" and the span lands on the original.
+        text = "sen xxxxx mısın"
+        normalized = "sen salak mısın"
+        signals = MappingProxyType({"m2_deobf": MappingProxyType({"_offsets": tuple(range(len(text)))})})
+        out = self.run_m1(text, charsafe_text=text, normalized_text=normalized, signals=signals)
+        self.assertEqual([(s.source, s.span) for s in out.content], [("m1_lexicon@normalized", (4, 9))])
+        self.assertEqual(text[4:9], "xxxxx")
+        self.assertEqual((out.signals["lexicon_hit_raw"], out.signals["lexicon_hit_norm"]), (False, True))
+        self.assertEqual(out.notes, [])                                   # no flag-only fallback needed
+        # a length-changing repair: "s a l a k" (9 chars) became "salak" (5 chars)
+        text2 = "sen s a l a k mısın"
+        m2_offsets = [0, 1, 2, 3, 4, 6, 8, 10, 12, 13, 14, 15, 16, 17, 18]
+        signals2 = MappingProxyType({"m2_deobf": MappingProxyType({"_offsets": tuple(m2_offsets)})})
+        out2 = self.run_m1(text2, charsafe_text=text2, normalized_text=normalized, signals=signals2)
+        normalized_hits = [s.span for s in out2.content if s.source == "m1_lexicon@normalized"]
+        self.assertEqual(normalized_hits, [(4, 13)])
+        self.assertEqual(text2[4:13], "s a l a k")
+
+    def test_match_span_is_the_matched_word_not_the_next_one(self) -> None:
+        # terlik reads "salak mısın" as one match (root + separator + a suffix-shaped word); spec §8
+        # wants the matched word, so the span stops at "salak".
+        out = self.run_m1("salak mısın")
+        self.assertEqual([("salak"[:0] + "salak mısın"[s.span[0]:s.span[1]]) for s in out.content], ["salak"])
+        spaced = self.run_m1("s a l a k")
+        self.assertEqual([("s a l a k"[s.span[0]:s.span[1]]) for s in spaced.content], ["s a l a k"])   # no nested "a k"
+
     def test_signals_present_and_boolean_on_every_input(self) -> None:
         for text in LexiconModuleContractTest.HOSTILE_INPUTS + ("Onlar aptallar",):
             with self.subTest(text=text[:20]):

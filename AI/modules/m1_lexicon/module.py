@@ -119,10 +119,10 @@ class LexiconModule(BaseModule):
             result = self._scan(text)
             hit[channel] = bool(result.hits)
             roots.update(root for root, _ in result.hits)
-            offsets = raw_map if len(text) == len(raw_text) else None
+            offsets = raw_map if channel == RAW else self._normalized_offsets(ctx, text, raw_text, raw_map)
             if offsets is None and (result.hits or result.collisions):
-                # No offset map for this channel (m2 publishes none): the flag stands,
-                # but a score without a span would be dropped, so none is emitted.
+                # No offset map for this channel (m2 published none and the lengths differ): the
+                # flag stands, but a score without a span would be dropped, so none is emitted.
                 notes.append(f"{channel}: {len(result.hits)} match(es), {len(result.collisions)} collision(s) "
                              "without a map to original offsets; flag reported, no span items emitted")
                 continue
@@ -155,18 +155,39 @@ class LexiconModule(BaseModule):
         )
 
     # -- matching ------------------------------------------------------------
+    def _tighten(self, match: Any) -> str:
+        """terlik's separator tolerance lets a match run over a following space-separated word
+        that reads as a suffix ("salak mısın" is one match) and lets "s a l a k" also yield a
+        nested "a k". The span must be the matched word (spec §8), so a match containing a space
+        is cut back to the shortest token-boundary prefix that terlik still matches with the
+        same root ("s a l a k" stays whole, "salak mısın" becomes "salak")."""
+        word = match.word
+        if " " not in word.strip():
+            return word
+        parts = word.split(" ")
+        for k in range(1, len(parts)):
+            prefix = " ".join(parts[:k])
+            if any(m.root == match.root and m.index == 0 and m.word == prefix for m in self._engine.get_matches(prefix)):
+                return prefix
+        return word
+
     def _scan(self, text: str) -> ChannelResult:
         lowered = tr_lower(text)
         hits: list[tuple[str, Span]] = []
         collisions: list[tuple[str, Span]] = []
         for match in self._engine.get_matches(lowered):
-            span = (match.index, match.index + len(match.word))
-            word = fold(match.word)
+            matched = self._tighten(match)
+            span = (match.index, match.index + len(matched))
+            word = fold(matched)
             clean = next((c for c in CLEAN_PREFIXES if word.startswith(c) and len(c) > len(match.root)), None)
             if clean is None:
                 hits.append((match.root, span))
             else:
-                collisions.append((f"{match.root} in {match.word} (clean word {clean})", span))
+                collisions.append((f"{match.root} in {matched} (clean word {clean})", span))
+        # A hit strictly inside another hit's span is an artefact of separator tolerance
+        # ("a k" inside "s a l a k"): the enclosing match is the word, the inner one is not.
+        hits = [h for h in hits if not any(o is not h and o[1][0] <= h[1][0] and h[1][1] <= o[1][1] and o[1] != h[1]
+                                           for o in hits)]
         for token in WORD.finditer(lowered):
             span = token.span()
             if any(s < span[1] and span[0] < e for _, (s, e) in hits + collisions):
@@ -189,6 +210,19 @@ class LexiconModule(BaseModule):
             return list(offsets)
         if len(raw_text) == len(ctx.text):
             return list(range(len(raw_text)))
+        return None
+
+    @staticmethod
+    def _normalized_offsets(ctx: Context, text: str, raw_text: str, raw_map: list[int] | None) -> list[int] | None:
+        """Original index of every character of the normalized channel text (ADR-008): m2
+        publishes `_offsets` in m0's convention. Without it, the same-length fallback keeps the
+        pre-ADR-008 behaviour; a length-changing repair without a map stays flag-only."""
+        m2 = ctx.signals.get(ModuleName.M2_DEOBF.value, {})
+        offsets = m2.get("_offsets") if hasattr(m2, "get") else None
+        if offsets is not None and len(offsets) == len(text):
+            return [int(o) for o in offsets]
+        if raw_map is not None and len(text) == len(raw_text):
+            return raw_map
         return None
 
     @staticmethod
