@@ -206,6 +206,31 @@ drift in HANDOVER, no policy; D5 separate atomic commits.
 | E | see commit F | audit documents (`TEST_SYSTEM_AUDIT.md` §6, `VERIFICATION_PLAN.md` §8, `GATE1_RESULTS.md`, this file) and the HANDOVER corrections = **MODULE VERIFICATION BASELINE** |
 | verification | after E | `git status --short` empty; full suite; `contract_example --check`; `run_all --results-dir eval/results/baseline`; results in §8.1 (commit F) |
 
+### 8.1 MODULE VERIFICATION BASELINE — `9976eb4add53e0a708a8c17db3a5697d4c70f455` (commit E)
+
+| check | result |
+|---|---|
+| `git status --short` at E | empty |
+| `python -m unittest discover -p "test_*.py"` | 319 tests, OK, 4 skipped (m2 ×2, m5, m6 — the declared set), 78 s |
+| `python -m pipeline.contract_example --check` | exit 0 |
+| `python -m eval.run_all --results-dir eval/results/baseline` (default 200 repeats, 1000 bootstrap) | provenance `head = 9976eb4…`, `git_dirty = false` → **CURRENT_REPRODUCIBLE_RESULT**; 33 traps; exit code 1 — from the placeholder pipeline latency budget only (below), not from a regression |
+| trap regressions | 0 in every module |
+| binary offensive on traps (full pipeline and m3 alone) | fires on `trap-008`, `trap-017`, `trap-030`, `trap-032`; reported, not budgeted (Q2 / Q18) |
+| clean-to-dirty flip rate | 0.0 (m2 is a stub: identical pipelines by construction) |
+| degraded modules | `m2_deobf`, `m5_sarcasm`, `m6_target` (stubs) — reports say NOT VERIFIED |
+| pipeline latency | p50 44.9 ms, p95 252.6 ms over 20,200 runs; placeholder budget 250 → `within_budget = false` |
+| module latency (clean column) | m0 p95 1.55 ms overall, one per-length band over its placeholder; m1 within its bands (adversarial over, as before); m3 p95 176 ms against the 80 ms placeholder |
+
+Latency caveat: the auditor probed a morphology library on the same CPU during part of this run
+(the m3 and pipeline phases), so the latency columns of this run are an upper bound, not a clean
+measurement; the historical uncontended 200-repeat run measured pipeline p95 128.6 ms and m3
+p95 58 ms. Regressions, the binary-fired set, degradation and provenance do not depend on timing.
+Every latency budget is a placeholder due for re-measurement on the demo machine
+(`thresholds.yaml`). A latency-only re-measure is scheduled once the tree is quiet.
+
+The results directory `eval/results/baseline/` is git-ignored (D3 rule) and is the reference
+for every later comparison until a new baseline is declared here.
+
 ---
 
 ## Appendix — Gate 0 inventory (2026-09-17, HEAD `f063ddf`), for the record
