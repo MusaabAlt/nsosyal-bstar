@@ -115,7 +115,9 @@ class EndToEndTest(unittest.TestCase):
         with self.subTest(stage="INTERFACE_CONTRACT"):
             self.assertEqual(set(result.signals["m1_lexicon"]),
                              {"lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm", "matched_roots", "engine"})
-            self.assertEqual(set(result.signals["m3_encoder"]), {"raw_score", "artifact"})
+            # m2 always publishes a normalized channel now, so m3 reports both scores (spec §4)
+            self.assertEqual(set(result.signals["m3_encoder"]), {"raw_score", "norm_score", "artifact", "truncated_differently"})
+            self.assertNotIn("_truncation", result.signals["m3_encoder"])
             self.assertEqual(result.signals["m3_encoder"]["artifact"], m3.ARTIFACT_ID)
             self.assertNotIn("_offsets", result.signals["m0_charsafe"])
             self.assertNotIn("channels", result.signals)

@@ -36,7 +36,7 @@ from pipeline.run import Pipeline, public_signals, span_declarations
 ROOT = Path(__file__).resolve().parent.parent
 M0_SIGNAL_KEYS = {"_offsets", "offsets_identity", "invisible_removed", "homoglyphs_mapped", "charsafe_changed"}
 M1_SIGNAL_KEYS = {"lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm", "matched_roots", "engine"}
-M3_SIGNAL_KEYS = {"raw_score", "artifact"}
+M3_SIGNAL_KEYS = {"raw_score", "artifact", "truncated_differently", "_truncation"}       # + norm_score with a channel
 PIPELINE_SIGNAL_KEYS = {"degraded", "emits_spans"}
 DEGRADATION_KINDS = {"stub", "failed", "invalid_output"}
 SAMPLE_TEXTS = ("", "Bu bir test cumlesi", "SIKINTI YOK", "ap​tal herif", "аptal", "İstanbul'da",
@@ -205,15 +205,16 @@ class M3ToDecisionSignalsTest(unittest.TestCase):
                                      normalized_text="bu bir test cumlesi"))
         with self.subTest(stage="MODULE_OUTPUT"):
             self.assertTrue(out.ok, out.notes)
-            self.assertEqual(set(out.signals), M3_SIGNAL_KEYS)
-            self.assertEqual(out.content, [])
+            self.assertEqual(set(out.signals), M3_SIGNAL_KEYS | {"norm_score"})   # a normalized channel was given
+            self.assertEqual(out.content, [])                                      # frozen binary artifact: no heads
             self.assertEqual(out.signals["artifact"], m3.ARTIFACT_ID)
         signals = {ModuleName.M3_ENCODER.value: out.signals}
         with self.subTest(stage="INTERFACE_CONTRACT"):
             value = fusion.lookup_signal(signals, self.cfg["binary_offensive"]["channels"]["raw"])
             self.assertIsInstance(value, float)
             self.assertTrue(0.0 <= value <= 1.0)
-            self.assertIsNone(fusion.lookup_signal(signals, "m3_encoder.norm_score"))
+            # norm_score is published (spec §4) but no yaml row reads it: the decision layer stays raw-only.
+            self.assertIsInstance(fusion.lookup_signal(signals, "m3_encoder.norm_score"), float)
         result = fusion.decide(AnalysisResult(text="x", signals=signals), self.cfg)
         binary = result.signals["decision"]["binary_offensive"]
         with self.subTest(stage="DECISION_THRESHOLD"):

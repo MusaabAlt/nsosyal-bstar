@@ -52,7 +52,9 @@
     },
     "m3_encoder": {
       "raw_score": 0.02141149342060089,
-      "artifact": "m3-berturk-pytorch-fp32-epoch1"
+      "artifact": "m3-berturk-pytorch-fp32-epoch1",
+      "truncated_differently": false,
+      "norm_score": 0.017840590327978134
     },
     "m4_implicit": {},
     "m5_sarcasm": {},
@@ -112,7 +114,7 @@
   },
   "fast_path": false,
   "trace_id": "example-trace-id",
-  "artifact_hash": "91a98c2507a1e152d282b937f3a80ac4a69db0b59ad7cf5dd6f9255e7eb393fd",
+  "artifact_hash": "d3e12e82fef0445ec3096653fc9ee8fd4cd66e755895fe251886b6ed8cb481ec",
   "notes": [
     "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m5_sarcasm (stub)",
     "[m4_implicit] C1–C5 not implemented yet",

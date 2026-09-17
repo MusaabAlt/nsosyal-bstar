@@ -140,13 +140,47 @@ class EncoderModuleBehaviourTest(unittest.TestCase):
         self.assertTrue(out.ok, out.notes)
 
     @NEEDS_ARTIFACT
-    def test_publishes_raw_score_and_artifact_only(self) -> None:
+    def test_publishes_a_score_per_channel_and_the_artifact_no_content(self) -> None:
+        # spec §4: raw_score on ctx.text, norm_score on ctx.normalized_text, both reported, never fused;
+        # the frozen binary checkpoint publishes no content (OFF is not "profanity present").
         out = self.score(text="Sen çok aptal birisin.", normalized_text="sen cok aptal birisin.")
-        self.assertEqual(set(out.signals), {"raw_score", "artifact"})
+        self.assertEqual(set(out.signals), {"raw_score", "norm_score", "artifact", "truncated_differently", "_truncation"})
         self.assertEqual(out.signals["artifact"], ARTIFACT_ID)
-        self.assertIsInstance(out.signals["raw_score"], float)
-        self.assertTrue(0 <= out.signals["raw_score"] <= 1)
+        for key in ("raw_score", "norm_score"):
+            self.assertIsInstance(out.signals[key], float)
+            self.assertTrue(0 <= out.signals[key] <= 1)
+        self.assertNotEqual(out.signals["raw_score"], out.signals["norm_score"])   # different text, own pass
         self.assertEqual(out.content, [])
+        self.assertFalse(out.signals["truncated_differently"])
+
+    @NEEDS_ARTIFACT
+    def test_no_normalized_channel_means_no_norm_score(self) -> None:
+        out = self.score(text="Sen çok aptal birisin.")
+        self.assertEqual(set(out.signals), {"raw_score", "artifact", "truncated_differently", "_truncation"})
+        same = self.score(text="Sen çok aptal birisin.", normalized_text="Sen çok aptal birisin.")
+        self.assertEqual(same.signals["norm_score"], same.signals["raw_score"])   # identical text, one pass
+
+    @NEEDS_ARTIFACT
+    def test_norm_score_is_the_score_of_the_normalized_text(self) -> None:
+        normalized = "sen cok aptal birisin."
+        direct = self.score(text=normalized).signals["raw_score"]
+        via_channel = self.score(text="Sen ÇOK 4ptal birisin.", normalized_text=normalized).signals["norm_score"]
+        self.assertEqual(direct, via_channel)
+
+    @NEEDS_ARTIFACT
+    def test_public_signals_are_fixed_size(self) -> None:
+        # decision #21: token counts live under the internal "_truncation" key only.
+        short = self.score(text="Bugün hava çok güzel").signals
+        long = self.score(text="Bugün hava çok güzel " * 100).signals
+        public = lambda s: {k: type(v) for k, v in s.items() if not k.startswith("_")}
+        self.assertEqual(public(short), public(long))
+
+    @NEEDS_ARTIFACT
+    def test_channels_truncating_differently_is_flagged(self) -> None:
+        long_text = " ".join(f"kelime{i}" for i in range(MAX_LEN * 2))
+        out = self.score(text=long_text, normalized_text="kısa metin")
+        self.assertTrue(out.signals["truncated_differently"])
+        self.assertTrue(any(n.startswith("truncated (raw)") for n in out.notes))
 
     @NEEDS_ARTIFACT
     def test_scores_original_text_not_charsafe_or_normalized(self) -> None:

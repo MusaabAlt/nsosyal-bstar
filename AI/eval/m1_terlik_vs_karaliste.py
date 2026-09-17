@@ -183,7 +183,7 @@ def main(argv: list[str] | None = None) -> int:
         "decision_rule": "none (protocol §3): comparison only; the frozen slice stays karaliste's",
     }
     args.out.parent.mkdir(parents=True, exist_ok=True)
-    args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    args.out.write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8", newline="\n")
     k, t, d = report["karaliste"], report["terlik"], report["terlik_minus_karaliste"]
     print(f"rows={len(ids)} off={len(off_idx)}  karaliste hits={sum(k_hit)} recall={k['recall']['value']:.4f} "
           f"fpr={k['fpr']['value']:.4f} | terlik hits={sum(t_hit)} recall={t['recall']['value']:.4f} fpr={t['fpr']['value']:.4f} | "
