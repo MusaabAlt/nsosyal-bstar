@@ -44,15 +44,26 @@ class TrainingSmokeTest(unittest.TestCase):
 
         cls.tmp = tempfile.TemporaryDirectory()
         out = Path(cls.tmp.name) / "run"
-        # A labels for a few rows so the A head counts as TRAINED; B and C stay untrained.
+        # The HYBRID A-head path in miniature (owner decision 2026-09-18): pseudo-labels in the
+        # derived-file format (`a_label`) on TRAIN rows so the A head counts as TRAINED, pseudo-labels
+        # on a few DEV rows (agreement only), and a HUMAN oracle jsonl on DEV rows (the metric).
+        # The label VALUES here are arbitrary code-path fodder (OFF/NOT), never a claim about profanity.
         from training.m3_encoder import data as D
-        train_rows, _, _ = D.load_frozen_split()
-        labels = Path(cls.tmp.name) / "a.jsonl"
-        with open(labels, "w", encoding="utf-8") as fh:
-            for r in train_rows[:64]:
-                fh.write(json.dumps({"row_id": r["id"], "label": int(r["label"] == "OFF")}) + "\n")
-        rc = T.main(["--out", str(out), "--smoke", "16", "--base", str(TOKENIZER_DIR), "--labels-a", str(labels),
-                     "--batch-size", "8", "--eval-batch-size", "8"])
+        train_rows, dev_rows, _ = D.load_frozen_split()
+        cls.train_ids, cls.dev_ids = [r["id"] for r in train_rows], [r["id"] for r in dev_rows]
+        cls.pseudo_train = Path(cls.tmp.name) / "m1_lexicon_train_seed42.json"
+        cls.pseudo_train.write_text(json.dumps({"rows": [
+            {"row_id": r["id"], "lexicon_hit": True, "a_label": int(r["label"] == "OFF")} for r in train_rows[:64]]}),
+            encoding="utf-8")
+        cls.pseudo_dev = Path(cls.tmp.name) / "a_dev_pseudo.jsonl"
+        cls.pseudo_dev.write_text("".join(json.dumps({"row_id": r["id"], "label": int(r["label"] == "OFF")}) + "\n"
+                                          for r in dev_rows[:8]), encoding="utf-8")
+        cls.human_dev = Path(cls.tmp.name) / "a_dev_human.jsonl"
+        cls.human_dev.write_text("".join(json.dumps({"row_id": r["id"], "label": int(r["label"] == "OFF")}) + "\n"
+                                         for r in dev_rows[4:12]), encoding="utf-8")
+        rc = T.main(["--out", str(out), "--smoke", "16", "--base", str(TOKENIZER_DIR),
+                     "--labels-a", str(cls.pseudo_train), "--labels-a", str(cls.pseudo_dev),
+                     "--labels-a-human", str(cls.human_dev), "--batch-size", "8", "--eval-batch-size", "8"])
         assert rc == 0
         cls.artifact = next((out / "artifact").iterdir())
 
@@ -107,6 +118,50 @@ class TrainingSmokeTest(unittest.TestCase):
         report = json.loads((self.artifact / "dev_eval.json").read_text(encoding="utf-8"))
         self.assertIn("macro_f1", report["binary"])
         self.assertEqual(report["b"]["labelled_rows"], 0)
+
+    def test_human_oracle_and_pseudo_label_agreement_are_reported_apart(self) -> None:
+        """HYBRID strategy: `a` is the human oracle (the only quality claim); pseudo-label agreement
+        sits under its own key with a note saying it is not accuracy; the artifact records where
+        every A label came from."""
+        report = json.loads((self.artifact / "dev_eval.json").read_text(encoding="utf-8"))
+        self.assertEqual(report["a"]["oracle"], "human")
+        self.assertEqual(report["a"]["labelled_rows"], 8)
+        self.assertTrue(report["a"]["A1"]["insufficient_sample"])          # 8 rows < 20 positives
+        self.assertEqual(report["a_pseudo_label_agreement"]["labelled_rows"], 8)
+        self.assertIn("NOT accuracy", report["a_pseudo_label_agreement"]["note"])
+        self.assertEqual(report["label_coverage"]["train"]["a"], 64)
+        self.assertEqual(report["label_coverage"]["train"]["a_human"], 0)
+        self.assertEqual(report["label_coverage"]["dev"]["a_human"], 8)
+        heads = json.loads((self.artifact / "heads.json").read_text(encoding="utf-8"))
+        kinds = [s["kind"] for s in heads["label_sources"]["a"]]
+        self.assertEqual(kinds, ["derived-pseudo-label", "jsonl"])
+        self.assertEqual([s["file"] for s in heads["label_sources"]["a_human"]], ["a_dev_human.jsonl"])
+        self.assertTrue(all(len(s["sha256"]) == 64 for s in heads["label_sources"]["a"]))
+        self.assertIn("a_head_supervision", heads)
+
+    def test_a_label_loading_rules(self) -> None:
+        from training.m3_encoder import data as D
+
+        derived = Path(self.tmp.name) / "derived.json"
+        derived.write_text(json.dumps({"rows": [{"row_id": "1", "lexicon_hit": True, "a_label": 0},
+                                                {"row_id": "2", "lexicon_hit": False}]}), encoding="utf-8")
+        self.assertEqual(D.load_a_labels(derived), {"1": 0, "2": 0})     # a_label wins; pre-2.0 fallback
+        conflict = Path(self.tmp.name) / "conflict.jsonl"
+        conflict.write_text(json.dumps({"row_id": "1", "label": 1}) + "\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "conflicting"):
+            D.load_a_label_files([derived, conflict])
+        bad = Path(self.tmp.name) / "bad.jsonl"
+        bad.write_text(json.dumps({"row_id": "1", "label": 2}) + "\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "not 0/1"):
+            D.load_a_labels(bad)
+
+    def test_human_labels_on_train_rows_are_refused(self) -> None:
+        from training.m3_encoder import data as D
+
+        on_train = Path(self.tmp.name) / "human_on_train.jsonl"
+        on_train.write_text(json.dumps({"row_id": self.train_ids[0], "label": 1}) + "\n", encoding="utf-8")
+        with self.assertRaisesRegex(ValueError, "TRAIN rows"):
+            D.build_split(labels_a_human=on_train)
 
 
 if __name__ == "__main__":

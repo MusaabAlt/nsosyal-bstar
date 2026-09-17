@@ -1,7 +1,7 @@
 """Fine-tune the multi-head encoder on the frozen split.
 
-    python -m training.m3_encoder.train --out <dir> [--corpus PATH] [--labels-a PATH]
-        [--labels-b PATH] [--labels-c PATH] [--base dbmdz/bert-base-turkish-cased]
+    python -m training.m3_encoder.train --out <dir> [--corpus PATH] [--labels-a PATH ...]
+        [--labels-a-human PATH] [--labels-b PATH] [--labels-c PATH] [--base dbmdz/bert-base-turkish-cased]
         [--epochs 3 --batch-size 32 --lr 2e-5 --max-len 128 --warmup-ratio 0.1
          --weight-decay 0.01 --seed 42 --grad-accum 1 --fp16] [--resume] [--smoke N]
 
@@ -77,7 +77,10 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m training.m3_encoder.train", description=__doc__.split("\n")[0])
     parser.add_argument("--out", required=True, type=Path)
     parser.add_argument("--corpus", type=Path, default=D.corpus_path_from_env())
-    parser.add_argument("--labels-a", type=Path)
+    parser.add_argument("--labels-a", type=Path, action="append",
+                        help="A pseudo-label file(s), repeatable: train rows supervise, dev rows report agreement only")
+    parser.add_argument("--labels-a-human", type=Path,
+                        help="human 'profanity present' jsonl on DEV rows: the A head's evaluation oracle, never trained on")
     parser.add_argument("--labels-b", type=Path)
     parser.add_argument("--labels-c", type=Path)
     parser.add_argument("--base", default=DEFAULT_BASE)
@@ -104,9 +107,10 @@ def main(argv: list[str] | None = None) -> int:
     from torch.optim.lr_scheduler import LambdaLR
     from transformers import AutoTokenizer
 
-    D.refuse_banned(args.base, *(str(p) for p in (args.corpus, args.labels_a, args.labels_b, args.labels_c) if p))
+    D.refuse_banned(args.base, *(str(p) for p in (args.corpus, *(args.labels_a or []), args.labels_a_human,
+                                                  args.labels_b, args.labels_c) if p))
     set_seed(args.seed)
-    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c)
+    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c, labels_a_human=args.labels_a_human)
     train_rows, dev_rows = split.train, split.dev
     if args.smoke:
         rng = random.Random(args.seed)
@@ -219,8 +223,11 @@ def main(argv: list[str] | None = None) -> int:
     config.save_pretrained(tokenizer_dir)
     meta = {"base_model": args.base, "date": date, "seed": args.seed, "epochs": args.epochs,
             "best_epoch": int(state["epoch"]), "hyperparams": {k: v for k, v in vars(args).items()
-                                                               if k not in ("out", "corpus", "labels_a", "labels_b", "labels_c")},
-            "split": split.meta, "label_coverage": split.label_coverage,
+                                                               if k not in ("out", "corpus", "labels_a", "labels_a_human",
+                                                                            "labels_b", "labels_c")},
+            "split": split.meta, "label_coverage": split.label_coverage, "label_sources": split.label_sources,
+            "a_head_supervision": "terlik-derived pseudo-labels (keyword); quality claims only against the human "
+                                  "dev oracle (dev_eval.json 'a'), never against pseudo-label agreement",
             "dev_fingerprint": D.DEV_FINGERPRINT, "max_len": args.max_len, "truncation": "first tokens kept",
             "smoke": bool(args.smoke), "random_init": bool(getattr(model, "random_init", False)),
             "history": history}
@@ -229,10 +236,19 @@ def main(argv: list[str] | None = None) -> int:
     report = E.evaluate_rows(model, tokenizer, dev_rows, args.max_len, args.eval_batch_size, device,
                              n_boot=50 if args.smoke else 1000, seed=args.seed)
     report.update({"artifact_id": artifact_id, "digests": digests, "label_coverage": split.label_coverage,
-                   "smoke": bool(args.smoke)})
+                   "label_sources": split.label_sources, "smoke": bool(args.smoke)})
     (artifact_dir / "dev_eval.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"exported {artifact_dir}  weights sha256 {digests['weights.pt']}")
     print(f"dev binary macro-F1 {report['binary']['macro_f1']['value']:.4f}  trained heads {trained}")
+    a = report["a"]
+    if a.get("oracle") == "human":
+        m = a["A1"]
+        print(f"A head vs HUMAN oracle ({a['labelled_rows']} dev rows, support {m['support']}"
+              f"{', INSUFFICIENT SAMPLE' if m['insufficient_sample'] else ''}): "
+              f"P {m['precision']['value']} R {m['recall']['value']} F1 {m['f1']['value']}")
+    else:
+        print("A head: no human oracle given - no A-head quality claim (pseudo-label agreement is in dev_eval.json "
+              "under a_pseudo_label_agreement and is NOT accuracy)")
     return 0
 
 

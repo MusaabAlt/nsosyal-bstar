@@ -1,10 +1,13 @@
 """Data for m3's multi-head fine-tune: the frozen split through the study's own reader,
 one label table per head, and the leakage guards - inherited, not re-implemented.
 
-Heads and their label sources (docs/blockers/m3_head_labels.md):
+Heads and their label sources (docs/blockers/m3_head_labels.md, owner decisions 2026-09-18):
   binary  OFF / NOT from the corpus itself - always available
-  A       "profanity present" on the A1 carrier - from a label file the owner chooses
-          (the derived terlik labels are one candidate; the decision is pending)
+  A       "profanity present" on the A1 carrier. TRAINING supervision: the terlik-derived
+          pseudo-labels of the frozen TRAIN split (eval/derived/m1_lexicon_train_seed42.json,
+          `a_label`, protocols/m1_lexicon_train_labels_protocol.md). EVALUATION oracle: the
+          human-labelled dev subset (`--labels-a-human`, docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md).
+          Pseudo-labels on dev rows are only ever reported as AGREEMENT, never as accuracy.
   B       B1 / B2 / B3 / B5, multi-label - from a label file (no corpus exists yet)
   C       C1 .. C5, single label - from a label file (slice being labelled)
 A head without a label file is trained on nothing: its loss is masked on every row and the
@@ -14,6 +17,7 @@ Every path comes from the caller or the environment (NSOSYAL_DATA), never from a
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import sys
@@ -59,9 +63,10 @@ class Row:
     row_id: str
     text: str
     binary: int                          # 0 NOT / 1 OFF
-    a: int = MISSING                     # 0 / 1 / MISSING
+    a: int = MISSING                     # 0 / 1 / MISSING - pseudo-label (training supervision)
     b: tuple[int, ...] = (MISSING,) * len(B_CODES)   # per code 0 / 1 / MISSING
     c: int = MISSING                     # index into C_CODES / MISSING
+    a_human: int = MISSING               # 0 / 1 / MISSING - human label (evaluation oracle only)
 
 
 @dataclass
@@ -70,6 +75,7 @@ class Split:
     dev: list[Row]
     meta: dict[str, Any] = field(default_factory=dict)
     label_coverage: dict[str, dict[str, int]] = field(default_factory=dict)
+    label_sources: dict[str, list[dict[str, str]]] = field(default_factory=dict)   # head -> [{file, sha256, kind}]
 
 
 def load_frozen_split(corpus_path: str | Path | None = None) -> tuple[list[dict], list[dict], dict]:
@@ -100,15 +106,48 @@ def _read_jsonl(path: Path) -> Iterable[dict[str, Any]]:
                 yield json.loads(line)
 
 
+def sha256_of(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def load_a_labels(path: str | Path) -> dict[str, int]:
-    """row_id -> 0/1. Accepts (a) a jsonl of {"row_id", "label"} or (b) the derived-labels
-    file `eval/derived/m1_lexicon_dev_seed42.json` (rows with `lexicon_hit`), read as the
-    keyword label it is. Which source is the A head's gold is the owner's decision."""
+    """row_id -> 0/1. Accepts (a) a jsonl of {"row_id", "label"} (the human oracle's export or
+    any hand-made file) or (b) a derived-labels file written by eval/m1_lexicon_labels.py
+    (`.json`, rows with `a_label` - the pseudo-label rule of the train protocol §5; a pre-2.0
+    file without `a_label` falls back to `lexicon_hit`). The pseudo-label is a keyword label:
+    it supervises, it never evaluates (evaluate.py keeps the two apart)."""
     path = Path(path)
     if path.suffix == ".json":
         data = json.loads(path.read_text(encoding="utf-8"))
-        return {str(r["row_id"]): int(bool(r["lexicon_hit"])) for r in data["rows"]}
-    return {str(r["row_id"]): int(r["label"]) for r in _read_jsonl(path)}
+        return {str(r["row_id"]): int(r["a_label"] if "a_label" in r else bool(r["lexicon_hit"]))
+                for r in data["rows"]}
+    table = {}
+    for r in _read_jsonl(path):
+        label = int(r["label"])
+        if label not in (0, 1):
+            raise ValueError(f"row {r['row_id']}: A label {r['label']!r} is not 0/1")
+        table[str(r["row_id"])] = label
+    return table
+
+
+def load_a_label_files(paths: Iterable[str | Path]) -> tuple[dict[str, int], list[dict[str, str]]]:
+    """Several A label files merged (train + dev pseudo-labels are separate files by protocol).
+    A row labelled differently by two files is an error, never a silent overwrite."""
+    merged: dict[str, int] = {}
+    sources: list[dict[str, str]] = []
+    for path in paths:
+        table = load_a_labels(path)
+        for rid, label in table.items():
+            if merged.get(rid, label) != label:
+                raise ValueError(f"row {rid}: conflicting A labels across files ({path})")
+            merged[rid] = label
+        sources.append({"file": Path(path).name, "sha256": sha256_of(path),
+                        "kind": "derived-pseudo-label" if Path(path).suffix == ".json" else "jsonl"})
+    return merged, sources
 
 
 def load_b_labels(path: str | Path) -> dict[str, tuple[int, ...]]:
@@ -139,16 +178,29 @@ def load_c_labels(path: str | Path) -> dict[str, int]:
     return table
 
 
-def build_split(corpus_path: str | Path | None = None, labels_a: str | Path | None = None,
-                labels_b: str | Path | None = None, labels_c: str | Path | None = None) -> Split:
+def _as_paths(value: Any) -> list[Path]:
+    if value is None:
+        return []
+    if isinstance(value, (str, Path)):
+        return [Path(value)]
+    return [Path(v) for v in value]
+
+
+def build_split(corpus_path: str | Path | None = None, labels_a: Any = None,
+                labels_b: str | Path | None = None, labels_c: str | Path | None = None,
+                labels_a_human: str | Path | None = None) -> Split:
     """Rows of the frozen split with every head's label attached (MISSING where a head has no
-    label for the row). `label_coverage` records, per head and split, how many rows are
+    label for the row). `labels_a` is one path or several (pseudo-labels: train supervision, and
+    on dev rows only agreement reporting); `labels_a_human` is the human oracle (dev rows), never
+    used for training. `label_coverage` records, per head and split, how many rows are
     labelled - the number every metric must be read against."""
-    for p in (corpus_path, labels_a, labels_b, labels_c):
+    a_paths = _as_paths(labels_a)
+    for p in (corpus_path, *a_paths, labels_b, labels_c, labels_a_human):
         if p is not None:
             refuse_banned(p)
     train_raw, dev_raw, meta = load_frozen_split(corpus_path)
-    a = load_a_labels(labels_a) if labels_a else {}
+    a, a_sources = load_a_label_files(a_paths)
+    a_human, a_human_sources = load_a_label_files([labels_a_human]) if labels_a_human else ({}, [])
     b = load_b_labels(labels_b) if labels_b else {}
     c = load_c_labels(labels_c) if labels_c else {}
 
@@ -158,19 +210,28 @@ def build_split(corpus_path: str | Path | None = None, labels_a: str | Path | No
             rid = str(r["id"])
             out.append(Row(row_id=rid, text=r["text"], binary=int(r["label"] == "OFF"),
                            a=a.get(rid, MISSING), b=b.get(rid, (MISSING,) * len(B_CODES)),
-                           c=c.get(rid, MISSING)))
+                           c=c.get(rid, MISSING), a_human=a_human.get(rid, MISSING)))
         return out
 
     train, dev = convert(train_raw), convert(dev_raw)
+    human_on_train = sum(r.a_human != MISSING for r in train)
+    if human_on_train:
+        # The oracle is a dev subset by design (guideline §1): a human label on a train row would
+        # let an evaluation number be read on rows the encoder was fitted on.
+        raise ValueError(f"{human_on_train} human A labels fall on TRAIN rows; the oracle must be a dev subset")
     coverage = {}
     for name, rows in (("train", train), ("dev", dev)):
         coverage[name] = {"rows": len(rows), "binary": len(rows),
                           "a": sum(r.a != MISSING for r in rows),
+                          "a_human": sum(r.a_human != MISSING for r in rows),
                           "b": sum(r.b[0] != MISSING for r in rows),
                           "c": sum(r.c != MISSING for r in rows)}
     return Split(train=train, dev=dev, meta={k: v for k, v in meta.items() if k not in ("train_ids", "dev_ids",
                                                                                           "train_indices", "dev_indices")},
-                 label_coverage=coverage)
+                 label_coverage=coverage,
+                 label_sources={"a": a_sources, "a_human": a_human_sources,
+                                "b": [{"file": Path(labels_b).name, "sha256": sha256_of(labels_b), "kind": "jsonl"}] if labels_b else [],
+                                "c": [{"file": Path(labels_c).name, "sha256": sha256_of(labels_c), "kind": "jsonl"}] if labels_c else []})
 
 
 def corpus_path_from_env() -> Path | None:

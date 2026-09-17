@@ -34,3 +34,7 @@ eval/results/*.tmp
 # Gate 1.5: named reference runs (python -m eval.run_all --results-dir eval/results/<name>) are
 # ignored like the top-level results; the tracked eval/results/m4_stage1b.json is unaffected.
 eval/results/*/
+
+# A-head human annotation: templates and filled files hold corpus text (never committed); the
+# committed ids file in eval/annotation/ carries the design and the ids only.
+eval/annotation/private/

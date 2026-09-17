@@ -118,11 +118,24 @@ def evaluate_rows(model, tokenizer, rows: list[D.Row], max_len: int, batch_size:
     pred_bin = [int(p >= decision) for p in probs["binary"]]
     report["binary"] = binary_metrics(gold_bin, pred_bin, n_boot, seed)
 
+    # A head, two SEPARATE blocks (owner decision 2026-09-18, HYBRID strategy):
+    #   "a"                        against the HUMAN oracle only - the only A-head quality claim
+    #   "a_pseudo_label_agreement" against terlik pseudo-labels on the same rows - agreement, never accuracy
+    human_idx = [i for i, r in enumerate(rows) if r.a_human != D.MISSING]
+    report["a"] = ({"oracle": "human", "labelled_rows": len(human_idx),
+                    **per_code_metrics([[rows[i].a_human] for i in human_idx],
+                                       [[int(probs["a"][i] >= decision)] for i in human_idx],
+                                       list(D.A_CODES), n_boot, seed)}
+                   if human_idx else {"oracle": None, "labelled_rows": 0,
+                                      "note": "no human A labels: NO A-head quality claim can be made "
+                                              "(docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md)"})
     a_idx = [i for i, r in enumerate(rows) if r.a != D.MISSING]
-    report["a"] = ({"labelled_rows": len(a_idx), **per_code_metrics([[rows[i].a] for i in a_idx],
-                                                                     [[int(probs["a"][i] >= decision)] for i in a_idx],
-                                                                     list(D.A_CODES), n_boot, seed)}
-                   if a_idx else {"labelled_rows": 0, "note": "no A labels: head not evaluated"})
+    report["a_pseudo_label_agreement"] = (
+        {"labelled_rows": len(a_idx),
+         "note": "agreement with terlik-derived pseudo-labels (keyword labels); NOT accuracy, NOT a quality claim",
+         **per_code_metrics([[rows[i].a] for i in a_idx], [[int(probs["a"][i] >= decision)] for i in a_idx],
+                            list(D.A_CODES), n_boot, seed)}
+        if a_idx else {"labelled_rows": 0, "note": "no pseudo-labels on the evaluated rows"})
     b_idx = [i for i, r in enumerate(rows) if r.b[0] != D.MISSING]
     report["b"] = ({"labelled_rows": len(b_idx), **per_code_metrics([list(rows[i].b) for i in b_idx],
                                                                      [[int(p >= decision) for p in probs["b"][i]] for i in b_idx],
@@ -172,7 +185,9 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="python -m training.m3_encoder.evaluate")
     parser.add_argument("--artifact", required=True, type=Path)
     parser.add_argument("--corpus", type=Path, default=D.corpus_path_from_env())
-    parser.add_argument("--labels-a", type=Path)
+    parser.add_argument("--labels-a", type=Path, action="append",
+                        help="pseudo-label file(s); on dev rows reported as agreement only (repeatable)")
+    parser.add_argument("--labels-a-human", type=Path, help="human oracle jsonl (dev rows): the A-head metric")
     parser.add_argument("--labels-b", type=Path)
     parser.add_argument("--labels-c", type=Path)
     parser.add_argument("--max-len", type=int, default=128)
@@ -184,11 +199,13 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")
     import torch
 
-    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c)
+    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c, labels_a_human=args.labels_a_human)
     model, tokenizer, heads = load_exported(args.artifact)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     report = evaluate_rows(model, tokenizer, split.dev, args.max_len, args.batch_size, device, n_boot=args.n_boot)
     report["artifact_id"] = heads["artifact_id"]
+    report["label_coverage"] = split.label_coverage
+    report["label_sources"] = split.label_sources
     text = json.dumps(report, indent=2, ensure_ascii=False)
     print(text if len(text) < 4000 else text[:4000] + "\n...")
     if args.out:

@@ -3,8 +3,8 @@
 `docs/team/abdullah/RESOURCES.md` open item 4 left undecided where m3's training code lives and
 how it receives corpus paths: a module folder may import only the standard library, `contracts`,
 its own package and what its `requirements.txt` declares, and the corpus reader lives in
-`diagnosis/src/data_io.py`. This directory is the engineering answer, recorded here for the owner
-to ratify:
+`diagnosis/src/data_io.py`. This directory is the answer, **RATIFIED by the owner on 2026-09-18**
+(decision 3: `AI/training/` is the official location for project training code):
 
 - **Training code lives in `AI/training/<module>/`**, one package per model-owning module. It is
   not a module (never in `PIPELINE_ORDER`, never imported by a module), so rule 2 and the

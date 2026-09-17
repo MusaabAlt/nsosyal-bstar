@@ -69,7 +69,8 @@ def load_inputs() -> tuple[dict[str, bool], dict[str, dict[str, Any]], dict[str,
         raise ProtocolStop("derived labels were generated against an uncommitted or changed protocol")
     frozen = json.loads(FROZEN_SLICE.read_text(encoding="utf-8"))
     karaliste = {str(rid): (slice_ == "lexicon_hit") for rid, slice_ in frozen["rows"]}
-    terlik = {str(r["row_id"]): {"hit": bool(r["lexicon_hit_raw"]), "roots": r.get("roots", []),
+    terlik = {str(r["row_id"]): {"hit": bool(r["lexicon_hit_raw"]), "hit_any": bool(r["lexicon_hit"]),
+                                 "hit_norm": bool(r.get("lexicon_hit_norm")), "roots": r.get("roots", []),
                                  "surfaces": [m.get("surface", "") for m in r.get("matches", [])],
                                  "collision": bool(r.get("collisions"))} for r in derived["rows"]}
     gold: dict[str, bool] = {}
@@ -81,6 +82,7 @@ def load_inputs() -> tuple[dict[str, bool], dict[str, dict[str, Any]], dict[str,
     if not (set(ids) == set(terlik) == set(gold)) or len(ids) != expected_n:
         raise ProtocolStop(f"id sets differ: frozen {len(karaliste)} (declares {expected_n}) terlik {len(terlik)} "
                            f"gold {len(gold)}")
+    hashes["derived_header"] = {k: derived.get(k) for k in ("generator", "engine", "channels")}
     return karaliste, terlik, gold, hashes
 
 
@@ -143,6 +145,7 @@ def main(argv: list[str] | None = None) -> int:
     ids = list(karaliste)
     k_hit = [karaliste[i] for i in ids]
     t_hit = [terlik[i]["hit"] for i in ids]
+    t_any = [terlik[i]["hit_any"] for i in ids]
     off = [gold[i] for i in ids]
     both = sum(1 for k, t in zip(k_hit, t_hit) if k and t)
     only_k = [i for i, k, t in zip(ids, k_hit, t_hit) if k and not t]
@@ -167,9 +170,22 @@ def main(argv: list[str] | None = None) -> int:
         "bootstrap": {"n_boot": args.n_boot, "seed": args.seed, "unit": "row", "ci": 0.95},
         "n_rows": len(ids), "n_off": len(off_idx), "n_not": len(ids) - len(off_idx),
         "counts": {"karaliste_hits": sum(k_hit), "terlik_hits": sum(t_hit)},
+        "derived_labels_generator": {"version": (hashes["derived_header"].get("generator") or {}).get("version"),
+                                     "module_versions": (hashes["derived_header"].get("engine") or {}).get("module_versions"),
+                                     "normalized_channel_available": ((hashes["derived_header"].get("channels") or {})
+                                                                      .get("normalized") or {}).get("available")},
         "karaliste": with_ci(k_hit, off, args.n_boot, args.seed),
         "terlik": with_ci(t_hit, off, args.n_boot, args.seed),
         "terlik_minus_karaliste": paired_delta(k_hit, t_hit, off, args.n_boot, args.seed),
+        # Amendment 2026-09-18: ADDED next to the pre-registered raw-channel headline, never in its place.
+        # terlik with lexicon_hit (raw OR normalized) - the predicate the A-head pseudo-label uses.
+        "terlik_any_channel": {
+            "predictor": "lexicon_hit (raw OR normalized), the A-head pseudo-label predicate",
+            "hits": sum(t_any), "normalized_only_rows": sum(1 for a, r in zip(t_any, t_hit) if a and not r),
+            "raw_only_rows": sum(1 for i in ids if terlik[i]["hit"] and not terlik[i]["hit_norm"]),
+            **with_ci(t_any, off, args.n_boot, args.seed),
+            "minus_karaliste": paired_delta(k_hit, t_any, off, args.n_boot, args.seed),
+        },
         "disagreement": {
             "all_rows": {"both": both, "karaliste_only": len(only_k), "terlik_only": len(only_t), "neither": neither},
             "gold_off_rows": table_off,
