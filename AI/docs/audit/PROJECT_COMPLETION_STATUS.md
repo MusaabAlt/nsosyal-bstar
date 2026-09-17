@@ -28,7 +28,7 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 |---|---|---|---|---|---|
 | m0_charsafe | five passes, signals, offsets; spec §3 / §4 now describe the implemented passes and the `_offsets` interface | **VERIFIED** (2026-09-17): 46 unit tests, interface tests, e2e; uncontended eval: capture 1.0 per pattern, damage 0.0 on 35 clean items, 0/33 traps, every latency band within its placeholder budget; spec §7 fixture list checked (`SIKINTI`, `IŞIK`, `İSTANBUL` in mixed casing, zero-width, Cyrillic, 35 clean items, empty / space / 5000 chars) | Q3 (whether charsafe must precede m3) and Q14 (now closed by the spec update) were the only open rows; Q3 is policy and does not block m0 | 46 unit; 12 interface; 7 e2e | see log |
 | m2_deobf | protection pass, tier 1 (LEET, REPEAT, SPACED, PUNCT_SPLIT, accent as HOMOGLYPH, PHONETIC), spans, `_offsets` (ADR-008), idempotency | **VERIFIED** (2026-09-17): 32 unit tests; generated per-pattern set (protocol `m2_obfuscation_eval_protocol.md`, 195 pairs): capture 1.0 per tier-1 pattern, damage 0.0 on 49 clean items, 0/33 traps, clean-to-dirty flip rate 0.0 on the full pipeline, latency within the 10 ms placeholder | — | 32 unit; e2e | see log |
-| m2_deobf | tier 2 DEASCII (zeyrek-validated, ambiguity-safe), SUFFIX_ON_MASKED (reported, text unchanged) | IMPLEMENTED_NOT_VERIFIED for DEASCII: capture 0.71 [0.46, 0.92] on 14 generated pairs, below the spec §11 80 % line — a measured negative (README.md: the misses are the no-guessing rule); SUFFIX_ON_MASKED 1.0 | zeyrek 0.1.3 (MIT) declared in `modules/m2_deobf/requirements.txt`; tier 1 runs without it | 32 unit | see log |
+| m2_deobf | tier 2 DEASCII (zeyrek-validated, ambiguity-safe), SUFFIX_ON_MASKED (reported, text unchanged) | IMPLEMENTED_NOT_VERIFIED for DEASCII: capture 0.71 [0.46, 0.92] on 14 generated pairs, below the spec §11 80 % line — a measured negative (README.md: the misses are the no-guessing rule); SUFFIX_ON_MASKED 1.0. **0.1.1 (2026-09-18):** the tier-2 latency guard was history-dependent (a post's repairs depended on the posts processed before it, through the cross-post parse cache); found by the train-split label generator's determinism check, fixed (guard charged per distinct word of the post), pinned by a cold-vs-warm test; contract example `artifact_hash` regenerated | zeyrek 0.1.3 (MIT) declared in `modules/m2_deobf/requirements.txt`; tier 1 runs without it | 33 unit | see log |
 | m2_deobf | ABBREV, VOWEL_DROP, WORD_MERGE, CHAR_DROP, DIALECT | NOT_STARTED, declared unhandled in v1 | need a Turkish lexicon / curated maps not in the repository (spec §3 allows declaring a pattern unhandled; README.md) | — | — |
 | m2_deobf | EMOJI_SUB | BLOCKED_BY_DATA | curated emoji→word map for Turkish does not exist (spec §3, declared out of scope) | — | — |
 | m2_deobf | normalized-channel offset interface (Q5, carrier) | **VERIFIED** on both sides (m2 publishes, m1 consumes; interface test pins the invariants) | ADR-008 proposed; owner to ratify | interface test | see log |
@@ -39,12 +39,14 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 | m6_target | hand-labelled target slice, agreement number, confusion matrix | BLOCKED_BY_DATA | needs annotation | — | — |
 | m1_lexicon | raw channel, A1 carrier, SUBSTRING_COLLISION, NON_HUMAN_TARGET (now fed by the real m6), HOMONYM, hit signals, dual-register words never fire | **VERIFIED** on its fixtures and traps (2026-09-17): 23 unit tests; eval 1.0 on A1 / SUBSTRING_COLLISION / HOMONYM / NON_HUMAN_TARGET, 0/33 traps, clean bands within budget; e2e non-human case proves m6 → m1 → guard suppression (verdict left to Q2) | Q12 (adversarial latency published, not accepted), Q16, Q20 remain owner judgements | 23 unit; 13 interface; 8 e2e | see log |
 | m1_lexicon | normalized-channel spans through m2's offsets (ADR-008); match spans tightened to the matched word (terlik ran over a suffix-shaped next word and produced nested hits in spaced text) | **VERIFIED** (2026-09-17): unit tests with fixed m2 offsets, interface test with real m0 → m2 → m1, e2e two-channel assertions; eval unchanged (1.0 per code, 0/33 traps) | ADR-008 owner ratification | 21 unit; interface; e2e | see log |
-| m1_lexicon | terlik vs karaliste comparison (spec §6, §8) | **VERIFIED**: pre-registered protocol, result committed (`eval/results/m1_terlik_vs_karaliste.json`): recall 0.392 vs 0.386 (Δ +0.007 [−0.022, +0.037]), FPR 0.026 vs 0.067 (Δ −0.042 [−0.050, −0.034]); 311 karaliste-only, 156 terlik-only rows | — | script + protocol | see log |
+| m1_lexicon | terlik vs karaliste comparison (spec §6, §8) | **VERIFIED**: pre-registered protocol, result committed (`eval/results/m1_terlik_vs_karaliste.json`), re-run 2026-09-18 on the implemented m0/m2/m6/m1 with identical headline numbers: recall 0.392 vs 0.386 (Δ +0.007 [−0.022, +0.037]), FPR 0.026 vs 0.067 (Δ −0.042 [−0.050, −0.034]); 311 karaliste-only, 156 terlik-only rows; added block `terlik_any_channel` (amendment): the normalized channel adds 0 hits on dev (4 raw-only rows) | — | script + protocol | see log |
+| m1_lexicon | derived label files, dev + TRAIN (`eval/derived/m1_lexicon_{dev,train}_seed42.json`, generator `eval/m1_lexicon_labels.py` 2.0.0) | **VERIFIED** (2026-09-18): both generated after their protocols from a clean tree, `--check` current at HEAD, disjoint halves of the frozen split, no test-set row possible (paths refused, ids ⊂ corpus), deterministic (two passes byte-identical), provenance (git HEAD, dirty state, versions, digests). dev: 459 hits / 455 both / 4 raw-only / 0 normalized-only, `a_label` 459; train: 2,578 hits / 2,558 both / 19 raw-only / 1 normalized-only, `a_label` 2,578; `norm_hit_unmapped` 0 in both | — | 11 unit (synthetic corpus, injected m2) + committed-file currency test | see log |
 | m1_lexicon | HOMONYM guard (spec §3, §7) | **VERIFIED** for the declared table (`am` as a time abbreviation); table documented in README with its context rule | new entries need a source row | 23 unit | see log |
 | m1_lexicon | A4 sacred-concept extension | BLOCKED_BY_DATA | owner-approved root table with sources (spec §4.3) — see `docs/blockers/` | — | — |
 | m3_encoder | binary `raw_score` on `ctx.text` and `norm_score` on the normalized channel (frozen artifact); truncation notes + `truncated_differently`; sha256 verification; no network | **VERIFIED** on what exists (2026-09-17): 18 unit tests, interface tests (path / key / artifact id agreement, both channels), e2e consistency `fired == score >= t` on every case; publishing `norm_score` follows spec §4 and supersedes the 2026-09-15 note (no yaml row reads it: the decision layer stays raw-only) | Q3 (which text the raw channel scores) is the owner's | 18 unit; 13 interface; 8 e2e | see log |
 | m3_encoder | multi-head artifact loader (`NSOSYAL_M3_ARTIFACT`): content from TRAINED heads only, per channel, sha256-verified, fail-closed on tamper | **VERIFIED** with a CPU smoke artifact (random-initialised encoder from the local config): `training/tests/test_training_m3.py` | — | 4 training tests | see log |
-| m3_encoder | A head | BLOCKED_BY_POLICY + WAITING_FOR_GPU_ARTIFACT — training code complete (`training/m3_encoder`), handoff `docs/training/m3_encoder.md` | label source undecided (RESOURCES item 5, `docs/blockers/m3_head_labels.md`) | smoke test | see log |
+| m3_encoder | A head — training path | **WAITING_FOR_GPU_ARTIFACT, READY_FOR_COLAB** (2026-09-18): owner decided the HYBRID strategy (`docs/blockers/m3_head_labels.md`); pseudo-labels on the frozen TRAIN split committed (`eval/derived/m1_lexicon_train_seed42.json`, 26,992 rows, 2,578 positives = 9.55 %, generated under `protocols/m1_lexicon_train_labels_protocol.md`); trainer takes `--labels-a` (pseudo, supervision) and `--labels-a-human` (oracle, dev only); handoff `docs/training/m3_encoder.md` corrected to the repository | Drive upload of the corpus (RESOURCES item 1) and the GPU run | 7 training tests; 11 generator tests | see log |
+| m3_encoder | A head — quality claim | BLOCKED_BY_DATA: the human-labelled "profanity present" dev subset does not exist; annotation package ready (`docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md` v1.0, `python -m eval.a_head_dev_sample draw/check/adjudicate/export`); terlik agreement is reported apart and never as accuracy | human annotation (owner names the annotators, draws the sample, labels, adjudicates) | 6 sampler tests | see log |
 | m3_encoder | B head | BLOCKED_BY_DATA + WAITING_FOR_GPU_ARTIFACT — code and handoff complete | no B-labelled corpus (RESOURCES item 6, `docs/blockers/m3_head_labels.md`) | smoke test | see log |
 | m3_encoder | C head | BLOCKED_BY_DATA + WAITING_FOR_GPU_ARTIFACT — code and handoff complete | C slice being labelled, no date (RESOURCES item 7) | smoke test | see log |
 | m3_encoder | banned-dataset written check (`DATASETS.md`), truncation policy declared in spec §5, corpus count corrected (Q17) | **VERIFIED** (documents exist, dated) | — | — | see log |
@@ -57,12 +59,33 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 | eval infrastructure | Gate 1 observability | VERIFIED | — | 15 + 5 + 12 | baseline |
 | full pipeline | end-to-end on real m0, m2, m6, m1, m3 (+ m4 note, m5 stub) | **VERIFIED for the connected behaviour** (2026-09-17): 8 e2e cases with stage-named assertions; reference run above; every verdict still `review`-or-worse because m5 degrades the result (fail closed) | Q1, Q2, Q3 outcomes recorded, not judged; m5 stub keeps every verdict degraded | 8 e2e; run_all | see log |
 
-## 1a. Session handoff (2026-09-17, end of the implementation session)
+## 1a. Session handoff (2026-09-18, end of the A-head preparation session)
 
-**Branch / HEAD:** `audit/m1-m6` at `d6a6640d3a305ba471a256727ec715a703613a5e` (11 commits since the
-baseline `9976eb4`); working tree clean; no process running. Verification at this HEAD:
-370 tests OK / 1 skipped (the declared m5 skip), `python -m pipeline.contract_example --check`
-exit 0, reference run `eval/results/post_m6/` at `f6b48ed` (docs-only commits since; code identical).
+**Branch / HEAD:** `audit/m1-m6`, see `git log` (commits of 2026-09-18 listed in §2); working tree
+clean; no process running. Verification at this HEAD (with **`AI/.venv`**, the project
+interpreter — CONTRIBUTING.md "Interpreter"): full suite OK / 1 skipped (the declared m5 skip),
+`python -m pipeline.contract_example --check` exit 0, both derived label files `--check` CURRENT.
+The reference run `eval/results/post_m6/` at `f6b48ed` predates m2 0.1.1 (a determinism fix that
+changes no fixture output; the contract example's `artifact_hash` was regenerated for the version
+bump); a fresh `eval.run_all` reference run is the first measurement step of the next session.
+
+**A-head preparation (owner decisions 2026-09-18, all executed locally):**
+- HYBRID strategy recorded (`docs/blockers/m3_head_labels.md`): terlik pseudo-labels train, human dev
+  subset evaluates; `AI/training/` ratified; karaliste / OFF-NOT / baseline predictions excluded.
+- Train-split generator + protocol; dev file regenerated on the implemented m2/m6; comparison re-run.
+- Trainer: `--labels-a` (repeatable, derived-format aware), `--labels-a-human` (dev only), `a` vs
+  `a_pseudo_label_agreement` kept apart; label provenance in `heads.json`.
+- Annotation package: guideline v1.0 + sampler (draw / check / adjudicate / export), private dir ignored.
+- m2 0.1.1: history-dependent tier-2 guard fixed (found by the generator's determinism check).
+- Q18 reconciled: instrument side implemented (Gate 1), remaining half is policy (Q2).
+
+**Next executable dependency:** the Colab run of `docs/training/m3_encoder.md` §18 (binary + A
+head) once the corpus is on Drive (RESOURCES item 1). In parallel, the human task that unblocks the
+A-head quality claim: `python -m eval.a_head_dev_sample draw --n 500 --seed 42 --annotator <name> …`,
+label under the guideline, adjudicate, export `a_dev_human.jsonl`.
+
+*(2026-09-17 handoff, kept for the record)* HEAD was `d6a6640`; 370 tests OK / 1 skipped;
+reference run `eval/results/post_m6/` at `f6b48ed`.
 
 **Module states**
 
@@ -86,10 +109,10 @@ exit 0, reference run `eval/results/post_m6/` at `f6b48ed` (docs-only commits si
 | Q28 | `siz`, institution vs members (incl. `-deki` forms), religion vs followers, sports supporters | `protocols/m6_target_guideline.md` §2 (v1 behaviour declared PENDING) |
 | Q23 | pre-registered stage-2 precision budget | `docs/training/m4_stage2.md` |
 | Q25 | derive every placeholder threshold / action on dev | `thresholds.yaml` |
-| A-head labels | accept terlik-derived labels for the A head, or require human labels; which m3 output is compared with the baseline | `docs/blockers/m3_head_labels.md` |
+| A-head labels | **DECIDED 2026-09-18** (HYBRID: terlik pseudo-labels train, human dev subset evaluates; binary head compared with the baseline at the 0.5 reporting point). Remaining human work: label the dev sample (`docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md`) | `docs/blockers/m3_head_labels.md` |
 | m5 gate | name and request the sarcasm corpus | `docs/blockers/m5_sarcasm_corpus_gate.md` |
 | A4 table | owner-approved sacred-concept roots with sources | `docs/blockers/m1_a4_sacred_concepts.md` |
-| training placement | ratify `AI/training/` as the home of training code | `training/README.md` |
+| training placement | **RATIFIED 2026-09-18**: `AI/training/` is the official home of training code | `training/README.md` |
 | Q12 / Q16 / Q20 | m1 latency criterion, two-tier judgement, collision base rate | `OPEN_QUESTIONS.md` |
 
 **Next executable dependency:** the m3 A-head run on Colab (`docs/training/m3_encoder.md`) the
@@ -105,6 +128,7 @@ the READMEs and the commit messages listed in §2.
 
 | date | component | what | tests | commit |
 |---|---|---|---|---|
+| 2026-09-18 | m1 labels / m3 A head / m2 / docs | A-head preparation on the owner's decisions: shared train/dev label generator with the `a_label` rule, protocols (train pre-registered, dev and comparison amended); dev regenerated and TRAIN file generated (26,992 rows) from a clean tree; terlik-vs-karaliste re-run with `terlik_any_channel`; trainer hybrid path (`--labels-a` / `--labels-a-human`, agreement vs oracle apart, label provenance); annotation package (guideline v1.0, sampler); m2 0.1.1 determinism fix + contract example hash; handoff corrected; interpreter declared; Q18 reconciled; status updated | generator 11, sampler 6, training 7, m2 33; full suite OK / 1 skipped | `6e45225`, `d46f4e9`, `2072497`, `a6347f5`, + the derived-files commit |
 | 2026-09-17 | full pipeline | reference evaluation on the implemented state (`eval/results/post_m6/`, head `f6b48ed`, dirty=false): 0 regressions, flip 0.0, p95 170 ms, only m5 degraded; docs (README, CONTRIBUTING, HANDOVER, MANIFEST) corrected to the current state | run_all exit 0 | `f6b48ed` |
 | 2026-09-17 | m3_encoder | both channels scored (norm_score, spec §4), truncated_differently signal, multi-head artifact loader with sha256 verification, spec §5 truncation policy and corpus count, DATASETS.md; training packages for m3 (multi-head) and m5 (sequential transfer) with CPU smoke test; Colab handoffs for m3 / m4 stage 2 / m5; blocker documents for A4, m3 labels, m5 corpus; contract example regenerated (fixtures only) | 18 unit + 4 training + 13 interface + 8 e2e; full suite 370 OK / 1 skipped | see below |
 | 2026-09-17 | m1_lexicon | HOMONYM guard with a declared context table; dual-register fixtures; terlik-vs-karaliste comparison run under its protocol and committed; README records every list, the span rule and the comparison; e2e case for the m6 → m1 NON_HUMAN_TARGET path (Q2 verdict recorded, not judged) | 23 unit; eval 1.0 per code, 0/33 traps; 78 integration tests OK | see below |
@@ -122,12 +146,14 @@ the READMEs and the commit messages listed in §2.
 
 ## 4. Policy questions still open (not answered here)
 
-Q1, Q2, Q3, Q5 (the contract half is the ADR-008 proposal; the policy half — whether normalized-channel hits fire codes — is unchanged), Q6, Q12, Q16, Q20, Q23, Q25, Q28.
+Q1, Q2, Q3, Q5 (the contract half is the ADR-008 proposal; the *label* half was decided on 2026-09-18 for the A-head pseudo-label; the *runtime* half — whether normalized-channel hits fire codes — is unchanged), Q6, Q12, Q16, Q18 (now policy only: which traps carry the `binary` rule, whether binary flips are budgeted — the instrument exists), Q20, Q23, Q25, Q28.
 
 ## 5. GPU handoffs
 
-Index: `AI/docs/training/GPU_HANDOFF.md` — m3 multi-head (`m3_encoder.md`), m4 stage 2 (`m4_stage2.md`), m5 sarcasm (`m5_sarcasm.md`); all blocked on data or policy, code complete for m3 and m5 (`AI/training/`).
+Index: `AI/docs/training/GPU_HANDOFF.md` — m3 multi-head (`m3_encoder.md`, **READY_FOR_COLAB for binary + A head** since 2026-09-18; B / C still blocked on data), m4 stage 2 (`m4_stage2.md`, blocked on policy + data), m5 sarcasm (`m5_sarcasm.md`, blocked on data); code complete for m3 and m5 (`AI/training/`, ratified).
 
 ## 6. Data blockers
 
-`AI/docs/blockers/m1_a4_sacred_concepts.md`, `m3_head_labels.md`, `m5_sarcasm_corpus_gate.md`.
+`AI/docs/blockers/m1_a4_sacred_concepts.md`, `m3_head_labels.md` (A head decided; the human dev
+oracle is the remaining data item — annotation package in `AI/docs/annotation/` and
+`eval/a_head_dev_sample.py`), `m5_sarcasm_corpus_gate.md`.

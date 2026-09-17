@@ -1,11 +1,11 @@
 {
   "protocol": {
     "file": "protocols/m1_terlik_vs_karaliste_protocol.md",
-    "sha256": "95ea9f40751894f55d439d25052fe8f123250566da5a96ce5bc9acf56a57b936",
-    "commit": null
+    "sha256": "4461bb166e0676d919aaa1d7dbe7688fede65fd7ef747439961c06fe92b31f64",
+    "commit": "6e45225949a3ee123af4e9a5f3f2ba24ce81181f"
   },
-  "created_at": "2026-09-17T18:55:30+00:00",
-  "git_head": "1220a342b95f37590e0e9aec91abc1738c2d4046",
+  "created_at": "2026-09-17T21:54:10+00:00",
+  "git_head": "a6347f52005ea134fb25a61dd7fcc4b073adc657",
   "inputs": {
     "frozen_slice": {
       "path": "eval\\frozen\\study_slice_dev.json",
@@ -13,7 +13,7 @@
     },
     "derived_labels": {
       "path": "eval\\derived\\m1_lexicon_dev_seed42.json",
-      "sha256": "b3b933a9bb29d0f3fd92c9cc25a587bdc4b4ecf6028874ec726d613000558538"
+      "sha256": "03c9895541cc6d86dfaffcd201ab753228e89ae59f36e6a0cc09139faa7a7fa0"
     },
     "predictions": {
       "path": "diagnosis/results/01_baseline_berturk/dev_predictions.csv",
@@ -32,6 +32,16 @@
   "counts": {
     "karaliste_hits": 614,
     "terlik_hits": 459
+  },
+  "derived_labels_generator": {
+    "version": "2.0.0",
+    "module_versions": {
+      "m0_charsafe": "0.2.0",
+      "m2_deobf": "0.1.1",
+      "m6_target": "0.1.0",
+      "m1_lexicon": "0.1.0"
+    },
+    "normalized_channel_available": true
   },
   "karaliste": {
     "recall": {
@@ -79,6 +89,39 @@
       "ci_high": -0.03364389233954451
     }
   },
+  "terlik_any_channel": {
+    "predictor": "lexicon_hit (raw OR normalized), the A-head pseudo-label predicate",
+    "hits": 459,
+    "normalized_only_rows": 0,
+    "raw_only_rows": 4,
+    "recall": {
+      "value": 0.3923913043478261,
+      "ci_low": 0.36404494382022473,
+      "ci_high": 0.42424242424242425
+    },
+    "fpr": {
+      "value": 0.025494276795005204,
+      "ci_low": 0.020677177565262342,
+      "ci_high": 0.03084499740798341
+    },
+    "precision": {
+      "value": 0.7864923747276689,
+      "ci_low": 0.747072599531616,
+      "ci_high": 0.8227571115973742
+    },
+    "minus_karaliste": {
+      "recall": {
+        "value": 0.0065217391304348005,
+        "ci_low": -0.02192982456140352,
+        "ci_high": 0.03655913978494624
+      },
+      "fpr": {
+        "value": -0.0418834547346514,
+        "ci_low": -0.05023671751709627,
+        "ci_high": -0.03364389233954451
+      }
+    }
+  },
   "disagreement": {
     "all_rows": {
       "both": 303,
@@ -93,9 +136,9 @@
       "neither": 468
     },
     "terlik_free_rows_with_substring_collision": {
-      "n": 2113,
+      "n": 2114,
       "of": 4305,
-      "share": 0.4908246225319396
+      "share": 0.49105691056910566
     },
     "examples_karaliste_only": [
       {
@@ -207,6 +250,7 @@
           "sik"
         ],
         "surfaces": [
+          "şike",
           "şike"
         ]
       },
@@ -217,6 +261,7 @@
           "piç"
         ],
         "surfaces": [
+          "PC",
           "PC"
         ]
       },
@@ -227,6 +272,7 @@
           "am"
         ],
         "surfaces": [
+          "amin",
           "amin"
         ]
       },
@@ -237,6 +283,7 @@
           "sik"
         ],
         "surfaces": [
+          "sıkıldım",
           "sıkıldım"
         ]
       },
@@ -247,6 +294,7 @@
           "maymun"
         ],
         "surfaces": [
+          "maymun",
           "maymun"
         ]
       },
@@ -257,7 +305,7 @@
           "am"
         ],
         "surfaces": [
-          "A M A"
+          "A M"
         ]
       },
       {
@@ -277,6 +325,7 @@
           "yalaka"
         ],
         "surfaces": [
+          "Yalakacılar",
           "Yalakacılar"
         ]
       },
@@ -287,6 +336,7 @@
           "sersem"
         ],
         "surfaces": [
+          "sersemine",
           "sersemine"
         ]
       },
@@ -297,6 +347,7 @@
           "rezil"
         ],
         "surfaces": [
+          "rezil",
           "rezil"
         ]
       },
@@ -307,6 +358,7 @@
           "am"
         ],
         "surfaces": [
+          "Amin",
           "Amin"
         ]
       },
@@ -317,6 +369,7 @@
           "alık"
         ],
         "surfaces": [
+          "ali, kimi",
           "ali, kimi"
         ]
       },
@@ -327,6 +380,7 @@
           "rezil"
         ],
         "surfaces": [
+          "rezillik",
           "rezillik"
         ]
       },
@@ -337,6 +391,7 @@
           "piç"
         ],
         "surfaces": [
+          "pc",
           "pc"
         ]
       },
@@ -347,6 +402,7 @@
           "sahtekar"
         ],
         "surfaces": [
+          "sahtekarlık",
           "sahtekarlık"
         ]
       },
@@ -357,6 +413,7 @@
           "sik"
         ],
         "surfaces": [
+          "sık",
           "sık"
         ]
       },
@@ -367,6 +424,7 @@
           "am"
         ],
         "surfaces": [
+          "‘amca",
           "‘amca"
         ]
       },
@@ -377,6 +435,7 @@
           "amk"
         ],
         "surfaces": [
+          "mk",
           "mk"
         ]
       },
@@ -387,6 +446,7 @@
           "yüzkarası"
         ],
         "surfaces": [
+          "Yuz karası",
           "Yuz karası"
         ]
       },
@@ -397,7 +457,14 @@
           "göt"
         ],
         "surfaces": [
-          "667"
+          "667",
+          "667",
+          "672",
+          "672",
+          "677",
+          "677",
+          "673",
+          "673"
         ]
       }
     ]
