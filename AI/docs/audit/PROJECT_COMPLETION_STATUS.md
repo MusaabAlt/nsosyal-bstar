@@ -9,6 +9,12 @@ A component is VERIFIED only when its specified behaviour is implemented and its
 verification passes on the committed tree. A stub is never anything but NOT_STARTED or a BLOCKED
 state. Partial modules carry two rows where the built and the unbuilt parts have different states.
 
+Current reference run (2026-09-17, commit `f6b48ed6a6a64ea39174eaee28efb973fb56b7f0`, `eval/results/post_m6/`,
+CURRENT_REPRODUCIBLE_RESULT, 50 repeats): 0 trap regressions in every module; clean-to-dirty flip rate 0.0 with the real
+m2; pipeline p95 170 ms over 18,150 runs (placeholder budget 250); every module within its clean latency band (m1's
+adversarial column over, as published); the binary score fires on traps 008 / 017 / 030 / 032 (Q2 / Q18); the only
+degraded module is `m5_sarcasm`. Full suite: 370 tests OK, 1 skipped (m5).
+
 Baseline: commit `9976eb4add53e0a708a8c17db3a5697d4c70f455` (`BASELINE_WORKTREE.md` §8.1). Suite at
 baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Reference evaluation:
 `eval/results/baseline/` (CURRENT_REPRODUCIBLE_RESULT, 0 trap regressions, binary fires on traps
@@ -46,15 +52,16 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 | m4_implicit | stage 2 | BLOCKED_BY_POLICY + WAITING_FOR_GPU_ARTIFACT — handoff `docs/training/m4_stage2.md` written | pre-registered precision budget (Q23); labelled C slice; influence tooling on GPU | — | see log |
 | m4_implicit | C1–C5 rows, fixture set | BLOCKED_BY_DATA | C head + labelled slice | — | — |
 | m5_sarcasm | everything | BLOCKED_BY_DATA — training code (`training/m5_sarcasm`) and handoff `docs/training/m5_sarcasm.md` written; module stays a documented stub | entry gate: corpus not named / requested (Q27, `docs/blockers/m5_sarcasm_corpus_gate.md`) | — | see log |
-| decision layer | fusion, guards, thread rule, family A, binary boundary | VERIFIED | placeholders remain placeholders (Q25) | 45 + 12 | baseline |
+| decision layer | fusion, guards, thread rule, family A, binary boundary | VERIFIED; now exercised by real producers: two-channel fusion (m1 raw + normalized), ADR-005 assignment from a real m6 target, NON_HUMAN_TARGET and HOMONYM suppression by span | placeholders remain placeholders (Q25); Q1, Q2, Q4 verdict policy | 45 + 12; 8 e2e | see log |
 | pipeline / counter / API | mechanics | VERIFIED | — | 35 + 20 + 6 | baseline |
 | eval infrastructure | Gate 1 observability | VERIFIED | — | 15 + 5 + 12 | baseline |
-| full pipeline | end-to-end on real modules | IMPLEMENTED_NOT_VERIFIED | Q1, Q2, Q3 outcomes unjudged; stubs degrade every verdict | 7 e2e | baseline |
+| full pipeline | end-to-end on real m0, m2, m6, m1, m3 (+ m4 note, m5 stub) | **VERIFIED for the connected behaviour** (2026-09-17): 8 e2e cases with stage-named assertions; reference run above; every verdict still `review`-or-worse because m5 degrades the result (fail closed) | Q1, Q2, Q3 outcomes recorded, not judged; m5 stub keeps every verdict degraded | 8 e2e; run_all | see log |
 
 ## 2. Log of work (newest first)
 
 | date | component | what | tests | commit |
 |---|---|---|---|---|
+| 2026-09-17 | full pipeline | reference evaluation on the implemented state (`eval/results/post_m6/`, head `f6b48ed`, dirty=false): 0 regressions, flip 0.0, p95 170 ms, only m5 degraded; docs (README, CONTRIBUTING, HANDOVER, MANIFEST) corrected to the current state | run_all exit 0 | `f6b48ed` |
 | 2026-09-17 | m3_encoder | both channels scored (norm_score, spec §4), truncated_differently signal, multi-head artifact loader with sha256 verification, spec §5 truncation policy and corpus count, DATASETS.md; training packages for m3 (multi-head) and m5 (sequential transfer) with CPU smoke test; Colab handoffs for m3 / m4 stage 2 / m5; blocker documents for A4, m3 labels, m5 corpus; contract example regenerated (fixtures only) | 18 unit + 4 training + 13 interface + 8 e2e; full suite 370 OK / 1 skipped | see below |
 | 2026-09-17 | m1_lexicon | HOMONYM guard with a declared context table; dual-register fixtures; terlik-vs-karaliste comparison run under its protocol and committed; README records every list, the span rule and the comparison; e2e case for the m6 → m1 NON_HUMAN_TARGET path (Q2 verdict recorded, not judged) | 23 unit; eval 1.0 per code, 0/33 traps; 78 integration tests OK | see below |
 | 2026-09-17 | m6_target | implemented from the stub: target resolution v1 (mentions, frozen deictic set, vocatives, endings, gazetteers `gazetteers/*.txt` with suffix awareness + vowel harmony, `-ki` members form excluded), B4 doxing with validated patterns; guideline with the three ambiguities declared PENDING; fixtures per spec §9; MANIFEST rows for the gazetteers; contract example regenerated (fixtures only) | 24 unit; full suite 359 OK / 1 skipped; eval 1.0 on every code, 0/33 traps | see below |
