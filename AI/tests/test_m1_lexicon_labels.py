@@ -333,12 +333,15 @@ class CommittedFilesTest(unittest.TestCase):
         self.assertFalse(set(ids["train"]) & set(ids["dev"]))
         self.assertEqual(len(ids["train"]) + len(ids["dev"]), split["n_rows"])
 
-    def test_generator_never_names_the_test_set_outside_its_refusal_list(self) -> None:
-        source = (G.AI_ROOT / "eval" / "m1_lexicon_labels.py").read_text(encoding="utf-8")
-        mentions = [m.start() for m in re.finditer(r"testset|labela", source)]
-        refusal = source.index("FORBIDDEN_INPUT_NAMES = (")
-        self.assertTrue(mentions)
-        self.assertTrue(all(abs(m - refusal) < 120 for m in mentions), "test-set names appear outside the refusal list")
+    def test_generator_and_sampler_never_name_the_test_set_files(self) -> None:
+        """The locked files are `offenseval-tr-testset-v1.tsv` and `offenseval-tr-labela-v1.tsv`
+        (RESOURCES.md). Neither file name may appear in the generator or the sampler: the only
+        mention of the test set is the refusal list of name fragments."""
+        for script in ("m1_lexicon_labels.py", "a_head_dev_sample.py"):
+            source = (G.AI_ROOT / "eval" / script).read_text(encoding="utf-8")
+            self.assertIsNone(re.search(r"offenseval-tr-(testset|labela)", source), script)
+            self.assertNotIn("load_coltekin_test", source, script)
+        self.assertEqual(G.FORBIDDEN_INPUT_NAMES, ("testset", "labela"))
 
 
 if __name__ == "__main__":

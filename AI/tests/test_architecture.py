@@ -61,7 +61,9 @@ EVAL_ENTRYPOINT_ALLOWED_PROJECT_IMPORTS = ("eval.harness", "contracts", "contrac
 OPERATIONAL_LIMITS = {"MAX_BODY_BYTES": "HTTP request body size limit in api/main.py",
                       "MAX_LEN": "m3_encoder truncation length in tokens (m3 spec §5), not a score cut-off",
                       "MAX_TIER2_TOKENS": "m2_deobf tokens sent to the morphology analyser per post: a latency "
-                                          "guard (m2 spec §5), not a score cut-off"}
+                                          "guard (m2 spec §5), not a score cut-off",
+                      "seed": "the frozen split's seed (42) checked by eval/m1_lexicon_labels.py against the split "
+                              "file: an identity check on an input, not a score cut-off"}
 
 # tests/ is not scanned for literals: decision-layer tests must pin their own
 # thresholds to test the decision layer independently of placeholder values.

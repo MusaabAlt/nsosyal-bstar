@@ -121,8 +121,11 @@ class DevSampleTest(unittest.TestCase):
         prov = S.export(adjudication, ids_file, oracle)
         self.assertEqual((prov["kind"], prov["n"], prov["positives"]), ("adjudication", 2, 1))
         self.assertTrue(oracle.with_suffix(".provenance.json").is_file())
-        from training.m3_encoder.data import load_a_labels     # torch-free path of the trainer's loader
-        self.assertEqual(load_a_labels(oracle), {"7": 1, "8": 0})
+        # The exported lines are exactly the trainer's jsonl contract ({"row_id","label"} per line,
+        # training/m3_encoder/data.py::load_a_labels); tests/ must not import the training package.
+        lines = [json.loads(line) for line in oracle.read_text(encoding="utf-8").splitlines()]
+        self.assertTrue(all(set(r) == {"row_id", "label"} for r in lines))
+        self.assertEqual({r["row_id"]: r["label"] for r in lines}, {"7": 1, "8": 0})
         single = S.export(ann1, ids_file, self.out / "private" / "single.jsonl")
         self.assertEqual(single["kind"], "single-annotator")
 
