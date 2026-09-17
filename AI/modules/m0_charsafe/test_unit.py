@@ -200,6 +200,14 @@ class CharSafeTest(unittest.TestCase):
     def test_dotted_capital_i(self) -> None:
         self.assertEqual(self.run_m0("İSTANBUL").charsafe_text, "istanbul")
 
+    def test_spec_casing_words_in_mixed_casing(self) -> None:
+        # spec §7: SIKINTI, IŞIK, İSTANBUL in mixed casing; ASCII "I" is always dotless, never guessed.
+        for text, expected in (("IŞIK", "ışık"), ("Işık", "ışık"), ("ışık", "ışık"), ("İSTANBUL", "istanbul"),
+                               ("İstanbul", "istanbul"), ("istanbul", "istanbul"), ("Istanbul", "ıstanbul"),
+                               ("SIKINTI", "sıkıntı"), ("Sıkıntı", "sıkıntı")):
+            with self.subTest(text=text):
+                self.assertEqual(self.run_m0(text).charsafe_text, expected)
+
     def test_decomposed_dotted_i(self) -> None:
         out = self.run_m0("I" + COMBINING_DOT + "yi")
         self.assertEqual(out.charsafe_text, "iyi")

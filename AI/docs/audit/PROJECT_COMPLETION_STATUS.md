@@ -20,8 +20,7 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 
 | component | slice | status | blocking decision / data / artifact | tests | commit |
 |---|---|---|---|---|---|
-| m0_charsafe | five passes, signals, offsets | IMPLEMENTED_NOT_VERIFIED → verification in progress | — | 45 unit; interface tests | baseline |
-| m0_charsafe | spec §7 fixture completeness (`IŞIK`, `İSTANBUL` mixed casing) | IN_PROGRESS | — | to add | — |
+| m0_charsafe | five passes, signals, offsets; spec §3 / §4 now describe the implemented passes and the `_offsets` interface | **VERIFIED** (2026-09-17): 46 unit tests, interface tests, e2e; uncontended eval: capture 1.0 per pattern, damage 0.0 on 35 clean items, 0/33 traps, every latency band within its placeholder budget; spec §7 fixture list checked (`SIKINTI`, `IŞIK`, `İSTANBUL` in mixed casing, zero-width, Cyrillic, 35 clean items, empty / space / 5000 chars) | Q3 (whether charsafe must precede m3) and Q14 (now closed by the spec update) were the only open rows; Q3 is policy and does not block m0 | 46 unit; 12 interface; 7 e2e | see log |
 | m2_deobf | protection pass, tier 1 (LEET, REPEAT, SPACED, PUNCT_SPLIT, accent, PHONETIC) | NOT_STARTED | — | to add | — |
 | m2_deobf | tier 2 DEASCII (morphology-validated, ambiguity-safe), SUFFIX_ON_MASKED | NOT_STARTED | — | to add | — |
 | m2_deobf | ABBREV, VOWEL_DROP, WORD_MERGE, CHAR_DROP, DIALECT | NOT_STARTED | needs a Turkish lexicon / curated maps not in the repository; declared unhandled in v1 (spec §3 allows declaring a pattern unhandled) | — | — |
@@ -56,6 +55,7 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 
 | date | component | what | tests | commit |
 |---|---|---|---|---|
+| 2026-09-17 | m0_charsafe | verified against spec §7 / §8: fixture list complete, 46 unit tests (mixed-casing test added), uncontended eval within every band, 0/33 traps; spec §3 records `_offsets` and the signals, §4 describes the five implemented passes (Q14 closed) | 46 unit + 12 interface + 7 e2e OK | see below |
 | 2026-09-17 | baseline | Gate 1.5 executed: commits A–E; reference eval run recorded (`BASELINE_WORKTREE.md` §8) | 319 OK / 4 skipped | `9976eb4` |
 
 ## 3. Interface decisions proposed by engineering (owner to ratify)
