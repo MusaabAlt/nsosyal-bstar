@@ -9,11 +9,23 @@ A component is VERIFIED only when its specified behaviour is implemented and its
 verification passes on the committed tree. A stub is never anything but NOT_STARTED or a BLOCKED
 state. Partial modules carry two rows where the built and the unbuilt parts have different states.
 
-Current reference run (2026-09-17, commit `f6b48ed6a6a64ea39174eaee28efb973fb56b7f0`, `eval/results/post_m6/`,
-CURRENT_REPRODUCIBLE_RESULT, 50 repeats): 0 trap regressions in every module; clean-to-dirty flip rate 0.0 with the real
-m2; pipeline p95 170 ms over 18,150 runs (placeholder budget 250); every module within its clean latency band (m1's
-adversarial column over, as published); the binary score fires on traps 008 / 017 / 030 / 032 (Q2 / Q18); the only
-degraded module is `m5_sarcasm`. Full suite: 370 tests OK, 1 skipped (m5).
+Current reference run (2026-09-18, commit `d7925decf7e8415851e9afc7173324038fdd145b`, `eval/results/post_m2_0_1_1/`,
+CURRENT_REPRODUCIBLE_RESULT, `git_dirty` false, 50 latency repeats, 1000 bootstrap resamples, module versions
+m0 0.2.0 / m2 **0.1.1** / m6 0.1.0 / m1 0.1.0 / m3 0.2.0 / m4 0.1.0 / m5 0.0.0): compared field by field with the
+previous reference (`f6b48ed`, `post_m6/`), **every behavioural quantity is identical** — 0 trap regressions in every
+module, no changed trap observation (verdict, content, guards, form, binary state) in any module or in the pipeline,
+per-code metrics unchanged for m0 / m1 / m2 / m3 / m4 / m6, m2's representation metrics and `expect` (220 items,
+exact match 0.982) unchanged, clean-to-dirty flip rate 0.0, the binary score still fires on traps 008 / 017 / 030 /
+032 (Q2 / Q18), the only degraded module is `m5_sarcasm`. The m2 0.1.1 determinism fix changed no measured output.
+Only latencies moved (machine noise, no code path changed for the fixtures): pipeline p50 108 / p95 195 ms over
+18,150 runs (was 96 / 170; placeholder budget 250); m3's single clean fixture item p95 108.5 ms in this run versus
+54 ms before, over its 80 ms placeholder — re-timed alone immediately afterwards at p95 63.7 ms (within), so it is
+recorded as a transient, not a regression; m0's adversarial p95 15.8 ms (was 12.7; adversarial is reported, not
+budgeted). Full suite: 394 tests OK, 1 skipped (m5); `pipeline.contract_example --check` exit 0.
+
+Previous reference run (2026-09-17, commit `f6b48ed6a6a64ea39174eaee28efb973fb56b7f0`, `eval/results/post_m6/`,
+50 repeats): 0 trap regressions; flip rate 0.0; pipeline p95 170 ms; binary fires on traps 008 / 017 / 030 / 032;
+only `m5_sarcasm` degraded. Full suite then: 370 tests OK, 1 skipped.
 
 Baseline: commit `9976eb4add53e0a708a8c17db3a5697d4c70f455` (`BASELINE_WORKTREE.md` §8.1). Suite at
 baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Reference evaluation:
@@ -65,9 +77,9 @@ baseline: 319 tests, OK, 4 skipped (the declared m2 ×2, m5, m6 skips). Referenc
 clean; no process running. Verification at this HEAD (with **`AI/.venv`**, the project
 interpreter — CONTRIBUTING.md "Interpreter"): full suite OK / 1 skipped (the declared m5 skip),
 `python -m pipeline.contract_example --check` exit 0, both derived label files `--check` CURRENT.
-The reference run `eval/results/post_m6/` at `f6b48ed` predates m2 0.1.1 (a determinism fix that
-changes no fixture output; the contract example's `artifact_hash` was regenerated for the version
-bump); a fresh `eval.run_all` reference run is the first measurement step of the next session.
+Fresh reference run `eval/results/post_m2_0_1_1/` at `d7925de` (git-ignored like every named run;
+recorded above): identical behaviour to `f6b48ed`, latencies within budget except one transient
+m3 timing that re-timed within budget. The repository is measured and clean for the Colab run.
 
 **A-head preparation (owner decisions 2026-09-18, all executed locally):**
 - HYBRID strategy recorded (`docs/blockers/m3_head_labels.md`): terlik pseudo-labels train, human dev
@@ -128,6 +140,7 @@ the READMEs and the commit messages listed in §2.
 
 | date | component | what | tests | commit |
 |---|---|---|---|---|
+| 2026-09-18 | full pipeline | fresh reference evaluation after m2 0.1.1 (`eval/results/post_m2_0_1_1/`, head `d7925de`, dirty=false, 50 repeats, n_boot 1000): field-by-field identical behaviour to `f6b48ed` (traps, observations, per-code, representation, flip rate, binary-on-traps, degraded); latency-only differences, m3 transient re-timed within budget; status paragraph updated | run_all exit 0; 394 OK / 1 skipped; contract check exit 0 | see log |
 | 2026-09-18 | m1 labels / m3 A head / m2 / docs | A-head preparation on the owner's decisions: shared train/dev label generator with the `a_label` rule, protocols (train pre-registered, dev and comparison amended); dev regenerated and TRAIN file generated (26,992 rows) from a clean tree; terlik-vs-karaliste re-run with `terlik_any_channel`; trainer hybrid path (`--labels-a` / `--labels-a-human`, agreement vs oracle apart, label provenance); annotation package (guideline v1.0, sampler); m2 0.1.1 determinism fix + contract example hash; handoff corrected; interpreter declared; Q18 reconciled; status updated | generator 11, sampler 6, training 7, m2 33; full suite OK / 1 skipped | `6e45225`, `d46f4e9`, `2072497`, `a6347f5`, + the derived-files commit |
 | 2026-09-17 | full pipeline | reference evaluation on the implemented state (`eval/results/post_m6/`, head `f6b48ed`, dirty=false): 0 regressions, flip 0.0, p95 170 ms, only m5 degraded; docs (README, CONTRIBUTING, HANDOVER, MANIFEST) corrected to the current state | run_all exit 0 | `f6b48ed` |
 | 2026-09-17 | m3_encoder | both channels scored (norm_score, spec §4), truncated_differently signal, multi-head artifact loader with sha256 verification, spec §5 truncation policy and corpus count, DATASETS.md; training packages for m3 (multi-head) and m5 (sequential transfer) with CPU smoke test; Colab handoffs for m3 / m4 stage 2 / m5; blocker documents for A4, m3 labels, m5 corpus; contract example regenerated (fixtures only) | 18 unit + 4 training + 13 interface + 8 e2e; full suite 370 OK / 1 skipped | see below |
