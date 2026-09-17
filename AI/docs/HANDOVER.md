@@ -133,7 +133,7 @@ Each row names where the decision is recorded.
 ## 2. Current state
 
 **Done and working**
-- Contracts (`AI/contracts/`), frozen; changes only through ADR-001 and ADR-002.
+- Contracts (`AI/contracts/`), frozen and owned by Musaab; changes only through an ADR (ADR-001, ADR-002 so far).
 - Decision layer: fusion, per-module guard scoping, signal-conditioned thresholds, thread rule, fail-closed verdicts, Turkish explanations.
 - Pipeline: safe construction, loading and processing; output validation; span enforcement; deep-frozen signals; bounded response; CLI.
 - HTTP API (`AI/api/main.py`), stdlib only, JSON on every failure. No thread support yet (decision #38).
@@ -141,6 +141,7 @@ Each row names where the decision is recorded.
 - Decision-owned fields assigned only in `AI/decision/fusion.py` (B2 closed, decision #40).
 - Evaluation harness: per-code CIs, representation metrics, traps with form/guard rules, per-length latency bands in clean and adversarial columns, pipeline budgets (flip rate, latency).
 - `m0_charsafe` fully implemented (reference module).
+- `m1_lexicon` implemented on terlik 0.1.0 balanced (not a stub): A1 carrier, SUBSTRING_COLLISION and NON_HUMAN_TARGET with spans. A4 and HOMONYM not built. Per-row dev labels in `AI/eval/derived/m1_lexicon_dev_seed42.json` (`AI/protocols/m1_lexicon_dev_labels_protocol.md`); the evaluation slice stays `AI/eval/frozen/study_slice_dev.json`.
 - Architecture tests for rules 2, 4 (thresholds and decision-field assignment), 6 and 7, span declarations and the entry-point convention.
 - 255 tests; 10 skipped behaviour tests that belong to unimplemented modules. The spec check warns (does not fail) that m2, m3, m4 and m6 have no section titled "Approach" and m5 has no "Research pointers".
 - Audit status: re-run `BASE_REF=$(git merge-base HEAD master) bash AI/scripts/check.sh` rather than trusting a
@@ -151,7 +152,7 @@ Each row names where the decision is recorded.
   explicit instruction (decision #65).
 
 **Stubbed (declare `stub = True`; every result is degraded, verdict `review`)**
-- m1_lexicon, m2_deobf, m3_encoder, m5_sarcasm (gated by its spec §2), m6_target.
+- m2_deobf, m3_encoder, m5_sarcasm (gated by its spec §2), m6_target.
 - m4_implicit is NOT a stub: it emits nothing by design (C1-C5 come from m3, decision #66).
 
 **Blocked on the project owner**
@@ -181,7 +182,7 @@ BASE_REF=<commit> bash scripts/check.sh               # pre-merge check; fails w
 
 ## 4. Conventions a new session must not violate
 
-1. **`AI/contracts/` is frozen and owned by Osama.** Never edit it without an explicit instruction; every such change gets an ADR in `AI/protocols/` and the contract is re-frozen immediately after.
+1. **`AI/contracts/` is frozen and owned by Musaab.** Never edit it without an explicit instruction; every such change gets an ADR in `AI/protocols/` and the contract is re-frozen immediately after.
 2. **No threshold outside `AI/decision/thresholds.yaml`.** Modules emit `code / score / source / span`; only the decision layer sets `threshold / fired / active / suppressed`. Tests must not hide thresholds either (the AST scan checks module tests).
 3. **No cross-module imports.** Only `AI/modules/registry.py::PIPELINE_ORDER` knows order; modules share work only through `ctx.signals`.
 4. **Policy is proposed, not decided.** Anything that changes what the system concludes about content — verdicts, actions, what counts as degraded or clean, guard ownership, escalation rules — is presented to the owner with options. Implementation choices are fine to make.

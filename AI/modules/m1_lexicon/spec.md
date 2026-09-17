@@ -11,6 +11,15 @@ Produce a profanity signal that is **independent of the neural model**, and prec
 
 This module exists for two reasons. First, it gives the decision layer a second opinion that fails in a different way than the model does. Second, it is the runtime lexicon signal; the evaluation set's `lexicon_hit` / `lexicon_free` slices — the split the entire project is built on — are not recomputed from it but read from `AI/eval/frozen/study_slice_dev.json`, produced once by the study's own matcher (owner decision, 2026-09-15). If this module is sloppy, every number downstream is wrong.
 
+**Two lexicon files, two purposes — never merged** (owner decision, 2026-09-16):
+
+| file | produced by | purpose | status |
+|---|---|---|---|
+| `AI/eval/frozen/study_slice_dev.json` | the study's karaliste matcher, once | **the** `lexicon_hit` / `lexicon_free` evaluation slice; every published M4 number (0.5628, +0.3301, 0.5180 → 0.6367) was measured against it | frozen: never recomputed, never replaced |
+| `AI/eval/derived/m1_lexicon_dev_seed42.json` | this module (terlik), `AI/protocols/m1_lexicon_dev_labels_protocol.md` | per-row labels for M3's A head, and comparison against the frozen slice | regenerable whenever M0, M1, terlik or the pipeline order changes |
+
+The derived file never defines a slice, and the frozen file is never regenerated from this module. Replacing one with the other would silently change what the published M4 numbers mean.
+
 ---
 
 ## 2. What it catches / does not catch
