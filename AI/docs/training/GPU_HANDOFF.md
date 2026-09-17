@@ -11,11 +11,11 @@ State vocabulary: `WAITING_FOR_GPU_ARTIFACT` (code and handoff complete, GPU run
 
 | task | consumer | handoff | state | blocked on |
 |---|---|---|---|---|
-| m3 multi-head fine-tune (binary + A / B / C on BERTurk) | `modules/m3_encoder` (loader for the artifact format exists: `NSOSYAL_M3_ARTIFACT`) | `m3_encoder.md` | WAITING_FOR_GPU_ARTIFACT — code complete and smoke-tested on CPU (`training/m3_encoder`, `training/tests/test_training_m3.py`); the binary head can be trained today; A also BLOCKED_BY_POLICY (label source), B and C BLOCKED_BY_DATA | `docs/blockers/m3_head_labels.md` |
+| m3 multi-head fine-tune (binary + A / B / C on BERTurk) | `modules/m3_encoder` (loader for the artifact format exists: `NSOSYAL_M3_ARTIFACT`) | `m3_encoder.md` | **READY_FOR_COLAB for the binary + A-head run** (owner decisions 2026-09-18: HYBRID A-head strategy; pseudo-labels `eval/derived/m1_lexicon_train_seed42.json` committed; code smoke-tested on CPU, `training/tests/test_training_m3.py`). The A head's *quality claim* stays BLOCKED_BY_DATA until the human dev oracle exists (`docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md`); the run itself is not blocked on it. B and C BLOCKED_BY_DATA | `docs/blockers/m3_head_labels.md` |
 | m4 stage 2 influence-function hardening (retrains m3's encoder) | `modules/m4_implicit`, `decision/thresholds.yaml` C rows | `m4_stage2.md` | BLOCKED_BY_POLICY (pre-registered precision budget, Q23) · BLOCKED_BY_DATA (labelled C slice); procedure written, mining script not yet written | m4 spec §7, §10 |
 | m5 sarcasm sequential transfer (own small model) | `modules/m5_sarcasm` (still a stub; the artifact format is defined by `training/m5_sarcasm/train.py`) | `m5_sarcasm.md` | BLOCKED_BY_DATA (entry gate, Q27) — code complete (`training/m5_sarcasm`), no smoke test yet (needs a D1 jsonl) | `docs/blockers/m5_sarcasm_corpus_gate.md` |
 
-Last updated 2026-09-17 at commit `d6a6640` (session handoff).
+Last updated 2026-09-18 (A-head preparation: pseudo-labels, human oracle package, handoff corrected).
 
 Rules that apply to every handoff:
 

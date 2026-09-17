@@ -25,7 +25,20 @@
   harness (report block `implementation`) and pinned by `tests/test_implementation_status.py`:
   a stub's report says `NOT VERIFIED`, and an undeclared skip fails the suite.
 - `testsuite/` — end-to-end gold set for the whole pipeline (format examples only today).
-- `results/` — output of the harness. **Not committed.**
+- `results/` — output of the harness. **Not committed** (except the protocol-bound files named below).
+- `derived/` — REGENERABLE, protocol-bound label files written by `m1_lexicon_labels.py`
+  (`--split train|dev`): what m1 publishes on every row of the frozen split plus the A-head
+  pseudo-label `a_label` (`protocols/m1_lexicon_train_labels_protocol.md`,
+  `protocols/m1_lexicon_dev_labels_protocol.md`). `python -m eval.m1_lexicon_labels --check <file>`
+  says whether a file is stale; `tests/test_m1_lexicon_labels.py` fails the suite when one is.
+  Never the evaluation slice (that is `frozen/`), never a human label.
+- `frozen/` — the study's karaliste `lexicon_hit` / `lexicon_free` dev slice. Never recomputed.
+- `annotation/` — the A-head human-annotation package (`a_head_dev_sample.py`,
+  `docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md`): the committed ids file holds the sample design
+  and ids; `annotation/private/` (git-ignored) holds the templates, filled files, adjudication and
+  the exported oracle, all of which carry corpus text.
+- `m1_terlik_vs_karaliste.py` → `results/m1_terlik_vs_karaliste.json` (committed under its
+  protocol): terlik vs karaliste on dev, raw-channel headline plus the `terlik_any_channel` block.
 
 ## What a result file records (Gate 1)
 

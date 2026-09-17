@@ -60,8 +60,13 @@ module instead of breaking import.
 
 ## Commands
 
-Run from `AI/`.
+Run from `AI/` with the project interpreter **`AI/.venv`** (`AI/.venv/Scripts/python` on
+Windows, `AI/.venv/bin/python` elsewhere). It holds the pinned torch / transformers, terlik AND
+zeyrek (m2 tier 2). The repository-root `.venv` belongs to the study (`diagnosis/`) and lacks
+zeyrek: under it, m2's tier-2 tests, one end-to-end DEASCII case, one pipeline size test and the
+contract-example check FAIL BY DESIGN. Those failures are an interpreter mismatch, never a project
+regression; the reference numbers were all produced with `AI/.venv` (CONTRIBUTING.md "Interpreter").
 
 - run:    `python -m pipeline.run "metin"`
-- tests:  `python -m unittest discover -p "test_*.py"`
+- tests:  `python -m unittest discover -p "test_*.py"`   (expected: all OK, 1 skipped = the declared m5 skip)
 - eval:   `python -m modules.<name>.eval`

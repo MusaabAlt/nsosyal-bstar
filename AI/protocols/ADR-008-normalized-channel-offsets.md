@@ -2,6 +2,11 @@
 
 - **Status:** PROPOSED by engineering (2026-09-17); used by m2 and m1 from this date; the owner
   ratifies or amends. Nothing in the frozen contract changes.
+- **Owner note 2026-09-18 (label scope only):** the A-head pseudo-label counts a normalized-only
+  hit as "profanity present" only when it carries a valid span through this map
+  (`protocols/m1_lexicon_train_labels_protocol.md` §5). That decision relies on §4–§5 below and
+  is the *label* half of Q5; the *runtime* half (§6: whether a normalized-only hit fires a code)
+  is untouched by it. The ADR itself remains PROPOSED until ratified.
 - **Scope:** `modules/m2_deobf/module.py`, `modules/m1_lexicon/module.py`, `modules/m2_deobf/spec.md`
   (contract paragraph), `modules/m3_encoder/spec.md` §5 (truncation alignment, later)
 - **Open question closed on the engineering side:** OPEN_QUESTIONS Q5 (the *carrier*). The policy

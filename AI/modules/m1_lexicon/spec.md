@@ -16,7 +16,8 @@ This module exists for two reasons. First, it gives the decision layer a second 
 | file | produced by | purpose | status |
 |---|---|---|---|
 | `AI/eval/frozen/study_slice_dev.json` | the study's karaliste matcher, once | **the** `lexicon_hit` / `lexicon_free` evaluation slice; every published M4 number (0.5628, +0.3301, 0.5180 → 0.6367) was measured against it | frozen: never recomputed, never replaced |
-| `AI/eval/derived/m1_lexicon_dev_seed42.json` | this module (terlik), `AI/protocols/m1_lexicon_dev_labels_protocol.md` | per-row labels for M3's A head, and comparison against the frozen slice | regenerable whenever M0, M1, terlik or the pipeline order changes |
+| `AI/eval/derived/m1_lexicon_dev_seed42.json` | this module (terlik) through m0 → m2 → m6 → m1, `AI/protocols/m1_lexicon_dev_labels_protocol.md` | pseudo-label *agreement* for M3's A head (never its evaluation) and comparison against the frozen slice | regenerable whenever M0, M1, M2, M6, terlik, zeyrek or the pipeline order changes (`python -m eval.m1_lexicon_labels --check`) |
+| `AI/eval/derived/m1_lexicon_train_seed42.json` | the same generator on the TRAIN split, `AI/protocols/m1_lexicon_train_labels_protocol.md` | M3 A-head **training supervision** (`a_label`, owner decision 2026-09-18); the evaluation oracle is the human-labelled dev subset (`docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md`) | same |
 
 The derived file never defines a slice, and the frozen file is never regenerated from this module. Replacing one with the other would silently change what the published M4 numbers mean.
 

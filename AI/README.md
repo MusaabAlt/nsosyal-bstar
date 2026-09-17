@@ -23,7 +23,8 @@ derived; every other number is a placeholder until derived on dev.
 Run from `AI/`.
 
 ```bash
-python -m pip install -r requirements.txt      # pyyaml only
+python -m pip install -r requirements.txt      # pyyaml only; the full suite also needs the module requirements
+                                               # (terlik, zeyrek, torch/transformers) - use AI/.venv, see CONTRIBUTING.md "Interpreter"
 python -m pipeline.run "Bu bir test cumlesi"   # prints the full contract JSON
 python -m pipeline.run "a" "b" "c" --thread '{"sender_id": "u1", "target_id": "u2"}'   # Axis 4 path (ADR-004)
 python -m unittest discover -p "test_*.py"

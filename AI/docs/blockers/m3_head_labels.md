@@ -2,10 +2,32 @@
 
 - **Component:** `m3_encoder` heads A (profanity present), B (`B1`,`B2`,`B3`,`B5` multi-label),
   C (`C1`–`C5`); downstream `m4_implicit` rows `C1`–`C5` and the stage-2 slice
-- **State:** A = BLOCKED_BY_POLICY (label source undecided) + WAITING_FOR_GPU_ARTIFACT;
+- **State:** A = **DECIDED 2026-09-18** (below) → WAITING_FOR_GPU_ARTIFACT for the run,
+  BLOCKED_BY_DATA for the *quality claim* (human dev oracle not yet labelled);
   B = BLOCKED_BY_DATA; C = BLOCKED_BY_DATA. Training code and the Colab handoff are engineering
   work and are provided (`docs/training/m3_encoder.md`).
 - **Written:** 2026-09-17. Sources: `docs/team/abdullah/RESOURCES.md` open items 5–7, m3 spec §5, §9.
+
+## Owner decisions, 2026-09-18 (A head)
+
+1. **HYBRID strategy.** Training supervision: regenerated terlik-derived pseudo-labels on the
+   frozen TRAIN split (`eval/derived/m1_lexicon_train_seed42.json`, field `a_label`,
+   `protocols/m1_lexicon_train_labels_protocol.md`). Scientific evaluation: a separately
+   human-labelled "profanity present" subset of the frozen DEV split
+   (`docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md`, `python -m eval.a_head_dev_sample`). The human
+   dev subset is the authoritative oracle for any reported A-head quality claim; terlik agreement is
+   reported as agreement (`dev_eval.json` → `a_pseudo_label_agreement`), never as accuracy.
+2. **Pseudo-label signal:** `lexicon_hit` (raw OR normalized), not `lexicon_hit_raw` alone; a
+   normalized-only hit counts only when its mapping back to the original text is valid (ADR-008
+   spans). Recorded in the train protocol §5 and reconciled with Q5 / ADR-008 there (label half
+   decided, runtime half unchanged).
+3. **`AI/training/` ratified** as the official home of training code (`training/README.md`).
+4. **No binary-only Colab run first**: the useful path is the binary + A-head run.
+5. **Never used as A-head labels:** karaliste, OFF/NOT gold, baseline-model predictions.
+
+Item (b) of the original decision request — which m3 output is compared with the baseline's
+binary numbers — is answered by the handoff §28: the new artifact's **binary head** at the study's
+0.5 reporting point on the same 4,764 dev rows, against the frozen baseline's 0.8271 [0.8139, 0.8405].
 
 ## What exists
 
@@ -23,12 +45,14 @@
 - The derived-labels protocol proposes m1's terlik labels as the training signal for the A head
   (`protocols/m1_lexicon_dev_labels_protocol.md` §1). That file covers the **dev** split only;
   the same generator can label the train split.
-- **Decision required (owner, RESOURCES item 5):** (a) is the terlik signal accepted as the A-head
-  training label (a keyword label, not a human label, and it disagrees with the frozen karaliste
-  slice on roughly half of the karaliste hits — Q19), or is a human-labelled "profanity present"
-  slice required? (b) Which m3 output is compared with the baseline's binary numbers?
-- Engineering prepared: the training script accepts a label file per split so either answer plugs
-  in without code change; the handoff describes both.
+- **Decision (owner, 2026-09-18, RESOURCES item 5): BOTH** — the terlik signal is the training
+  label (a keyword label; it disagrees with the frozen karaliste slice on roughly half of the
+  karaliste hits — Q19) **and** a human-labelled "profanity present" dev subset is required for
+  any quality claim. See "Owner decisions" above.
+- Engineering delivered: the train-split generator and the committed train file, the dev file
+  regenerated on the implemented modules, the trainer's separate `--labels-a` (pseudo, supervision)
+  and `--labels-a-human` (oracle, dev only, refused on train rows) inputs, and the annotation
+  package (guideline, sampler, check / adjudicate / export).
 
 ## B head — `B1` degradation, `B2` threat, `B3` curse/exclusion, `B5` sexual aggression (multi-label)
 

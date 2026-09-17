@@ -6,6 +6,18 @@ Read `CLAUDE.md` first. This file turns its rules into a workflow.
 
 Python 3.11 or newer. Run everything from `AI/`.
 
+**Interpreter.** The project interpreter is `AI/.venv` — the only environment in which the
+recorded verification results (test counts, reference evaluation runs, contract example) are
+reproducible. It must hold `requirements.txt` plus every module's `requirements.txt` you exercise;
+for the full suite that means **terlik** (m1) **and zeyrek** (m2 tier 2, `modules/m2_deobf/requirements.txt`)
+and the pinned torch / transformers (m3). The repository-root `.venv` is the study's environment
+(`diagnosis/`) and does not have zeyrek: running the AI suite with it fails m2's tier-2 tests, the
+end-to-end DEASCII case, the pipeline size test and `pipeline.contract_example --check`. Those are
+precondition failures by design (the module suites fail rather than skip on a missing dependency),
+not regressions. Before reading any failure as a regression, confirm `python -c "import zeyrek, terlik"`
+succeeds in the interpreter you used. Expected result of the full suite on a correct interpreter:
+all tests OK, exactly 1 skipped (the declared m5 stub skip).
+
 ```bash
 # 1. virtual environment
 python -m venv .venv
@@ -15,6 +27,8 @@ source .venv/bin/activate              # Windows, Git Bash: source .venv/Scripts
 # 2. install - the core needs pyyaml only; a module's heavy dependencies are in its own requirements.txt
 python -m pip install -r requirements.txt
 python -m pip install -r modules/m1_lexicon/requirements.txt   # terlik; without it m1's tests fail
+python -m pip install -r modules/m2_deobf/requirements.txt     # zeyrek; without it m2's tier-2 tests and the contract check fail
+python -m pip install -r modules/m3_encoder/requirements.txt   # torch / transformers; without them m3's tests fail
 
 # 3. the commands, in order
 python -m unittest discover -p "test_*.py"      # all tests (the skipped ones belong to stub modules)

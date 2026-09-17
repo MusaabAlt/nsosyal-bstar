@@ -4,8 +4,9 @@ m3 spec §9 "Leakage check": a committed file listing every dataset in the train
 evaluation path, with an explicit line confirming that neither banned dataset appears. Dated,
 not assumed. Re-check and re-date this file whenever a dataset is added.
 
-**Checked: 2026-09-17**, against the files on the development machine and the committed results
-(`docs/team/abdullah/RESOURCES.md` records the digests).
+**Checked: 2026-09-18** (re-dated for the A-head label decision), against the files on the
+development machine and the committed results (`docs/team/abdullah/RESOURCES.md` records the
+digests). Neither banned dataset appears anywhere in the training or evaluation path.
 
 ## In the path
 
@@ -13,7 +14,9 @@ not assumed. Re-check and re-date this file whenever a dataset is added.
 |---|---|---|---|---|---|
 | Çöltekin OffensEval-TR 2020, training corpus (`offenseval-tr-training-v1.tsv`) | the only corpus trained and evaluated on; frozen split seed 42 (26,992 train / 4,764 dev) | 31,756 | `diagnosis/data/coltekin/` (not in git) | `8509c01c4bf387d9e387c4637829585431cc045adaf7d0413c0022bf2bcd4baa` | as distributed by the OffensEval 2020 organisers (research use); recorded in the study |
 | frozen split `split_seed42.json` | the split; never regenerated | — | `diagnosis/data/splits/` (committed) | `73a323b9e5750faecd557470bb53e27fe26b7fdf7a1ad9da1d365f224dc6d7f2` | project |
-| terlik-derived per-row labels on dev (`eval/derived/m1_lexicon_dev_seed42.json`) | proposed A-head label signal (owner decision pending, `docs/blockers/m3_head_labels.md`) | 4,764 | committed | see file header | project; terlik MIT |
+| terlik-derived pseudo-labels on TRAIN (`eval/derived/m1_lexicon_train_seed42.json`, field `a_label`) | A-head TRAINING supervision (owner decision 2026-09-18, HYBRID strategy; `protocols/m1_lexicon_train_labels_protocol.md`) — a keyword label, never an evaluation oracle | 26,992 | committed (regenerable; `python -m eval.m1_lexicon_labels --check`) | see file header (`rows_sha256`) | project; terlik MIT, zeyrek MIT |
+| terlik-derived pseudo-labels on DEV (`eval/derived/m1_lexicon_dev_seed42.json`, field `a_label`) | pseudo-label AGREEMENT reporting only (`dev_eval.json` `a_pseudo_label_agreement`), and the terlik-vs-karaliste comparison; never the A-head metric | 4,764 | committed (regenerable) | see file header | project; terlik MIT, zeyrek MIT |
+| human "profanity present" dev oracle (`eval/annotation/private/a_dev_human.jsonl`, from `python -m eval.a_head_dev_sample`) | the ONLY A-head evaluation oracle (`docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md`); dev rows only, never trained on | sample n per the committed ids file in `eval/annotation/` (default 500) | **does not exist yet** — human labelling pending | recorded in the export's `.provenance.json` | project |
 | `karaliste.txt` | defines the frozen `lexicon_hit` / `lexicon_free` evaluation slice only; never a training input | 697 lines | `diagnosis/data/lexicon/` (not in git) | `0f5a05f52c414e07be8d67b1010979a901a974f573c7d47430f3cb5d3eace20b` | comparison only (spec §5 of m1) |
 
 ## Explicitly NOT in the path
