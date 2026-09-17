@@ -116,3 +116,36 @@ python -m eval.m1_lexicon_dev_labels --out eval/derived/m1_lexicon_dev_seed42.js
 ```
 
 The file is committed only after this protocol is committed, in a separate, later commit.
+
+---
+
+## Amendment 2026-09-18 (owner decisions of 2026-09-18; regeneration on the implemented m2 / m6)
+
+The file described above was first generated on 2026-09-17 with `m2_deobf` and `m6_target` as
+stubs (header `module_versions` 0.0.0). Both are now implemented, m1 gained the `HOMONYM` guard
+and the span-tightening rule, and the owner has decided the A-head strategy. The following
+supersede the paragraphs they name; everything else stands.
+
+1. **Generator.** `AI/eval/m1_lexicon_labels.py --split dev` (shared with the train protocol,
+   `m1_lexicon_train_labels_protocol.md`). `eval/m1_lexicon_dev_labels.py` is a thin entry point
+   that calls it with `--split dev`; §7's command still works. Generator version is recorded in
+   the header.
+2. **§4 Channels.** The normalized channel is now available: m2 publishes `normalized_text` and
+   `_offsets` (ADR-008), m1 scans it and maps every match to the original text. The header
+   records `channels.normalized.available = true` and the zeyrek version; generation stops if
+   zeyrek (m2 tier 2) is unavailable, exactly as the train protocol §3.5 requires.
+3. **§5 Row.** Two fields are added: `a_label` (the A-head pseudo-label, rule in the train
+   protocol §5 — applied identically here so the dev file can report *pseudo-label agreement*, never
+   accuracy) and `homonyms` (each `HOMONYM` guard, `{start, end, surface, evidence}`). Header
+   `counts` gains `a_label`, the channel breakdown (`raw_only`, `normalized_only`, `both`),
+   `norm_hit_unmapped` and `rows_all_matches_homonym`.
+4. **§1 Purposes.** Purpose 1 is narrowed: on dev this file provides *pseudo-label agreement*
+   for the A head, never its evaluation. The A head's evaluation oracle is the human-labelled dev
+   subset (`docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md`). Purpose 2 (comparison against the
+   frozen slice) is unchanged.
+5. **§3 Integrity.** Check 6 additionally requires `text[start:end]` to equal the recorded
+   surface for every match, collision and homonym; a provenance check (protocol committed, git
+   HEAD and dirty state recorded) is added; `--check` staleness detection as in the train protocol §7.
+6. **§4 Reading the scores.** Per-channel scores are read from `signals.decision.channel_scores`
+   (pre-fusion, one entry per source) rather than the fused `content` list, which keeps one entry
+   per code and span and would hide an identical normalized channel (train protocol §4).

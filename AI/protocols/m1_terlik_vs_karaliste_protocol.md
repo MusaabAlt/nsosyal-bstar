@@ -45,3 +45,18 @@ its outcome. The frozen slice stays karaliste's (m1 spec §1).
 
 Input hash mismatch, id-set mismatch, or a derived file whose `protocol.committed_and_unchanged`
 is false → the script exits 2 and writes nothing.
+
+---
+
+## Amendment 2026-09-18 (re-run on the regenerated derived file)
+
+The derived terlik file is regenerated on the implemented m0 / m2 / m6 / m1 (dev protocol
+amendment of 2026-09-18). The comparison is re-run unchanged in its pre-registered quantities:
+the headline `terlik` numbers keep reading `lexicon_hit_raw` (§1), so the 2026-09-17 result and
+this one measure the same thing on the same population.
+
+One block is **added**, not substituted: `terlik_any_channel` — the same quantities with
+`lexicon_hit` (raw OR normalized) as the predictor, and the count of rows that only the normalized
+channel hits. It is reported next to the raw-channel numbers because the A-head pseudo-label uses
+`lexicon_hit` (train protocol §5) and the reader must be able to see how much the normalized
+channel adds on dev. The decision rule (§3) is unchanged: none.
