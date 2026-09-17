@@ -37,11 +37,12 @@ The system **fails closed**. A module that is a stub, fails, is unavailable or
 returns invalid output makes the result *degraded*, and a degraded result is
 never `clean`: a verdict that would have been clean becomes `review`, and a more
 severe verdict stands with "ancak değerlendirme eksik" added (`pipeline/run.py`,
-`decision/actions.py`). `m0_charsafe` is implemented and `m4_implicit` is a
-non-stub that emits nothing yet (C1–C5 come from m3, ADR-006); m1, m2, m3, m5 and
-m6 are stubs (`stub = True`), so every result is degraded today. That is why every ordinary
-post comes back as `review`, with `signals.pipeline.degraded` naming the stub
-modules and the Turkish explanation saying the judgement is incomplete. This is
+`decision/actions.py`). m0, m2, m6, m1 and m3 run (m3 partially: no heads yet), `m4_implicit`
+is a non-stub that emits nothing yet (C1–C5 come from m3, ADR-006), and `m5_sarcasm` is a stub
+(`stub = True`), so every result is still degraded today. That is why every ordinary post comes
+back as `review`, with `signals.pipeline.degraded` naming `m5_sarcasm` and the Turkish
+explanation saying the judgement is incomplete. `eval/implementation_status.json` is the
+declared status per module. This is
 by design: silence from an unimplemented module is not evidence that a post is
 clean. Every number in `decision/thresholds.yaml` is a placeholder as well.
 

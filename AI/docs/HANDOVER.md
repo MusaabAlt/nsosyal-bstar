@@ -141,11 +141,12 @@ Each row names where the decision is recorded.
 - Decision-owned fields assigned only in `AI/decision/fusion.py` (B2 closed, decision #40).
 - Evaluation harness: per-code CIs, representation metrics, traps with form/guard rules, per-length latency bands in clean and adversarial columns, pipeline budgets (flip rate, latency).
 - `m0_charsafe` fully implemented (reference module).
-- `m1_lexicon` implemented on terlik 0.1.0 balanced (not a stub): A1 carrier, SUBSTRING_COLLISION and NON_HUMAN_TARGET with spans. A4 and HOMONYM not built. Per-row dev labels in `AI/eval/derived/m1_lexicon_dev_seed42.json` (`AI/protocols/m1_lexicon_dev_labels_protocol.md`); the evaluation slice stays `AI/eval/frozen/study_slice_dev.json`.
-- `m3_encoder` PARTIAL, not a stub (`0bb9d25`): wraps the frozen epoch-1 binary OFF/NOT checkpoint and publishes `raw_score` / `artifact` only; no A/B/C heads, no content scores, no normalized-channel pass (`AI/README.md`, `AI/docs/audit/MODULE_CONTRACTS.md`).
+- `m1_lexicon` implemented on terlik 0.1.0 balanced (not a stub): A1 carrier on both channels (ADR-008), SUBSTRING_COLLISION, HOMONYM and NON_HUMAN_TARGET with spans; terlik-vs-karaliste comparison committed. A4 not built (owner table needed). Per-row dev labels in `AI/eval/derived/m1_lexicon_dev_seed42.json` (`AI/protocols/m1_lexicon_dev_labels_protocol.md`); the evaluation slice stays `AI/eval/frozen/study_slice_dev.json`.
+- `m3_encoder` PARTIAL, not a stub: the frozen epoch-1 binary OFF/NOT checkpoint scores both channels (`raw_score`, `norm_score`); a multi-head artifact loader exists; no A/B/C heads trained yet (`docs/training/GPU_HANDOFF.md`).
+- `m2_deobf` implemented (2026-09-17): protection pass, tier 1, zeyrek-validated DEASCII, spans and `_offsets` (ADR-008, proposed). `m6_target` v1 implemented: target resolution and B4 doxing; ambiguities declared pending (`protocols/m6_target_guideline.md`). Status per module: `AI/docs/audit/PROJECT_COMPLETION_STATUS.md`.
 - Module owners assigned (`docs/team/README.md`, spec headers): Musaab (m0, m1, m4, contracts, decision), Abdullah (m3, m5, m6 v1), Mohammed (m2).
 - Architecture tests for rules 2, 4 (thresholds and decision-field assignment), 6 and 7, span declarations and the entry-point convention.
-- 319 tests; 4 skipped behaviour tests that belong to the stub modules (m2 x2, m5, m6), the exact set declared in `AI/eval/implementation_status.json` (Gate 1, 2026-09-17). The spec check warns (does not fail) that m2, m3, m4 and m6 have no section titled "Approach" and m5 has no "Research pointers".
+- 370 tests; 1 skipped behaviour test that belongs to the stub module m5, the exact set declared in `AI/eval/implementation_status.json` (2026-09-17). The spec check warns (does not fail) that m2, m3, m4 and m6 have no section titled "Approach" and m5 has no "Research pointers".
 - Audit status: re-run `BASE_REF=$(git merge-base HEAD master) bash AI/scripts/check.sh` rather than trusting a
   recorded result. The base is `origin/master` (the script's default); against it at `b6a0e1f`, after the import
   under `AI/`, every gate passed, including "contract example current" and the `AI/contracts/` gate. The earlier
@@ -154,7 +155,7 @@ Each row names where the decision is recorded.
   explicit instruction (decision #65).
 
 **Stubbed (declare `stub = True`; every result is degraded, verdict `review`)**
-- m2_deobf, m5_sarcasm (gated by its spec §2), m6_target.
+- m5_sarcasm (gated by its spec §2).
 - m4_implicit is NOT a stub: it emits nothing by design (C1-C5 come from m3, decision #66).
 
 **Blocked on the project owner**
