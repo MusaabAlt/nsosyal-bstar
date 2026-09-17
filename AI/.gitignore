@@ -30,3 +30,7 @@ data/
 eval/results/*.json
 eval/results/*.tmp
 !eval/results/.gitkeep
+
+# Gate 1.5: named reference runs (python -m eval.run_all --results-dir eval/results/<name>) are
+# ignored like the top-level results; the tracked eval/results/m4_stage1b.json is unaffected.
+eval/results/*/

@@ -1,0 +1,78 @@
+{
+  "_README": "Declared implementation status per module, read by eval/harness.py (report block `implementation`) and pinned by tests/test_implementation_status.py. STUB must agree with the module's `stub = True` flag; PARTIAL lists what the spec requires that is NOT built, so a measurement can never be read as covering it; IMPLEMENTED means every spec deliverable exists (it still says nothing about correctness - that is what the measurement is for). `expected_skipped_tests` is the exact set of behaviour tests that are allowed to be skipped in the module's test_unit.py; any other skip fails the suite. `preconditions` name what a machine needs for the behaviour tests to RUN rather than skip. Sources: AI/docs/audit/MODULE_CONTRACTS.md, MODULE_MAP.md (2026-09-17). Owners update this file with their module (docs/team/README.md).",
+  "generic_contract_tests": [
+    "test_name_matches_folder",
+    "test_provides_are_contract_fields",
+    "test_process_returns_ok_module_output",
+    "test_output_stays_within_provides",
+    "test_never_sets_decision_fields",
+    "test_contract_shape",
+    "test_input_not_mutated",
+    "test_never_raises"
+  ],
+  "modules": {
+    "m0_charsafe": {
+      "status": "IMPLEMENTED",
+      "built": ["invisible characters", "combining marks", "styled Latin", "confusables", "Turkish casing", "_offsets signal", "per-length latency"],
+      "not_built": [],
+      "expected_skipped_tests": [],
+      "preconditions": [],
+      "source": ["modules/m0_charsafe/spec.md", "AI/docs/audit/MODULE_CONTRACTS.md#m0_charsafe"]
+    },
+    "m1_lexicon": {
+      "status": "PARTIAL",
+      "built": ["raw-channel morpheme-boundary match (terlik balanced)", "A1 carrier with spans through m0 _offsets", "SUBSTRING_COLLISION", "NON_HUMAN_TARGET from m6 signals", "lexicon_hit / lexicon_hit_raw / lexicon_hit_norm"],
+      "not_built": ["A4 sacred-concept extension (spec §3, §4.3)", "HOMONYM guard (spec §3)", "terlik vs karaliste comparison report (spec §6)", "normalized-channel spans beyond the same-length case (Q5)"],
+      "expected_skipped_tests": [],
+      "preconditions": ["terlik importable"],
+      "source": ["modules/m1_lexicon/README.md#not-built-yet", "AI/docs/audit/MODULE_CONTRACTS.md#m1_lexicon"]
+    },
+    "m2_deobf": {
+      "status": "STUB",
+      "built": [],
+      "not_built": ["everything in spec §4-§11"],
+      "expected_skipped_tests": [
+        "DeobfModuleBehaviourTest.test_raw_channel_never_replaced",
+        "DeobfModuleBehaviourTest.test_legit_double_letters_survive"
+      ],
+      "preconditions": [],
+      "source": ["modules/m2_deobf/module.py (stub = True)", "AI/docs/audit/MODULE_CONTRACTS.md#m2_deobf"]
+    },
+    "m3_encoder": {
+      "status": "PARTIAL",
+      "built": ["binary raw_score on ctx.text (epoch-1 OFF/NOT checkpoint)", "artifact sha256 check", "fail-closed on missing artifact", "no network at load", "truncation note"],
+      "not_built": ["A head (A1 carrier content)", "B head (B1/B2/B3/B5)", "C head (C1-C5)", "normalized channel pass / norm_score", "per-code content scores", "per-code metrics and decision-flip table (spec §7, §10)"],
+      "expected_skipped_tests": [],
+      "preconditions": ["m3 artifact files present (artifacts/m3_encoder/, git-ignored)", "torch and transformers importable"],
+      "source": ["modules/m3_encoder/module.py docstring", "AI/README.md", "AI/docs/audit/MODULE_CONTRACTS.md#m3_encoder"]
+    },
+    "m4_implicit": {
+      "status": "PARTIAL",
+      "built": ["stage 1: binary_offensive threshold row in decision/thresholds.yaml (derived)", "stage 1b measured and rejected (protocols/m4_stage1b_protocol.md)"],
+      "not_built": ["stage 2 slice repair and its precision budget (spec §4.1, §10)", "C1-C5 threshold derivations", "fixture set of spec §9"],
+      "expected_skipped_tests": [],
+      "preconditions": [],
+      "source": ["protocols/ADR-006-m4-thresholds-c-head-stage-1.md", "AI/docs/audit/MODULE_CONTRACTS.md#m4_implicit"]
+    },
+    "m5_sarcasm": {
+      "status": "STUB",
+      "built": [],
+      "not_built": ["everything; entry gate (spec §2) not executed"],
+      "expected_skipped_tests": [
+        "SarcasmModuleBehaviourTest.test_friendly_irony_is_not_d1"
+      ],
+      "preconditions": [],
+      "source": ["modules/m5_sarcasm/module.py (stub = True)", "AI/docs/audit/MODULE_CONTRACTS.md#m5_sarcasm"]
+    },
+    "m6_target": {
+      "status": "STUB",
+      "built": [],
+      "not_built": ["everything in spec §2-§10"],
+      "expected_skipped_tests": [
+        "TargetModuleBehaviourTest.test_non_human_object_resolves_non_human_target"
+      ],
+      "preconditions": [],
+      "source": ["modules/m6_target/module.py (stub = True)", "AI/docs/audit/MODULE_CONTRACTS.md#m6_target"]
+    }
+  }
+}

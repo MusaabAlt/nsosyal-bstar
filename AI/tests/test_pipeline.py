@@ -65,7 +65,8 @@ class PipelineTest(unittest.TestCase):
         text = "Bu bir test cumlesi"
         result = Pipeline().analyze(text)
         self.assertEqual(result.text, text)
-        # Five stub modules: the judgement is incomplete, so never clean (Phase 9).
+        # Three stub modules (m2, m6, m5): the judgement is incomplete, so never clean (Phase 9).
+        # Shape and fail-closed only; the per-stage end-to-end assertions live in tests/test_end_to_end.py.
         self.assertIs(result.verdict, Action.REVIEW)
         self.assertEqual(len(result.per_module_ms), 7)
         self.assertNotIn("channels", result.signals)  # bounded response (decision 17)
@@ -84,8 +85,11 @@ class PipelineTest(unittest.TestCase):
     def test_stub_modules_are_degraded_and_named(self) -> None:
         result = Pipeline().analyze("Bu bir test cumlesi")
         stubs = ["m2_deobf", "m6_target", "m5_sarcasm"]  # registry order; m1, m3 and m4 are not stubs
-        # m3 degrades with another kind when its git-ignored artifact is absent on this machine.
-        degraded = [d for d in result.signals["pipeline"]["degraded"] if d["module"] != "m3_encoder"]
+        degraded = result.signals["pipeline"]["degraded"]
+        # Gate 1 (G0-F): a non-stub module that is degraded here - m3 without its git-ignored
+        # artifact, m1 without terlik - is a named precondition failure, never masked out.
+        broken = [d for d in degraded if d["module"] not in stubs]
+        self.assertEqual(broken, [], f"PRECONDITION: non-stub module degraded on this machine: {broken}")
         self.assertEqual([d["module"] for d in degraded], stubs)
         self.assertTrue(all(d["kinds"] == ["stub"] for d in degraded))
         self.assertTrue(result.notes[0].startswith("[pipeline] DEGRADED"))
