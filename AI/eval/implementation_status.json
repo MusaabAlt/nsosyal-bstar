@@ -140,18 +140,22 @@
       ]
     },
     "m6_target": {
-      "status": "STUB",
-      "built": [],
+      "status": "PARTIAL",
+      "built": [
+        "target resolution v1: @mentions, frozen second-person deictic set, vocatives, second-person endings, group and non-human gazetteers with suffix awareness, precedence individual > group > non_human",
+        "B4 doxing: mobile / landline, national ID with both checksum digits, IBAN mod-97, plates with a province code, addresses with a personal cue and no public-place cue, e-mail, social-profile links; every score spanned"
+      ],
       "not_built": [
-        "everything in spec §2-§10"
+        "the three documented ambiguities and the sports-supporter position: v1 behaviour declared in protocols/m6_target_guideline.md, PENDING OWNER DECISION (Q28)",
+        "person-name gazetteer (no licensed Turkish name list in the repository)",
+        "hand-labelled target slice, agreement number, confusion matrix (spec §8, §10: annotation)"
       ],
-      "expected_skipped_tests": [
-        "TargetModuleBehaviourTest.test_non_human_object_resolves_non_human_target"
-      ],
+      "expected_skipped_tests": [],
       "preconditions": [],
       "source": [
-        "modules/m6_target/module.py (stub = True)",
-        "AI/docs/audit/MODULE_CONTRACTS.md#m6_target"
+        "modules/m6_target/module.py docstring",
+        "protocols/m6_target_guideline.md",
+        "modules/m6_target/gazetteers/*.txt"
       ]
     }
   }

@@ -19,11 +19,13 @@ artifact; `TBD` means the artifact does not exist yet.
 | m3-berturk-tokenizer | tokenizer + model config, `artifacts/m3_encoder/tokenizer/` (`NSOSYAL_M3_TOKENIZER`): `config.json` / `tokenizer.json` / `tokenizer_config.json` | `980b01dd…8f48` / `d424e0bc…61e5` / `d50873ed…0a04` (full digests in `modules/m3_encoder/module.py`) | n/a | n/a | 2026-09-15 | m3_encoder | same base model; copied from the study's demo bundle (`demo_assets/tokenizer`) |
 | m4-implicit | TBD | TBD | TBD | TBD | TBD | m4_implicit | TBD |
 | m5-sarcasm | TBD (own model, ADR-003; gated: m5 spec.md §2) | TBD | TBD | TBD | TBD | m5_sarcasm | TBD — record dataset name, version, size |
-| m6-target | TBD | TBD | TBD | TBD | TBD | m6_target | TBD |
+| m6-gazetteer-groups | text gazetteer, `modules/m6_target/gazetteers/groups_tr.txt` (committed) | `008078f9507ee450e27a5415cba1f2ab4eb822c0d9d62a0ad919a5222f5697e7` | n/a (stems, not scores) | n/a | 2026-09-17 | m6_target | project (in-repo, authored from the spec's categories; protocols/m6_target_guideline.md) |
+| m6-gazetteer-non | text gazetteer, `modules/m6_target/gazetteers/non_human_tr.txt` (committed) | `73d75121179a40177d080e10384f29e12493207f1f0d58080a4319ee5555b050` | n/a (stems, not scores) | n/a | 2026-09-17 | m6_target | project (in-repo, authored from the spec's categories; protocols/m6_target_guideline.md) |
 
 ## Change log
 
 | date | artifact_id | change | by |
 |---|---|---|---|
 | 2026-09-15 | m3-berturk-pytorch-fp32-epoch1, m3-berturk-tokenizer | added: study baseline wrapped as m3 inference; dev reproduction exact (0 label flips) | Musaab |
+| 2026-09-17 | m6-gazetteer-groups, m6-gazetteer-non | added: m6_target v1 gazetteers (stems with suffix-aware matching), guideline protocols/m6_target_guideline.md | Musaab (assistant) |
 | 2026-09-15 | thresholds-v0.0.0-placeholder -> thresholds-v0.1.0 | `binary_offensive` 0.50 -> 0.320188 (stage 1, r = 3), raw channel only | Musaab |

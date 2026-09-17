@@ -1,0 +1,75 @@
+# m6_target gazetteer: NON_HUMAN stems (spec §3: "institution, program, event, object"). One stem
+# per line, lowercase; the matcher accepts plural / possessive / case suffixes ("programı",
+# "otobüsler", "filmin"). Lines starting with '#' are comments. Source: project-authored from the
+# spec's examples (program, bus, match result, film, weather) and the annotation-guideline row
+# "insult at a film / the weather -> CLEAN + NON_HUMAN_TARGET" (ADR-005). Licence: project.
+# Sha256 registered in artifacts/MANIFEST.md.
+#
+# Institution COMMON nouns are here because the taxonomy row lists "institution" under non_human.
+# Whether an attack on an institution is really an attack on its members is undecided (Q28); no
+# members inference is made, and party / organisation PROPER names are not listed (see
+# protocols/m6_target_guideline.md).
+#
+# software / media / products
+program
+uygulama
+yazılım
+site
+sistem
+sunucu
+oyun
+film
+dizi
+kitap
+şarkı
+albüm
+klip
+video
+reklam
+ürün
+hizmet
+servis
+telefon
+bilgisayar
+araba
+otomobil
+motor
+# transport / places / events
+otobüs
+metro
+tren
+uçak
+vapur
+yol
+trafik
+maç
+turnuva
+lig
+konser
+etkinlik
+festival
+sınav
+ders
+# institutions (common nouns)
+kurum
+şirket
+firma
+banka
+belediye
+bakanlık
+üniversite
+okul
+hastane
+mağaza
+restoran
+kafe
+# weather / nature / abstract objects
+hava
+yağmur
+kar
+soğuk
+sıcak
+ekonomi
+enflasyon
+fiyat
+yemek

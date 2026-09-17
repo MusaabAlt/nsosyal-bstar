@@ -37,7 +37,12 @@
       "tier2_enabled": true,
       "offsets_identity": false
     },
-    "m6_target": {},
+    "m6_target": {
+      "target_type": "none",
+      "target_confidence": 0.0,
+      "target_evidence": null,
+      "target_candidates": []
+    },
     "m1_lexicon": {
       "lexicon_hit": false,
       "lexicon_hit_raw": false,
@@ -53,15 +58,6 @@
     "m5_sarcasm": {},
     "pipeline": {
       "degraded": [
-        {
-          "module": "m6_target",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
         {
           "module": "m5_sarcasm",
           "kinds": [
@@ -103,7 +99,7 @@
       "post_offensive": false
     }
   },
-  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m6_target henüz uygulanmadı, m5_sarcasm henüz uygulanmadı.",
+  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m5_sarcasm henüz uygulanmadı.",
   "latency_ms": 0.0,
   "per_module_ms": {
     "m0_charsafe": 0.0,
@@ -116,10 +112,9 @@
   },
   "fast_path": false,
   "trace_id": "example-trace-id",
-  "artifact_hash": "5f3c2943bf87962f826d7811507df910a4be05b355f72f17c22d122bbfeec265",
+  "artifact_hash": "91a98c2507a1e152d282b937f3a80ac4a69db0b59ad7cf5dd6f9255e7eb393fd",
   "notes": [
-    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m6_target (stub), m5_sarcasm (stub)",
-    "[m6_target] stub: detection not implemented",
+    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m5_sarcasm (stub)",
     "[m4_implicit] C1–C5 not implemented yet",
     "[m5_sarcasm] stub: detection not implemented"
   ]

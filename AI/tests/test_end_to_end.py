@@ -50,7 +50,7 @@ from modules.m3_encoder.test_unit import artifact_available
 from pipeline.run import Pipeline
 from pipeline.thread_counter import ThreadBlock
 
-STUBS = ["m6_target", "m5_sarcasm"]      # registry order; m0, m2, m1, m3, m4 are not stubs
+STUBS = ["m5_sarcasm"]      # only m5 is still a stub; m0, m2, m6, m1, m3, m4 run
 
 
 def most_severe(*candidates: Action) -> Action:
@@ -147,10 +147,14 @@ class EndToEndTest(unittest.TestCase):
             # Every verdict today is under degradation (three stubs): the explanation says so.
             self.assertIn("değerlendirme eksik", result.explanation, diagnose(result))
 
-    def expected_offensive_verdict(self, *extra: Action) -> tuple[Action, object]:
-        """A1 fired plus the binary fired: the more severe configured action wins; on
-        equal severity actions.resolve keeps the content driver (it is visited first)."""
-        candidates = [(self.a1_action, ContentCode.A1), (self.binary_action, "binary_offensive")]
+    def expected_offensive_verdict(self, target_type: str, *extra: Action) -> tuple[Action, object]:
+        """A family-A hit assigned from m6's target (ADR-005: family_a.by_target[type]) plus the binary
+        fired: the more severe configured action wins; on equal severity actions.resolve keeps the
+        content driver (it is visited first). `target_type` is what m6's declared rules resolve for
+        the post (protocols/m6_target_guideline.md), asserted separately at the DECISION stage."""
+        code = ContentCode(self.cfg["family_a"]["by_target"][target_type])
+        candidates = [(Action(self.cfg["categories"][code.value]["action"]), code),
+                      (self.binary_action, "binary_offensive")]
         candidates += [(a, "thread") for a in extra]
         best = candidates[0]
         for action, driver in candidates[1:]:
@@ -222,7 +226,7 @@ class EndToEndTest(unittest.TestCase):
             self.assertTrue(result.content[0].fired, diagnose(result))
         with self.subTest(stage="FINAL_ACTION/post_offensive"):
             self.assertTrue(result.signals["decision"]["post_offensive"], diagnose(result))
-        verdict, driver = self.expected_offensive_verdict()
+        verdict, driver = self.expected_offensive_verdict("none")           # "Onlar": third person, no target
         self.check_verdict(result, verdict, driver)
 
     def test_collision_word_raises_a_guard_and_no_content(self) -> None:
@@ -261,15 +265,21 @@ class EndToEndTest(unittest.TestCase):
         self.check_preconditions_held(result)
         self.check_interfaces(result)
         with self.subTest(stage="PIPELINE_MERGE"):
-            self.assertEqual([(s.code, s.span) for s in result.content], [(ContentCode.A1, (8, 21))],
-                             diagnose(result))
+            self.assertEqual([s.span for s in result.content], [(8, 21)], diagnose(result))   # code asserted below
             self.assertEqual(text[8:21], "gerizekalısın")
             self.assertEqual([(g.code, g.span) for g in result.guards],
                              [(GuardCode.SUBSTRING_COLLISION, (23, 28))], diagnose(result))
             self.assertEqual(text[23:28], "amcam")
         with self.subTest(stage="DECISION_THRESHOLD"):
+            # "Sen" is a second-person token: m6 resolves individual, so the carrier A1 is assigned the
+            # configured individual code before thresholds (ADR-005); the guard and threshold apply to it.
+            family_a = result.signals["decision"]["family_a"]
+            self.assertEqual(family_a["resolved_as"], "individual", diagnose(result))
+            assigned = ContentCode(self.cfg["family_a"]["by_target"]["individual"])
+            self.assertEqual(family_a["code"], assigned.value, diagnose(result))
             score = result.content[0]
-            self.assertEqual(score.threshold, float(self.cfg["categories"]["A1"]["threshold"]), diagnose(result))
+            self.assertIs(score.code, assigned, diagnose(result))
+            self.assertEqual(score.threshold, float(self.cfg["categories"][assigned.value]["threshold"]), diagnose(result))
             self.assertGreaterEqual(score.score, score.threshold, diagnose(result))
         with self.subTest(stage="GUARD_APPLICATION"):
             guard = result.guards[0]
@@ -277,7 +287,7 @@ class EndToEndTest(unittest.TestCase):
             self.assertEqual(guard.suppressed, [], diagnose(result))          # ADR-001: spans do not overlap
             self.assertTrue(result.content[0].fired, diagnose(result))
         self.check_binary(result, fired=True)
-        verdict, driver = self.expected_offensive_verdict()
+        verdict, driver = self.expected_offensive_verdict("individual")
         self.check_verdict(result, verdict, driver)
 
     def test_zero_width_inside_a_word_maps_the_span_through_m0(self) -> None:
@@ -320,9 +330,9 @@ class EndToEndTest(unittest.TestCase):
                              diagnose(results[-1]))
         with self.subTest(stage="DECISION_THRESHOLD"):
             self.assertTrue(all(r.signals["decision"]["post_offensive"] for r in results))
-        first_verdict, first_driver = self.expected_offensive_verdict()
+        first_verdict, first_driver = self.expected_offensive_verdict("none")
         self.check_verdict(results[0], first_verdict, first_driver)
-        last_verdict, last_driver = self.expected_offensive_verdict(Action(self.cfg["thread"]["action"]))
+        last_verdict, last_driver = self.expected_offensive_verdict("none", Action(self.cfg["thread"]["action"]))
         self.check_verdict(results[-1], last_verdict, last_driver)
         after = pipeline.analyze("Bu bir test cumlesi", thread_block=block)
         with self.subTest(stage="FINAL_ACTION/clean post after abuse"):
