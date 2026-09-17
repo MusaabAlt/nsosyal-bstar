@@ -117,7 +117,7 @@ Each row names where the decision is recorded.
 | 61 | Fixture key names in the m2-m5 specs follow `AI/eval/harness.py` (`expected`, `expect_patterns`, `expect`, `context`, `expect_clean`); m4's slice is `context.signals.m1_lexicon.lexicon_hit`; m5's `inversion_span` stays as an annotation not read by the harness. Every module's fixture file is `fixtures/cases.jsonl` (the stubs' `dev.jsonl` renamed; the harness fallback removed). | owner decision |
 | 62 | Stale references fixed: `thresholds.yaml` (m2 §8, guard comments), `AI/artifacts/MANIFEST.md` (m3 §8, §5), `AI/eval/testsuite/README.md`, README flow diagram (order, three heads, fast path disabled), `AI/modules/README.md` latency line. | owner decision |
 | 63 | AI/CONTRIBUTING.md has a Setup section (venv, install, commands in order, `BASE_REF=$(git merge-base HEAD master) bash AI/scripts/check.sh`) and a paragraph on fail-closed and why every verdict is `review` today. | owner decision |
-| 64 | PROCESS: a module owner proposes spec changes and Osama approves them; a module owner may edit their own category rows in `AI/decision/thresholds.yaml` (derived on dev, separate reviewed change). AI/CONTRIBUTING.md and `AI/modules/README.md` say so. | owner decision |
+| 64 | PROCESS: a module owner proposes spec changes and Musaab approves them (AI/CONTRIBUTING.md); a module owner may edit their own category rows in `AI/decision/thresholds.yaml` (derived on dev, separate reviewed change). AI/CONTRIBUTING.md and `AI/modules/README.md` say so. | owner decision |
 
 ### Final batch (2026-09-14)
 
@@ -142,8 +142,10 @@ Each row names where the decision is recorded.
 - Evaluation harness: per-code CIs, representation metrics, traps with form/guard rules, per-length latency bands in clean and adversarial columns, pipeline budgets (flip rate, latency).
 - `m0_charsafe` fully implemented (reference module).
 - `m1_lexicon` implemented on terlik 0.1.0 balanced (not a stub): A1 carrier, SUBSTRING_COLLISION and NON_HUMAN_TARGET with spans. A4 and HOMONYM not built. Per-row dev labels in `AI/eval/derived/m1_lexicon_dev_seed42.json` (`AI/protocols/m1_lexicon_dev_labels_protocol.md`); the evaluation slice stays `AI/eval/frozen/study_slice_dev.json`.
+- `m3_encoder` PARTIAL, not a stub (`0bb9d25`): wraps the frozen epoch-1 binary OFF/NOT checkpoint and publishes `raw_score` / `artifact` only; no A/B/C heads, no content scores, no normalized-channel pass (`AI/README.md`, `AI/docs/audit/MODULE_CONTRACTS.md`).
+- Module owners assigned (`docs/team/README.md`, spec headers): Musaab (m0, m1, m4, contracts, decision), Abdullah (m3, m5, m6 v1), Mohammed (m2).
 - Architecture tests for rules 2, 4 (thresholds and decision-field assignment), 6 and 7, span declarations and the entry-point convention.
-- 255 tests; 10 skipped behaviour tests that belong to unimplemented modules. The spec check warns (does not fail) that m2, m3, m4 and m6 have no section titled "Approach" and m5 has no "Research pointers".
+- 319 tests; 4 skipped behaviour tests that belong to the stub modules (m2 x2, m5, m6), the exact set declared in `AI/eval/implementation_status.json` (Gate 1, 2026-09-17). The spec check warns (does not fail) that m2, m3, m4 and m6 have no section titled "Approach" and m5 has no "Research pointers".
 - Audit status: re-run `BASE_REF=$(git merge-base HEAD master) bash AI/scripts/check.sh` rather than trusting a
   recorded result. The base is `origin/master` (the script's default); against it at `b6a0e1f`, after the import
   under `AI/`, every gate passed, including "contract example current" and the `AI/contracts/` gate. The earlier
@@ -152,13 +154,12 @@ Each row names where the decision is recorded.
   explicit instruction (decision #65).
 
 **Stubbed (declare `stub = True`; every result is degraded, verdict `review`)**
-- m2_deobf, m3_encoder, m5_sarcasm (gated by its spec §2), m6_target.
+- m2_deobf, m5_sarcasm (gated by its spec §2), m6_target.
 - m4_implicit is NOT a stub: it emits nothing by design (C1-C5 come from m3, decision #66).
 
 **Blocked on the project owner**
 - Owner-written spec sections are inserted in m2-m6 ("What it catches / does not catch", "Required fixtures", named tools); two of them carry open questions for the owner (see §5).
 - All thresholds, actions and budgets in `AI/decision/thresholds.yaml` are placeholders until derived on dev.
-- Module owners are `_assign_` in every spec.
 
 ---
 
@@ -202,13 +203,13 @@ BASE_REF=<commit> bash scripts/check.sh               # pre-merge check; fails w
 | `thread.window_seconds` is an arbitrary placeholder; derive it. | Project owner |
 | The counter's demo-scope limits (in memory, per process, resets on restart, ids unverified) are recorded in ADR-004 and the counter docstring; there is no committed spec to state them in. Add them to `AI/docs/frontend/02_BACKEND_SPEC.md` when it is committed. | Project owner |
 | API thread side: implement per `AI/docs/frontend/02_BACKEND_SPEC.md` once committed. | Owner to confirm owner of `AI/api/` |
-| `AI/contracts/fixtures/module_output.example.json` is stale (shows `offsets`); regenerating it needs an explicit instruction. | Osama |
+| RESOLVED (decision #65): `AI/contracts/fixtures/module_output.example.json` was regenerated from m0 on `SIKINTI` and shows the current `_offsets` signal. | — |
 | When is the frozen baseline created, so `fpr_increase_on_clean` can return (decision #20)? | Project owner |
 | m5 entry gate: availability of the Turkish sarcasm corpus (spec §2). | m5 owner |
 | m1: confirm `terlik` availability and licence offline (spec §4.3, §8). | m1 owner |
 | m6: written rules for `siz`, institution vs members, religion vs followers (spec §4). | m6 owner |
 | Every placeholder in `AI/decision/thresholds.yaml` (thresholds, actions, budgets, fast-path margin) must be derived on dev with `AI/protocols/templates/threshold_derivation.md`. | Each module owner; actions: project owner |
-| Module owners are `_assign_` in all seven specs. | Project owner |
+| RESOLVED: module owners are named in `docs/team/README.md` and in every spec header. | — |
 
 ---
 

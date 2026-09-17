@@ -245,3 +245,29 @@ G0-E and G0-F must be true before the integration order (§3) starts.
 
 m3 is deliberately third: it is testable, but its oracle on obfuscated input (Q3) and its only
 live output's observability (G0-D) both depend on Gate 0 and on an owner decision.
+
+---
+
+## 8. Gate 1 outcome (2026-09-17) — Gate 0 criteria re-scored
+
+Gate 1 changed only test and eval infrastructure (`GATE1_RESULTS.md` lists every file). The
+criteria of §6, re-scored against the working tree after Gate 1:
+
+| criterion | status after Gate 1 | evidence |
+|---|---|---|
+| G0-A wrong verdict detectable | **PASS** | `tests/test_end_to_end.py`: six real-pipeline posts assert fused content, spans, guard effects, `family_a`, `binary_offensive`, `post_offensive`, verdict, driver and explanation, each in a stage-named subTest; mutation checks name the originating stage |
+| G0-B wrong boundary detectable | **PASS** | `tests/test_binary_offensive.py` against the unmodified yaml: `t − ε` / `t` / `t + ε`, the tie row, the value vs the derivation record; mutation checks fail on an exclusive rule and on a drifted value |
+| G0-C degraded cannot look healthy | **PASS** | harness degrades exactly as the pipeline (pinned equal); reports carry `implementation.scope = NOT VERIFIED` for stubs and `degraded_items`; `tests/test_implementation_status.py` pins the allowed skip set and fails on a missing m3 artifact |
+| G0-D binary observable | **PASS** | trap observations + `binary_fired`, the `binary` trap rule, `binary_offensive_on_traps` in the pipeline report, `post_is_offensive` binary branch through the counter. First run: fires on 4 of 33 traps (`TEST_SYSTEM_AUDIT.md` §6.2) |
+| G0-E interface mismatches detectable | **PASS** (within the interfaces that have an oracle) | `tests/test_signal_interfaces.py`; Q5 and Q6 interfaces deliberately not defined |
+| G0-F integration vs module failures distinguishable | **PASS** | stage-named subTests with a diagnostic dump; preconditions FAIL with a named reason instead of skipping; the m3 mask in `test_stub_modules_are_degraded_and_named` removed; reports carry provenance |
+| G0-G reproducible baseline | **FAIL** (owner action) | the tree is still dirty: the five project files and three untracked project files of `BASELINE_WORKTREE.md` are uncommitted, now joined by the Gate 1 files; `provenance.git_dirty = true` on every number produced. The Gate 0 documents were committed by the owner as `06520e4` |
+
+**Gate 1 verdict: PASS on the infrastructure criteria (G0-A to G0-F), FAIL on G0-G.** Module
+verification can start on the *instrument* side; every number it produces stays a historical
+observation until the owner commits the baseline and one reference run is recorded
+(`BASELINE_WORKTREE.md` §6, `eval/README.md` "HISTORICAL_RESULT vs CURRENT_REPRODUCIBLE_RESULT").
+
+Adjustment to §2 / §3 ordering: none. The first components to verify remain the decision layer
+(now already pinned at its real boundary) and m0; the four binary fires on collision traps are
+handed to the owner as a Q2 / Q18 decision before m3's verification is scored.

@@ -351,3 +351,64 @@ self-tests prove its arithmetic. The blind spots are structural, not bugs:
   suite's trap test reads uncommitted data.
 
 The acceptance criteria that follow from this are in `VERIFICATION_PLAN.md` §6.
+
+---
+
+## 6. Gate 1 — what changed in the verification system (2026-09-17)
+
+Gate 1 changed test and eval infrastructure only. No module, spec, ADR, threshold, action,
+artifact or dataset was touched; `AI/contracts/` is unchanged. Details, commands and evidence are
+in `GATE1_RESULTS.md`; this section updates the mechanism-by-mechanism picture of §2–§4.
+
+### 6.1 Mechanism updates
+
+| mechanism | before Gate 1 (§2) | after Gate 1 |
+|---|---|---|
+| decision-layer tests | real yaml validated for shape only; 0.320188 referenced by no test | `tests/test_binary_offensive.py` loads the shipped yaml unchanged and pins: the value equals the derivation record and the stage-1b integrity constant; `fired = score >= t` at `t − ε`, `t`, `t + ε`, the protocol's tie row (0.32018762826919556, below `t`), a sweep over [0, 1], absent and non-numeric scores; `post_offensive`; the verdict and driver when the binary is the only signal; idempotence. Mutation-checked: an exclusive rule fails 9 assertions, a drifted value fails 2 |
+| thread counter | the `binary.fired` branch of `post_is_offensive` untested | a binary-only double drives the counter through the real config: three posts at `t` escalate on the third; a post at `t − ε` is never counted |
+| traps | content codes only; the binary fire invisible | `check_traps` records one **observation** per trap with SEPARATE facts (`content_fired`, `binary {score, threshold, fired}`, `form_active`, `guards_active`, `guards_suppressed`, `degraded`, `post_offensive`, `verdict`, `driver`), lists `binary_fired` ids and `binary_observable`, and accepts a module-scoped `binary: {modules, must_not_fire}` rule. No committed trap carries the rule (policy, Q2 / Q18): the fact is observable, the expectation is not invented |
+| eval harness | stubs never degraded; result files healthy | `run_item` degrades a stub, an `ok=False` output and dropped items exactly as `Pipeline.analyze` does (`degradation_record`, pinned equal to the pipeline's entry); every report carries `implementation` (declared status, `not_built`, `scope` = `NOT VERIFIED` for a stub), `degraded_items` and `provenance` (commit, dirty flag, input digests, repeats, bootstrap size); `summarize` prints the status, `degraded_items` and `binary_fired` on the first line and a `** NOT VERIFIED **` line for stubs |
+| pipeline budget report | content flips only | `binary_offensive_on_traps` (fired in the full pipeline; flipped by the channel), `trap_observations`, `degraded_modules`, `provenance`. Reported, not budgeted (the budget is defined on content codes) |
+| `run_all` | one summary line per module | prints `NOT VERIFIED (...)` for stubs, the binary-fired trap ids, the provenance line with `CURRENT_REPRODUCIBLE_RESULT` / `NOT REPRODUCIBLE`; `--results-dir` writes elsewhere than `eval/results/` so historical files are never overwritten |
+| skip accounting | `unittest` exits 0 on skips; no expected set | `eval/implementation_status.json` declares status, `not_built`, `expected_skipped_tests` and `preconditions` per module; `tests/test_implementation_status.py` fails on any other skip, on a declared status that disagrees with `stub`, on a stub with a runnable behaviour test, and on a missing m3 artifact (named PRECONDITION failure, not a skip) |
+| interface tests | none | `tests/test_signal_interfaces.py`: m0 `_offsets` invariants and the frozen form m1 reads; m0 signal key set; m1 hit signals present / boolean / consistent on every input and readable by the stage-1b consumer; the yaml channel path splits into m3's name and a key m3 publishes; the artifact id agrees across yaml, MANIFEST and module; m3 publishes exactly `{raw_score, artifact}` and the decision layer reads it; `signals.pipeline` and `signals.decision` key sets and types |
+| end-to-end verdict tests | one clean sentence; m3 masked | `tests/test_end_to_end.py`: six real-pipeline cases plus a bounded-response check, every assertion in a stage-named subTest (MODULE_OUTPUT, INTERFACE_CONTRACT, PIPELINE_MERGE, DEGRADATION, DECISION_THRESHOLD, GUARD_APPLICATION, FINAL_ACTION) with a diagnostic dump on failure; expected verdicts computed from the config with `actions.severity`; m3 probabilities labelled CURRENT_ARTIFACT_OBSERVATION; Q1 / Q2 / Q3 / Q5 / Q6 cases excluded or recorded without judgement. Mutation-checked: guard over-suppression names GUARD_APPLICATION, a silenced binary names DECISION_THRESHOLD/binary, lost spans name PIPELINE_MERGE |
+| `test_stub_modules_are_degraded_and_named` | filtered m3 out | a degraded non-stub module is a named PRECONDITION failure |
+
+### 6.2 What the new instruments observed on this machine (first run)
+
+- **The binary score fires on 4 of the 33 collision traps** in the full pipeline and in m3's
+  own evaluation: `trap-008` "sikke" (0.984), `trap-017` "Eski sikke koleksiyonu" (0.493),
+  `trap-030` "SİKKE" (0.442), `trap-032` "KLASİK" (0.658). On each, no content code fires, the
+  `SUBSTRING_COLLISION` guard is active, and the verdict is `review` driven by
+  `binary_offensive`. Before Gate 1 every one of these read as "0 regressions". Whether this is a
+  regression is Q2 / Q18 (BLOCKED_BY_POLICY); it is now a recorded production observation of
+  artifact `m3-berturk-pytorch-fp32-epoch1`, not fixed.
+- Every stub report now says `NOT VERIFIED` and `degraded_items = n_scored`.
+- Provenance on this machine: `git_dirty = true` (the baseline is still uncommitted), so every
+  number produced here is a HISTORICAL observation, not a reference (`GATE1_RESULTS.md` §7).
+
+### 6.3 Summary table, revised rows only
+
+| mechanism | can now catch | still cannot catch | passing result misleading? |
+|---|---|---|---|
+| decision tests | a wrong binary boundary rule; a drifted binary value; the binary→counter path | wrong placeholder values (they have no oracle, Q25) | no |
+| traps | a binary fire on any trap (observed, and asserted where a rule is present) | a wrong span on an emitted guard; anything from m2 / m5 / m6 (still empty) | no longer for the binary; still vacuous for stubs, and now says so |
+| eval harness | a stub or failed module (degraded, `NOT VERIFIED`); the binary state per fixture item and trap | a wrong `raw_score` value on a labelled item (no labelled m3 fixture exists) | no: the report states its own scope |
+| flip-rate budget | binary flips (reported) | — (budgeting them is a policy decision) | by construction 0.0 while m2 is a stub, stated in the report |
+| integration / end-to-end | a wrong verdict, driver, fused content, span, guard effect, degraded set or binary state on six real posts, with the stage named | Q1 / Q2 / Q3 outcomes (excluded by policy); any post outside the six | no |
+| skip accounting | an unexpected skip; a missing artifact turned into a skip | — | no |
+| interface tests | a renamed or missing signal key, a wrong type, an artifact-id mismatch | the m2 offset map (Q5, no contract) and m6's two routes (Q6) | no |
+| check.sh | everything above through the unit suite and `run_all` | a dirty tree (provenance says so, the exit code does not) | partly: the exit code is unchanged; the printed lines are not |
+
+### 6.4 Remaining blind spots after Gate 1
+
+1. m2, m5, m6 are still empty: every instrument now *says* so, none can verify them.
+2. No labelled fixture for m3, m4, m2, m5, m6 (one clean item each) and no end-to-end gold set;
+   the six end-to-end cases are connection tests, not a measurement.
+3. The `binary` trap rule exists but is attached to no trap; the four observed fires stay a
+   published fact until the owner decides Q2 / Q18.
+4. `check.sh`'s exit code still ignores the dirty flag and the binary-fired count.
+5. The pipeline latency number of the Gate 1 run (p95 383 ms over 3 repeats, taken while the unit
+   suite ran concurrently) is not a measurement; it is recorded only as a run that exercised the
+   report, and it made `run_all` exit 1 on the placeholder budget.
