@@ -1,0 +1,406 @@
+{
+  "protocol": {
+    "file": "protocols/m1_terlik_vs_karaliste_protocol.md",
+    "sha256": "95ea9f40751894f55d439d25052fe8f123250566da5a96ce5bc9acf56a57b936",
+    "commit": null
+  },
+  "created_at": "2026-09-17T18:55:30+00:00",
+  "git_head": "1220a342b95f37590e0e9aec91abc1738c2d4046",
+  "inputs": {
+    "frozen_slice": {
+      "path": "eval\\frozen\\study_slice_dev.json",
+      "sha256": "94754632fb66d543b7c1e84bc4e396b65585f8adba90a4f2fc87aca8f2acbed8"
+    },
+    "derived_labels": {
+      "path": "eval\\derived\\m1_lexicon_dev_seed42.json",
+      "sha256": "b3b933a9bb29d0f3fd92c9cc25a587bdc4b4ecf6028874ec726d613000558538"
+    },
+    "predictions": {
+      "path": "diagnosis/results/01_baseline_berturk/dev_predictions.csv",
+      "sha256": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346"
+    }
+  },
+  "bootstrap": {
+    "n_boot": 2000,
+    "seed": 42,
+    "unit": "row",
+    "ci": 0.95
+  },
+  "n_rows": 4764,
+  "n_off": 920,
+  "n_not": 3844,
+  "counts": {
+    "karaliste_hits": 614,
+    "terlik_hits": 459
+  },
+  "karaliste": {
+    "recall": {
+      "value": 0.3858695652173913,
+      "ci_low": 0.35425531914893615,
+      "ci_high": 0.41734104046242776
+    },
+    "fpr": {
+      "value": 0.0673777315296566,
+      "ci_low": 0.0594161715319039,
+      "ci_high": 0.07569825110937092
+    },
+    "precision": {
+      "value": 0.5781758957654723,
+      "ci_low": 0.5394524959742351,
+      "ci_high": 0.6185737976782753
+    }
+  },
+  "terlik": {
+    "recall": {
+      "value": 0.3923913043478261,
+      "ci_low": 0.36404494382022473,
+      "ci_high": 0.42424242424242425
+    },
+    "fpr": {
+      "value": 0.025494276795005204,
+      "ci_low": 0.020677177565262342,
+      "ci_high": 0.03084499740798341
+    },
+    "precision": {
+      "value": 0.7864923747276689,
+      "ci_low": 0.747072599531616,
+      "ci_high": 0.8227571115973742
+    }
+  },
+  "terlik_minus_karaliste": {
+    "recall": {
+      "value": 0.0065217391304348005,
+      "ci_low": -0.02192982456140352,
+      "ci_high": 0.03655913978494624
+    },
+    "fpr": {
+      "value": -0.0418834547346514,
+      "ci_low": -0.05023671751709627,
+      "ci_high": -0.03364389233954451
+    }
+  },
+  "disagreement": {
+    "all_rows": {
+      "both": 303,
+      "karaliste_only": 311,
+      "terlik_only": 156,
+      "neither": 3994
+    },
+    "gold_off_rows": {
+      "both": 264,
+      "karaliste_only": 91,
+      "terlik_only": 97,
+      "neither": 468
+    },
+    "terlik_free_rows_with_substring_collision": {
+      "n": 2113,
+      "of": 4305,
+      "share": 0.4908246225319396
+    },
+    "examples_karaliste_only": [
+      {
+        "row_id": "39505",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "20479",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "12707",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "20233",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "16716",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "31265",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "24217",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "14777",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "32289",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "38484",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "17892",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "27427",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "34764",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "32539",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "24182",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "11728",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "41010",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "29888",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "42590",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "42187",
+        "gold": "NOT",
+        "terlik_collision": true
+      }
+    ],
+    "examples_terlik_only": [
+      {
+        "row_id": "26578",
+        "gold": "NOT",
+        "roots": [
+          "sik"
+        ],
+        "surfaces": [
+          "şike"
+        ]
+      },
+      {
+        "row_id": "33511",
+        "gold": "NOT",
+        "roots": [
+          "piç"
+        ],
+        "surfaces": [
+          "PC"
+        ]
+      },
+      {
+        "row_id": "23217",
+        "gold": "NOT",
+        "roots": [
+          "am"
+        ],
+        "surfaces": [
+          "amin"
+        ]
+      },
+      {
+        "row_id": "29515",
+        "gold": "NOT",
+        "roots": [
+          "sik"
+        ],
+        "surfaces": [
+          "sıkıldım"
+        ]
+      },
+      {
+        "row_id": "38474",
+        "gold": "NOT",
+        "roots": [
+          "maymun"
+        ],
+        "surfaces": [
+          "maymun"
+        ]
+      },
+      {
+        "row_id": "14292",
+        "gold": "NOT",
+        "roots": [
+          "am"
+        ],
+        "surfaces": [
+          "A M A"
+        ]
+      },
+      {
+        "row_id": "10773",
+        "gold": "NOT",
+        "roots": [
+          "amk"
+        ],
+        "surfaces": [
+          "a k"
+        ]
+      },
+      {
+        "row_id": "12632",
+        "gold": "NOT",
+        "roots": [
+          "yalaka"
+        ],
+        "surfaces": [
+          "Yalakacılar"
+        ]
+      },
+      {
+        "row_id": "14717",
+        "gold": "NOT",
+        "roots": [
+          "sersem"
+        ],
+        "surfaces": [
+          "sersemine"
+        ]
+      },
+      {
+        "row_id": "27110",
+        "gold": "NOT",
+        "roots": [
+          "rezil"
+        ],
+        "surfaces": [
+          "rezil"
+        ]
+      },
+      {
+        "row_id": "36176",
+        "gold": "NOT",
+        "roots": [
+          "am"
+        ],
+        "surfaces": [
+          "Amin"
+        ]
+      },
+      {
+        "row_id": "12234",
+        "gold": "NOT",
+        "roots": [
+          "alık"
+        ],
+        "surfaces": [
+          "ali, kimi"
+        ]
+      },
+      {
+        "row_id": "30675",
+        "gold": "NOT",
+        "roots": [
+          "rezil"
+        ],
+        "surfaces": [
+          "rezillik"
+        ]
+      },
+      {
+        "row_id": "27253",
+        "gold": "NOT",
+        "roots": [
+          "piç"
+        ],
+        "surfaces": [
+          "pc"
+        ]
+      },
+      {
+        "row_id": "18776",
+        "gold": "NOT",
+        "roots": [
+          "sahtekar"
+        ],
+        "surfaces": [
+          "sahtekarlık"
+        ]
+      },
+      {
+        "row_id": "17322",
+        "gold": "NOT",
+        "roots": [
+          "sik"
+        ],
+        "surfaces": [
+          "sık"
+        ]
+      },
+      {
+        "row_id": "14848",
+        "gold": "NOT",
+        "roots": [
+          "am"
+        ],
+        "surfaces": [
+          "‘amca"
+        ]
+      },
+      {
+        "row_id": "20542",
+        "gold": "NOT",
+        "roots": [
+          "amk"
+        ],
+        "surfaces": [
+          "mk"
+        ]
+      },
+      {
+        "row_id": "18290",
+        "gold": "NOT",
+        "roots": [
+          "yüzkarası"
+        ],
+        "surfaces": [
+          "Yuz karası"
+        ]
+      },
+      {
+        "row_id": "43138",
+        "gold": "NOT",
+        "roots": [
+          "göt"
+        ],
+        "surfaces": [
+          "667"
+        ]
+      }
+    ]
+  },
+  "decision_rule": "none (protocol §3): comparison only; the frozen slice stays karaliste's"
+}

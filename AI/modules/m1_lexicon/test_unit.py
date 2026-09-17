@@ -185,6 +185,28 @@ class LexiconModuleBehaviourTest(unittest.TestCase):
         spaced = self.run_m1("s a l a k")
         self.assertEqual([("s a l a k"[s.span[0]:s.span[1]]) for s in spaced.content], ["s a l a k"])   # no nested "a k"
 
+    def test_dual_register_words_never_auto_fire(self) -> None:
+        # spec §7: moruk, lan, oğlum are a documented annotation-inconsistency source; the lexicon must not fire.
+        for text in ("moruk ne haber", "lan gel buraya", "oğlum bak şuraya"):
+            with self.subTest(text=text):
+                out = self.run_m1(text)
+                self.assertEqual(out.content, [])
+                self.assertFalse(out.signals["lexicon_hit"])
+
+    def test_homonym_guard_on_am_as_a_time_abbreviation(self) -> None:
+        # spec §7: "am" used as an abbreviation. terlik matches the standalone root; the HOMONYM
+        # guard carries the same span so the decision layer suppresses exactly that match (ADR-001).
+        for text in ("saat 10 am gibi gel", "toplantı 10:30 am", "am/pm formatı"):
+            with self.subTest(text=text):
+                out = self.run_m1(text)
+                a1 = [s for s in out.content if s.code is ContentCode.A1]
+                homonym = [g for g in out.guards if g.code is GuardCode.HOMONYM]
+                self.assertEqual(len(a1), 1)
+                self.assertEqual([g.span for g in homonym], [a1[0].span])
+                self.assertEqual(text[a1[0].span[0]:a1[0].span[1]].lower(), "am")
+        plain = self.run_m1("am biti")
+        self.assertEqual([g.code for g in plain.guards if g.code is GuardCode.HOMONYM], [])
+
     def test_signals_present_and_boolean_on_every_input(self) -> None:
         for text in LexiconModuleContractTest.HOSTILE_INPUTS + ("Onlar aptallar",):
             with self.subTest(text=text[:20]):

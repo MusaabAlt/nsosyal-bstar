@@ -340,6 +340,35 @@ class EndToEndTest(unittest.TestCase):
             self.assertFalse(after.thread.fired, diagnose(after))                      # ... never an escalation
             self.assertIs(after.verdict, actions.DEGRADED_ACTION, diagnose(after))
 
+    def test_non_human_target_guard_suppresses_the_lexicon_hit(self) -> None:
+        """m6 -> m1 -> decision (ADR-005 mechanics, all settled): a profane root aimed at a program
+        resolves target non_human, m1 raises NON_HUMAN_TARGET on its own match, and the decision
+        layer suppresses that match. The VERDICT is BLOCKED_BY_POLICY (Q2: the binary score is not
+        suppressible by guards), so it is recorded, not asserted."""
+        text = "Bu program tam bir aptal"
+        result = self.pipeline.analyze(text)
+        self.check_preconditions_held(result)
+        self.check_interfaces(result)
+        with self.subTest(stage="MODULE_OUTPUT/m6"):
+            self.assertEqual(result.signals["m6_target"]["target_type"], "non_human", diagnose(result))
+            self.assertEqual(result.target.type.value, "non_human", diagnose(result))
+            self.assertEqual(text[result.target.span[0]:result.target.span[1]], "program", diagnose(result))
+        with self.subTest(stage="INTERFACE_CONTRACT/m6 -> m1"):
+            guards = [g for g in result.guards if g.code is GuardCode.NON_HUMAN_TARGET]
+            self.assertEqual([text[g.span[0]:g.span[1]] for g in guards], ["aptal"], diagnose(result))
+            self.assertEqual(guards[0].score, result.signals["m6_target"]["target_confidence"], diagnose(result))
+        with self.subTest(stage="DECISION_THRESHOLD"):
+            family_a = result.signals["decision"]["family_a"]
+            self.assertEqual(family_a["resolved_as"], "non_human", diagnose(result))
+            self.assertEqual(family_a["code"], self.cfg["family_a"]["by_target"]["non_human"], diagnose(result))
+        with self.subTest(stage="GUARD_APPLICATION"):
+            guard = [g for g in result.guards if g.code is GuardCode.NON_HUMAN_TARGET][0]
+            self.assertTrue(guard.active, diagnose(result))
+            self.assertEqual([c.value for c in guard.suppressed], [family_a["code"]], diagnose(result))
+            self.assertFalse(any(s.fired for s in result.content), diagnose(result))   # every A score suppressed
+        # Q2: whether the binary score should also yield to the guard is undecided; recorded only.
+        self.assertIn(result.signals["decision"]["binary_offensive"]["fired"], (True, False), diagnose(result))
+
     def test_response_is_bounded_and_serialisable(self) -> None:
         result = self.pipeline.analyze("ap​tal herif " * 20)
         data = json.loads(json.dumps(result.to_dict(), ensure_ascii=False))

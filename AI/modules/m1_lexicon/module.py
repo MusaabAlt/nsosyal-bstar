@@ -139,6 +139,7 @@ class LexiconModule(BaseModule):
         guards = [GuardResult(code=GuardCode.SUBSTRING_COLLISION, score=1.0, source=SOURCE,
                               evidence=evidence, span=span)
                   for span, evidence in sorted(collisions.items())]
+        guards += self._homonym_guards(ctx.text, content)
         guards += self._non_human_guards(ctx, content, notes)
 
         return ModuleOutput(
@@ -153,6 +154,33 @@ class LexiconModule(BaseModule):
             },
             notes=notes,
         )
+
+    # -- homonyms (spec §3, §7) ------------------------------------------------
+    # A matched ROOT whose standalone surface is also an innocent word in a declared context.
+    # Data: surface -> (context regex over the ORIGINAL text around the match, reason). Sources in
+    # README.md. The guard is scoped by span (ADR-001): it suppresses only that match.
+    HOMONYMS: dict[str, tuple[re.Pattern[str], str]] = {
+        # "am" as the time-of-day abbreviation: "10 am", "10:30 am", "am/pm", "am-pm"
+        "am": (re.compile(r"(\d{1,2}(?:[:.]\d{2})?\s*$)|(^\s*[/\-]\s*pm\b)|(\bpm\s*[/\-]\s*$)", re.IGNORECASE),
+               "time abbreviation (am/pm)"),
+    }
+
+    def _homonym_guards(self, text: str, content: list[ContentScore]) -> list[GuardResult]:
+        guards: list[GuardResult] = []
+        for score in content:
+            if score.span is None:
+                continue
+            start, end = score.span
+            surface = tr_lower(text[start:end])
+            entry = self.HOMONYMS.get(surface)
+            if entry is None:
+                continue
+            pattern, reason = entry
+            before, after = text[max(0, start - 12):start], text[end:end + 12]
+            if pattern.search(before) or pattern.search(after):
+                guards.append(GuardResult(code=GuardCode.HOMONYM, score=1.0, source=SOURCE,
+                                          evidence=f"'{text[start:end]}': {reason}", span=score.span))
+        return guards
 
     # -- matching ------------------------------------------------------------
     def _tighten(self, match: Any) -> str:

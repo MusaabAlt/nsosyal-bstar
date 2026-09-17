@@ -33,17 +33,18 @@
     "m1_lexicon": {
       "status": "PARTIAL",
       "built": [
-        "raw-channel morpheme-boundary match (terlik balanced)",
+        "raw-channel morpheme-boundary match (terlik balanced), spans tightened to the matched word",
+        "normalized channel through m2's _offsets (ADR-008)",
         "A1 carrier with spans through m0 _offsets",
         "SUBSTRING_COLLISION",
+        "HOMONYM (declared context table: 'am' as a time abbreviation)",
         "NON_HUMAN_TARGET from m6 signals",
-        "lexicon_hit / lexicon_hit_raw / lexicon_hit_norm"
+        "lexicon_hit / lexicon_hit_raw / lexicon_hit_norm",
+        "terlik vs karaliste comparison (protocols/m1_terlik_vs_karaliste_protocol.md, eval/results/m1_terlik_vs_karaliste.json)"
       ],
       "not_built": [
-        "A4 sacred-concept extension (spec §3, §4.3)",
-        "HOMONYM guard (spec §3)",
-        "terlik vs karaliste comparison report (spec §6)",
-        "normalized-channel spans beyond the same-length case (Q5)"
+        "A4 sacred-concept extension (spec §3, §4.3): owner-approved table needed (docs/blockers/m1_a4_sacred_concepts.md)",
+        "recall / FPR of the signal on a functional test set with CIs (spec §6): only the dev-split comparison exists"
       ],
       "expected_skipped_tests": [],
       "preconditions": [
