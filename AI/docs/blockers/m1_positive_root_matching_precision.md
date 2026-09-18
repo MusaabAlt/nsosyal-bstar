@@ -37,5 +37,6 @@ decision after the fix is measured.
 
 A pre-registered matching-precision protocol for POSITIVE roots (candidate rules: a digit-only
 token is never a root; the clean-word rules apply after stripping edge punctuation; the
-split-across-words rule of M1-ROUTE-1 §5 extended to POSITIVE roots), committed before the code,
+split-across-words rule of M1-ROUTE-1 §5, with the compound-boundary and punctuation-cut
+exceptions of M1-ROUTE-1.1, extended to POSITIVE roots), committed before the code,
 then the regeneration and the label-change report.
