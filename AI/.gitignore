@@ -38,3 +38,7 @@ eval/results/*/
 # A-head human annotation: templates and filled files hold corpus text (never committed); the
 # committed ids file in eval/annotation/ carries the design and the ids only.
 eval/annotation/private/
+
+# Row-level reports that carry corpus text or the corpus gold label (e.g. the rule-v4 flip report's full
+# version): private, never committed. The committed versions next to them hold ids and spans only.
+eval/derived/private/

@@ -5,9 +5,10 @@ protocols/m1_lexicon_train_labels_protocol.md (--split train).
 Writes, for every row of the chosen split, what m1_lexicon publishes at runtime through the
 current m0 -> m2 -> m6 -> m1 path: the three hit flags, the channel, the matched roots, the span
 of every match, every substring collision, every HOMONYM guard, and the A-head pseudo-label
-`a_label` (train protocol, rule v3: a valid hit on a root of the explicit POSITIVE set -> 1, otherwise
-0; the set is the frozen A-head taxonomy - explicit obscene / profane lexical roots - recorded in the
-protocol and never derived from any evaluation set).
+`a_label` (train protocol, rule v4: a valid hit on a root of the explicit POSITIVE set -> 1, otherwise
+0; the set is the frozen rule-v3 A-head taxonomy - explicit obscene / profane lexical roots - recorded
+in the protocol and never derived from any evaluation set; rule v4 is that formula and taxonomy with
+m1's POSITIVE-root matching made precise, protocols/m1_positive_matching_precision_protocol.md).
 
 Deliberately does NOT:
   * define the evaluation slice (m4's slice is eval/frozen/study_slice_dev.json, frozen)
@@ -48,7 +49,7 @@ REPO_ROOT = AI_ROOT.parent
 SOURCE = "m1_lexicon"
 GENERATOR = "AI/eval/m1_lexicon_labels.py"
 # Bump on any change to the row schema, the a_label rule, or what the header records.
-GENERATOR_VERSION = "5.0.0"
+GENERATOR_VERSION = "6.0.0"
 
 PROTOCOLS = {
     "dev": "protocols/m1_lexicon_dev_labels_protocol.md",
@@ -70,13 +71,17 @@ ROW_FIELDS = ["row_id", "lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm", "c
               "roots", "root_classes{positive,excluded,review}", "matches[channel,start,end,surface]",
               "collisions[start,end,surface,evidence]", "homonyms[start,end,surface,evidence]"]
 
-# -- pseudo-label rule v3 (train protocol, amendment 2026-09-18 (b)) ------------------------------
+# -- pseudo-label rule v4 = the rule-v3 formula and taxonomy (train protocol, amendments (b), (d)) -----
 # The A head is explicit profanity: an obscene / profane lexical root. The taxonomy is an EXPLICIT,
 # versioned list over every root of the pinned terlik dictionary, frozen in the protocol before any
 # v3 label existed; tests require the protocol's lists to equal these sets. Never move a root because
 # of how a dev row was labelled or scored: that is evaluation leakage. Any change is a rule-version
 # bump recorded in the protocol first.
-A_LABEL_RULE_VERSION = 3
+# Rule v4 (amendment (d)) keeps the taxonomy - TAXONOMY_VERSION stays 3 and so does its digest - and
+# changes only how m1 accepts a POSITIVE-root match (M1-PREC-1). The generator reads matches as before.
+A_LABEL_RULE_VERSION = 4
+TAXONOMY_VERSION = 3
+MATCHING_PROTOCOL = {"id": "M1-PREC-1", "file": "protocols/m1_positive_matching_precision_protocol.md"}
 TERLIK_TR_DICTIONARY_SHA256 = "e83a97b38c553227cd20c2b5688939fda6037fb30b4964e9fd063a125a9a641c"
 POSITIVE, EXCLUDED, REVIEW = "positive", "excluded", "review"
 POSITIVE_ROOTS = frozenset({
@@ -105,7 +110,7 @@ REVIEW_ROOTS: frozenset[str] = frozenset()    # empty in v3: every root is decid
 
 def taxonomy_record() -> dict[str, Any]:
     """The frozen taxonomy as a canonical record: what the header stores and the digest covers."""
-    return {"version": A_LABEL_RULE_VERSION, POSITIVE: sorted(POSITIVE_ROOTS), EXCLUDED: sorted(EXCLUDED_ROOTS),
+    return {"version": TAXONOMY_VERSION, POSITIVE: sorted(POSITIVE_ROOTS), EXCLUDED: sorted(EXCLUDED_ROOTS),
             REVIEW: sorted(REVIEW_ROOTS)}
 
 
@@ -172,9 +177,10 @@ README = {
 LIMITS = [
     "Gold is binary OFF/NOT: any rate computed from this file measures lexicon hits against OFF, never "
     "'profanity present' against a human judgement (the corpus has no A codes).",
-    "a_label is a keyword pseudo-label (rule v3: terlik matches restricted to the explicit POSITIVE set of "
-    "obscene / profane roots): an A head trained on it learns that set's coverage, not what terlik misses. Its "
-    "quality is known only against an independent evaluation reference.",
+    "a_label is a keyword pseudo-label (rule v4: terlik matches restricted to the explicit POSITIVE set of "
+    "obscene / profane roots, each accepted only as a real word of its root under M1-PREC-1): an A head trained "
+    "on it learns that set's coverage, not what terlik misses. Its quality is known only against an independent "
+    "evaluation reference.",
     "The raw channel is m0's charsafe text, not the untouched original; spans are original offsets.",
     "The normalized channel is m2's parallel channel (tier 1 + zeyrek-validated tier 2) mapped through "
     "m2's _offsets (ADR-008); a normalized-only hit without a valid span is labelled 0 and counted.",
@@ -330,9 +336,10 @@ def a_label_v1_of(raw: bool, norm: bool, matches: list[dict[str, Any]]) -> int:
 
 
 def a_label_of(valid_hit: int, root_classes: dict[str, list[str]]) -> int | None:
-    """Rule v3: 1 on a root of the explicit POSITIVE set; 0 otherwise. None (masked, no supervision)
-    only when REVIEW roots alone matched - the REVIEW class is empty in v3, so it never happens; the
-    mechanism is kept for a future version."""
+    """Rules v3 and v4 (one formula; v4 differs only in m1's POSITIVE-root matching, M1-PREC-1): 1 on a
+    root of the explicit POSITIVE set; 0 otherwise. None (masked, no supervision) only when REVIEW roots
+    alone matched - the REVIEW class is empty, so it never happens; the mechanism is kept for a future
+    version."""
     if not valid_hit:
         return 0
     if root_classes[POSITIVE]:
@@ -504,6 +511,17 @@ def counts_of(rows: list[dict[str, Any]]) -> dict[str, int]:
 
 
 # -- provenance ---------------------------------------------------------------
+def matching_protocol_record() -> dict[str, Any]:
+    """The M1-PREC-1 protocol the file's POSITIVE-root matches were accepted under (rule v4)."""
+    rel = MATCHING_PROTOCOL["file"]
+    path = AI_ROOT / rel
+    require(path.exists(), f"{rel} does not exist - rule v4 needs its matching protocol")
+    commit = git("log", "-1", "--format=%H", "--", rel).stdout.strip() or None
+    clean = commit is not None and git("diff", "--quiet", "HEAD", "--", rel).returncode == 0
+    return {"id": MATCHING_PROTOCOL["id"], "file": f"AI/{rel}", "sha256": sha256_file(path), "commit": commit,
+            "committed_and_unchanged": clean}
+
+
 def provenance(spec: Spec) -> dict[str, Any]:
     protocol_rel = spec.protocol()
     protocol_path = AI_ROOT / protocol_rel
@@ -542,9 +560,12 @@ def build_header(spec: Spec, meta: dict[str, Any], engine: dict[str, Any], hashe
             "version": A_LABEL_RULE_VERSION,
             "text": "valid hit := lexicon_hit_raw OR (lexicon_hit_norm AND a normalized-channel match with a valid "
                     "span). a_label = 1 if valid hit and a matched root is in the explicit POSITIVE set; null only if "
-                    "REVIEW roots alone matched (the REVIEW class is empty in v3); 0 otherwise - "
-                    "protocols/m1_lexicon_train_labels_protocol.md, amendment 2026-09-18 (b) (rule v3: A = explicit "
-                    "obscene / profane lexical root)",
+                    "REVIEW roots alone matched (the REVIEW class is empty); 0 otherwise - "
+                    "protocols/m1_lexicon_train_labels_protocol.md, amendments 2026-09-18 (b) and (d) (rule v4: the "
+                    "rule-v3 taxonomy, A = explicit obscene / profane lexical root; a POSITIVE-root match counts only "
+                    "when m1 accepts it as a real word of its root under M1-PREC-1)",
+            "taxonomy_version": TAXONOMY_VERSION,
+            "matching_protocol": matching_protocol_record(),
             "terlik_tr_dictionary_sha256": TERLIK_TR_DICTIONARY_SHA256,
             "taxonomy_sha256": taxonomy_sha256(),
             "positive_roots": sorted(POSITIVE_ROOTS),
@@ -623,6 +644,13 @@ def check_file(path: Path, spec: Spec | None = None) -> list[str]:
         problems.append("a_label rule was applied with another terlik dictionary")
     if rule.get("taxonomy_sha256") != taxonomy_sha256():
         problems.append("a_label taxonomy differs from the generator's frozen rule-v3 sets")
+    if rule.get("taxonomy_version") != TAXONOMY_VERSION:
+        problems.append(f"taxonomy version {rule.get('taxonomy_version')} != {TAXONOMY_VERSION}")
+    matching = rule.get("matching_protocol") if isinstance(rule.get("matching_protocol"), dict) else {}
+    matching_path = AI_ROOT / MATCHING_PROTOCOL["file"]
+    if matching.get("id") != MATCHING_PROTOCOL["id"] or not matching_path.exists() \
+            or matching.get("sha256") != sha256_file(matching_path):
+        problems.append("matching protocol (M1-PREC-1) differs from the protocol on disk")
     try:
         if sha256_file(terlik_tr_dictionary()) != TERLIK_TR_DICTIONARY_SHA256:
             problems.append("installed terlik dictionary differs from the pinned sha256")

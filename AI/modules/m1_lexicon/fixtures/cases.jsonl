@@ -30,3 +30,9 @@
 {"id": "m1-clean-allik-01", "text": "allık sürdü", "expected": ["SUBSTRING_COLLISION"], "note": "M1-ROUTE-1 §5: clean word allık (blush)"}
 {"id": "m1-compound-01", "text": "Sen geri zekalısın", "expected": ["B1"], "note": "M1-ROUTE-1.1: compound root split on its own word boundary, suffix on the last component"}
 {"id": "m1-punct-cut-01", "text": "EŞŞEK, AT'I", "expected": ["B1"], "note": "M1-ROUTE-1.1: punctuation after a complete root word is cut, not matched across"}
+{"id": "m1-prec-clean-ak-01", "text": "AK Parti kazandı", "expected": ["SUBSTRING_COLLISION"], "note": "M1-PREC-1 R8: 'ak' is never evidence for amk (owner decision 1)"}
+{"id": "m1-prec-clean-sik-01", "text": "canım sıkıldı", "expected": ["SUBSTRING_COLLISION"], "note": "M1-PREC-1 R6: sık- is an ordinary Turkish stem, not the root sik"}
+{"id": "m1-prec-clean-digits-01", "text": "59 dakikada gol", "expected": ["SUBSTRING_COLLISION"], "note": "M1-PREC-1 R1: a numeric token is not profanity"}
+{"id": "m1-prec-hashtag-01", "text": "#sikiş", "expected": ["A1"], "note": "M1-PREC-1 R3: the word after the hashtag marker is judged"}
+{"id": "m1-prec-spaced-01", "text": "B O K", "expected": ["A1"], "note": "M1-PREC-1 R5: a complete spaced spelling of the root"}
+{"id": "m1-prec-masked-01", "text": "ta*ak geçtim", "expected": ["A1"], "note": "M1-PREC-1 R9: one asterisk completes a family-A root (taşak)"}

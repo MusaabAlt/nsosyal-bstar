@@ -42,7 +42,7 @@ The derived file never defines a slice, and the frozen file is never regenerated
 - `out.signals["lexicon_hit_raw"]` / `["lexicon_hit_norm"]` — per channel
 - `out.signals["_matches"]` — PRIVATE (kept out of the response by the pipeline): every match with `root`, `channel`, original `span` and `route`, including matches that emit no content code; the pseudo-label generator reads matches from here
 - `out.content` — one score of 1.0 per match, on the code its root is ROUTED to (`AI/protocols/m1_runtime_routing_protocol.md`, M1-ROUTE-1, owner approval 2026-09-18):
-  - the 17 explicit obscene / profane roots of pseudo-label rule v3 → the family-A carrier `A1` (the decision layer assigns `A1`/`A2`/`A3` from M6's target, ADR-005); these are the ONLY lexical family-A roots
+  - the 17 explicit obscene / profane roots of pseudo-label rule v3 → the family-A carrier `A1` (the decision layer assigns `A1`/`A2`/`A3` from M6's target, ADR-005); these are the ONLY lexical family-A roots. A match of one of them counts only as a real word of that root (`AI/protocols/m1_positive_matching_precision_protocol.md`, M1-PREC-1, pseudo-label rule v4, rules R1–R9); a rejected one is a `SUBSTRING_COLLISION` whose evidence names the rule
   - ordinary insults (100 roots) → `B1` (degradation); threats (7) → `B2`; curses / exclusion (9) → `B3`. B means "non-profane abuse; no profane root required": a deterministic lexical B code needs no trained B head. M6's target does not recode B codes
   - topic or neutral vocabulary (14 roots, e.g. `meme`, `fuhuş`, `kaşar`) → no content score: still a match, a hit and a matched root
   - `A4` when the sacred-concept extension exists

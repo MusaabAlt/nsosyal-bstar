@@ -433,6 +433,32 @@ class EndToEndTest(unittest.TestCase):
                 # Q2: whether the binary score should also yield to the guard is undecided; recorded only.
                 self.assertIn(result.signals["decision"]["binary_offensive"]["fired"], (True, False), diagnose(result))
 
+    def test_family_a_needs_a_real_word_of_the_root(self) -> None:
+        """M1-PREC-1 (protocols/m1_positive_matching_precision_protocol.md, pseudo-label rule v4) end to end:
+        ordinary words, party names, digits, clean words behind punctuation and letters harvested across
+        words reach no family-A score and no family-A decision; genuine obscene words - hashtagged, spaced,
+        glued behind punctuation, masked, leet - keep theirs, on the same path."""
+        from modules.m1_lexicon.module import ROUTE_A
+
+        family_a = {ContentCode.A1, ContentCode.A2, ContentCode.A3}
+        for text in ("AK Parti kazandı", "canım sıkıldı", "amacı ne", "59 dakikada gol", "(Amin) inşallah güzel olur",
+                     "T A M A M", "pc aldım", "öç almak"):
+            with self.subTest(clean=text):
+                result = self.pipeline.analyze(text)
+                self.check_preconditions_held(result)
+                self.assertFalse(set(result.signals["m1_lexicon"]["matched_roots"]) & ROUTE_A, diagnose(result))
+                self.assertEqual([s for s in result.content if s.code in family_a and s.source.startswith("m1_lexicon")],
+                                 [], diagnose(result))
+                self.assertIsNone(result.signals["decision"]["family_a"], diagnose(result))
+        for text, root in (("#sikiş", "sik"), ("B O K", "bok"), ("[piç(3) nalan(5)]", "piç"), ("ta*ak geçtim", "taşak"),
+                           ("s1k", "sik"), ("sıkecek", "sik")):
+            with self.subTest(obscene=text):
+                result = self.pipeline.analyze(text)
+                self.check_preconditions_held(result)
+                self.assertIn(root, result.signals["m1_lexicon"]["matched_roots"], diagnose(result))
+                self.assertTrue(any(s.code in family_a and s.source.startswith("m1_lexicon") for s in result.content),
+                                diagnose(result))
+
     def test_routed_threat_curse_topic_and_homonym(self) -> None:
         """M1-ROUTE-1 end to end: a threat is B2, a curse is B3 (NON_HUMAN_TARGET does not list them),
         topic vocabulary is a match with no content code, and the property / food compounds of

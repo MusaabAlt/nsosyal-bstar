@@ -256,7 +256,11 @@ class GeneratorTest(unittest.TestCase):
         self.assertEqual(data["counts"]["raw_only"], 0)
         self.assertEqual(data["counts"]["norm_hit_unmapped"], 0)
         self.assertEqual(data["counts"]["rows_all_matches_homonym"], 1)
-        self.assertEqual(data["a_label_rule"]["version"], 3)
+        self.assertEqual(data["a_label_rule"]["version"], 4)                       # rule v4 (M1-PREC-1)
+        self.assertEqual(data["a_label_rule"]["taxonomy_version"], 3)              # the rule-v3 taxonomy, unchanged
+        self.assertEqual(data["a_label_rule"]["matching_protocol"]["id"], "M1-PREC-1")
+        self.assertEqual(data["a_label_rule"]["matching_protocol"]["sha256"],
+                         G.sha256_file(G.AI_ROOT / G.MATCHING_PROTOCOL["file"]))
         self.assertEqual(data["a_label_rule"]["terlik_tr_dictionary_sha256"], G.TERLIK_TR_DICTIONARY_SHA256)
         self.assertEqual(data["a_label_rule"]["class_sizes"], {"positive": 17, "excluded": 130, "review": 0})
         self.assertEqual(data["a_label_rule"]["taxonomy_sha256"], G.taxonomy_sha256())
@@ -366,6 +370,18 @@ class GeneratorTest(unittest.TestCase):
         self.assertTrue(all("".join(parts) == root for root, parts in compounds.items()))
         self.assertLessEqual(set(compounds), G.EXCLUDED_ROOTS)
 
+    def test_rule_v4_keeps_the_rule_v3_taxonomy(self) -> None:
+        """Rule v4 changes matching precision only (M1-PREC-1 §5): the taxonomy, its version and its digest
+        are the ones the rule-v3 files record; no EXCLUDED root returns to A."""
+        from modules.m1_lexicon import module as M1
+
+        self.assertEqual((G.A_LABEL_RULE_VERSION, G.TAXONOMY_VERSION), (4, 3))
+        self.assertEqual(G.taxonomy_sha256(), "5b8ebe315cd2217c4decc8b0180eb2027a62aa2718405356c2066a29a0375ce5")
+        self.assertEqual(len(G.POSITIVE_ROOTS), 17)
+        self.assertEqual(M1.ROUTE_A, G.POSITIVE_ROOTS)
+        self.assertFalse(M1.ROUTE_A & G.EXCLUDED_ROOTS)
+        self.assertEqual(G.MATCHING_PROTOCOL, {"id": "M1-PREC-1", "file": "protocols/m1_positive_matching_precision_protocol.md"})
+
     def test_a_labels_do_not_depend_on_the_runtime_route(self) -> None:
         """Training / runtime independence: with every root routed to NO content code, m1 emits no
         content score at all, yet every a_label (and every match) is what it was - the generator
@@ -438,6 +454,9 @@ class GeneratorTest(unittest.TestCase):
             "row dropped": lambda d: d["rows"].pop(),
             "terlik version": lambda d: d["engine"].__setitem__("terlik", "0.0.0"),
             "taxonomy digest": lambda d: d["a_label_rule"].__setitem__("taxonomy_sha256", "0" * 64),
+            "rule version": lambda d: d["a_label_rule"].__setitem__("version", 3),
+            "taxonomy version": lambda d: d["a_label_rule"].__setitem__("taxonomy_version", 4),
+            "matching protocol digest": lambda d: d["a_label_rule"]["matching_protocol"].__setitem__("sha256", "0" * 64),
         }
         for name, doctor in cases.items():
             with self.subTest(case=name):
@@ -454,6 +473,46 @@ class GeneratorTest(unittest.TestCase):
         out = Path(self.tmp.name) / "no_tier2.json"
         self.assertEqual(G.generate(self.data.spec("train"), out, pipeline=pipeline, spot_check=0), 2)
         self.assertFalse(out.exists())
+
+
+class RuleV4AcceptanceTest(unittest.TestCase):
+    """M1-PREC-1 §7: every ACCEPT_* entry of the protocol through the FULL lexicon path the labels use
+    (m0 -> m2 -> m6 -> m1, raw and normalized channels): clean entries hold no family-A match on either
+    channel; genuine, residue and masked entries hold a match of the named root."""
+
+    PROTOCOL = G.AI_ROOT / G.MATCHING_PROTOCOL["file"]
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.pipeline = G.build_pipeline()
+        cls.tap = G.m1_tap(cls.pipeline)
+
+    def setUp(self) -> None:
+        require_engines(self)
+
+    def family_a_roots(self, text: str) -> set[str]:
+        from modules.m1_lexicon.module import ROUTE_A
+
+        self.tap.matches = None
+        self.pipeline.analyze(text)
+        return {m["root"] for m in self.tap.matches if m["root"] in ROUTE_A}
+
+    def entries(self, name: str) -> list[str]:
+        m = re.search(rf"^{name} \((\d+)\): (.*)$", self.PROTOCOL.read_text(encoding="utf-8"), re.M)
+        self.assertIsNotNone(m, name)
+        items = m.group(2).split(" | ")
+        self.assertEqual(len(items), int(m.group(1)), name)
+        return items
+
+    def test_protocol_acceptance_lists_on_both_channels(self) -> None:
+        for text in self.entries("ACCEPT_CLEAN"):
+            with self.subTest(clean=text):
+                self.assertEqual(self.family_a_roots(text), set())
+        for name in ("ACCEPT_GENUINE", "ACCEPT_RESIDUE", "ACCEPT_MASKED"):
+            for entry in self.entries(name):
+                text, root = entry.rsplit(" => ", 1)
+                with self.subTest(list=name, text=text):
+                    self.assertIn(root, self.family_a_roots(text))
 
 
 class CommittedFilesTest(unittest.TestCase):
@@ -480,40 +539,73 @@ class CommittedFilesTest(unittest.TestCase):
             self.assertEqual(ids[name], [str(i) for i in split[f"{name}_ids"]])
             self.assertEqual(data["split"]["name"], name)
             self.assertTrue(data["protocol"]["committed_and_unchanged"], f"{name}: generated against an uncommitted protocol")
+            self.assertTrue(data["a_label_rule"]["matching_protocol"]["committed_and_unchanged"],
+                            f"{name}: generated against an uncommitted M1-PREC-1 protocol")
             self.assertEqual(data["generator"]["uncommitted_changes"], [], f"{name}: generated from a dirty tree")
             self.assertEqual(data["counts"]["norm_hit_unmapped"], 0)
         self.assertFalse(set(ids["train"]) & set(ids["dev"]))
         self.assertEqual(len(ids["train"]) + len(ids["dev"]), split["n_rows"])
 
     # The label files the rule-v3 candidate m3-berturk-multihead-a-rule-v3-20260918-074806 was trained
-    # on (its heads.json label_sources.a records exactly these digests). The working files have been
-    # regenerated since (m1 0.1.2, m2 0.1.2): their bytes differ, their labels must not.
+    # on (its heads.json label_sources.a records exactly these digests), and the last rule-v3 regeneration
+    # (m1 0.2.1, M1-ROUTE-1.1; same labels, other bytes). Rule v4 is written to the same paths; the
+    # history stays retrievable byte-exact at these commits.
     RULE_V3_TRAINING_FILES = {
         "train": ("7f5e003", "78d845a5fed8dd38441d9ef23f416b85ed8d2ba747d94f5943509550d9fc50c8"),
         "dev": ("7f5e003", "8f4dcdfeec707bd8cb9b52744ff6b72a675cdb94790b64d167b87c12fd603ee7"),
     }
+    RULE_V3_LAST_FILES = {
+        "train": ("dd6a855", "ce3ef280f6dd4ebcbfdc0cc2045d61aa8dc59ef2f1c3c222e9192e1ba785f5f5"),
+        "dev": ("dd6a855", "79afe7b9e0a5fa999c4fa64b3c844064e0b7b851601d88305cfd94d6ed69a468"),
+    }
 
-    def test_rule_v3_training_files_are_preserved_and_their_labels_unchanged(self) -> None:
-        """History stays truthful: the exact bytes the rule-v3 artifact saw are still retrievable at
-        their commit, and while the working files are rule v3 under the same taxonomy, every row
-        carries the same a_label as those bytes."""
+    def shown(self, commit: str, split: str) -> bytes:
         import subprocess
 
-        for split, (commit, digest) in self.RULE_V3_TRAINING_FILES.items():
-            with self.subTest(split=split):
-                shown = subprocess.run(["git", "-C", str(G.AI_ROOT), "show",
-                                        f"{commit}:AI/eval/derived/m1_lexicon_{split}_seed42.json"],
-                                       capture_output=True, timeout=120)
-                if shown.returncode != 0:
-                    self.skipTest(f"git history for {commit} not available: {shown.stderr[-300:]!r}")
-                self.assertEqual(hashlib.sha256(shown.stdout).hexdigest(), digest)
-                old = json.loads(shown.stdout)
-                now = json.loads(self.FILES[split].read_text(encoding="utf-8"))
-                if (now["a_label_rule"]["version"], now["a_label_rule"]["taxonomy_sha256"]) != \
-                        (old["a_label_rule"]["version"], old["a_label_rule"]["taxonomy_sha256"]):
-                    self.skipTest("working files are under another rule: the artifact's training labels are history")
-                self.assertEqual([(r["row_id"], r["a_label"]) for r in now["rows"]],
-                                 [(r["row_id"], r["a_label"]) for r in old["rows"]])
+        shown = subprocess.run(["git", "-C", str(G.AI_ROOT), "show",
+                                f"{commit}:AI/eval/derived/m1_lexicon_{split}_seed42.json"], capture_output=True, timeout=300)
+        if shown.returncode != 0:
+            self.skipTest(f"git history for {commit} not available: {shown.stderr[-300:]!r}")
+        return shown.stdout
+
+    def test_rule_v3_files_are_preserved_byte_exact(self) -> None:
+        """History stays truthful: the exact bytes the rule-v3 artifact was trained on, and the last
+        rule-v3 regeneration, are still retrievable at their commits; both are rule v3 under the same
+        taxonomy digest as the rule-v4 files."""
+        for pins in (self.RULE_V3_TRAINING_FILES, self.RULE_V3_LAST_FILES):
+            for split, (commit, digest) in pins.items():
+                with self.subTest(commit=commit, split=split):
+                    data = self.shown(commit, split)
+                    self.assertEqual(hashlib.sha256(data).hexdigest(), digest)
+                    old = json.loads(data)
+                    now = json.loads(self.FILES[split].read_text(encoding="utf-8"))
+                    self.assertEqual(old["a_label_rule"]["version"], 3)
+                    self.assertEqual(now["a_label_rule"]["version"], 4)
+                    self.assertEqual(old["a_label_rule"]["taxonomy_sha256"], now["a_label_rule"]["taxonomy_sha256"])
+
+    def test_flip_report_is_current_and_lists_every_changed_label(self) -> None:
+        """M1-PREC-1 §8: the committed flip report is exactly what the report tool computes from the
+        committed files, it lists every row whose a_label differs from the rule-v3 training bytes (and
+        no other), every flip is attributed to a rule, and no row's EXCLUDED roots changed."""
+        from eval import m1_lexicon_rule_v4_flips as F
+
+        committed = json.loads(F.OUT_JSON.read_text(encoding="utf-8"))
+        self.assertEqual(committed, json.loads(json.dumps(F.build(), ensure_ascii=False)))
+        self.assertEqual(F.OUT_MD.read_text(encoding="utf-8"), F.render_md(committed))
+        listed = {(r["split"], r["row_id"]) for r in committed["rows"]}
+        changed = set()
+        for split, (commit, _) in self.RULE_V3_TRAINING_FILES.items():
+            old = json.loads(self.shown(commit, split))["rows"]
+            now = json.loads(self.FILES[split].read_text(encoding="utf-8"))["rows"]
+            changed |= {(split, n["row_id"]) for o, n in zip(old, now) if o["a_label"] != n["a_label"]}
+            summary = committed["splits"][split]
+            self.assertEqual(summary["unattributed_flips"], [])
+            self.assertEqual(summary["rows_whose_excluded_roots_differ_from_dd6a855"], [])
+            self.assertEqual(summary["rule_v4_positives"], sum(r["a_label"] == 1 for r in now))
+        self.assertEqual(listed, changed)
+        for row in committed["rows"]:
+            self.assertNotIn("text", row)                  # no corpus text in the committed report
+            self.assertFalse(any("label" in k and "a_label" not in k for k in row), row.keys())
 
     def test_generator_and_sampler_never_name_the_test_set_files(self) -> None:
         """The locked files are `offenseval-tr-testset-v1.tsv` and `offenseval-tr-labela-v1.tsv`

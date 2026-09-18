@@ -17,6 +17,14 @@ Catches:
     non_human (ADR-005); thresholds.yaml decides which codes it may suppress
   * every match in the private `_matches` signal (root, channel, span, route), including the
     matches that emit no content code, for the pseudo-label generator
+  * accepts a match of one of the 17 family-A roots only when it is a real word of that root
+    (protocols/m1_positive_matching_precision_protocol.md, M1-PREC-1, pseudo-label rule v4): not a
+    digit token ("59", "6-7"), not a unit or brand ("4k", "GOT7"), not a clean word behind
+    punctuation ("(Amin)", "sıkı."), not the tail of an apostrophe or masked word ("Bel'am",
+    "ta*ak"), not letters harvested across words ("A mı", "T A M A M"), not an ordinary Turkish word
+    folded into the root ("sıkıldım", "şike", "öç"), not an unrelated "am" word ("amacı", "I am"),
+    not a stable clean form ("AK Parti", "GT", "pc", "book"); a masked letter may complete a
+    family-A root ("ta*ak" -> taşak)
 
 Deliberately does NOT:
   * search free substrings. A root inside a longer word is a collision, never a
@@ -69,8 +77,9 @@ CLEAN_PREFIXES = ("amca", "sikinti")
 # Matched on the Turkish-lowercased, UNFOLDED surface of the whole match, elongation allowed
 # ("amiiin"). Deliberately NOT a CLEAN_PREFIXES entry: folding maps ı -> i, so the prefix "amin"
 # would also swallow "amına koyim" / "aminakoyim". And deliberately dotted-i only: "amın" (dotless)
-# is the genitive of the obscene root and stays a match.
-CLEAN_WORDS = {"amin": re.compile(r"[aâ]+m+i+n+")}
+# is the genitive of the obscene root and stays a match. "amîn" (circumflex i) is the same prayer word
+# (M1-PREC-1 R7, 0.3.0).
+CLEAN_WORDS = {"amin": re.compile(r"[aâ]+m+[iî]+n+")}
 
 WORD = re.compile(r"\w+", re.UNICODE)
 
@@ -127,6 +136,41 @@ COMPOUND_ROOTS: dict[str, tuple[str, ...]] = {
 SPLIT_REASON = "split across words, not the bare root"
 TRAILING_PUNCT = re.compile(r"[^\w\s]+$", re.UNICODE)
 
+# -- POSITIVE-root matching precision (M1-PREC-1, pseudo-label rule v4) --------------------------
+# protocols/m1_positive_matching_precision_protocol.md, rules R1-R9, applied to matches of the ROUTE_A
+# roots only. Data copied from the protocol's PREC_* lines; test_unit.py pins them to the protocol and
+# runs its ACCEPT_* lists. EXCLUDED-root matching (M1-ROUTE-1 §5, M1-ROUTE-1.1) is not touched.
+PREC_EDGE_KEPT = frozenset("@$")                   # terlik's leet letters: never removed, anywhere
+PREC_EDGE_KEPT_LEADING = frozenset("!")            # leet i at a word start; a word-FINAL "!" is punctuation
+PREC_IN_WORD = frozenset("*+!")                    # masks / leet: never a word boundary inside a word
+PREC_IN_WORD_BETWEEN_LETTERS = frozenset(".-_'’‘")   # a.q, o.ç, g.t, taşAK'larını
+PREC_APOSTROPHES = frozenset("'’‘")
+PREC_MASKS = frozenset("*+")
+PREC_CROSS_WORD = frozenset("&")
+# R6: the family-A roots whose Turkish-letter spelling is an ordinary Turkish stem (sık, şık, şike, öç).
+PREC_TURKISH_STEMS: dict[str, tuple[str, ...]] = {"sik": ("sık", "şık", "şik"), "oç": ("öç", "öc")}
+PREC_BACK_VOWELS = frozenset("aıou")
+PREC_HARMONY_BREAK_VOWELS = frozenset("eöü")
+PREC_INVARIANT_SUFFIXES = ("ken",)
+# R7: "am", its case / possessive inflections and the amcık forms, on a letters-only word.
+PREC_AM_FORMS = re.compile(r"am(?:c[ıiu]k\w*|c[ıi]|dan|da|la|lar\w*|[ıi](?:n(?:[ıiae]|d[ae]n?|[ıi]n|[ıi]z\w*)?"
+                           r"|m(?:[ıiae]|d[ae]n?|la|[ıi]z\w*)?|yla)?)?")
+# R8: (root, form, space the pattern reads, pattern). "ananı" is built in _load from terlik's suffixes.
+#   lower  = the word Turkish-lowercased; folded = lowered and folded; cased = the word as written
+PREC_CLEAN_FORMS: tuple[tuple[str, str, str, re.Pattern[str] | None], ...] = (
+    ("amk", "ak", "lower", re.compile(r"a+[._-]?k+")),      # "white", the AK party: never amk (owner)
+    ("amk", "ananı", "folded", None),                       # "your mother": not an obscene root (owner)
+    ("göt", "gt", "lower", re.compile(r"g+t+")),            # Twitter "follow back"; g.t / g*t stay
+    ("göt", "gta", "lower", re.compile(r"gta")),            # game title
+    ("göt", "GOT", "cased", re.compile(r"GOT")),            # all-capitals title; lowercase got stays (owner)
+    ("piç", "pc", "lower", re.compile(r"pc")),              # computer
+    ("bok", "book", "lower", re.compile(r"book")),          # English
+)
+PREC_MASK = "*"                                    # R9: one asterisk = one hidden letter
+SPACED_RUN = re.compile(r"(?<!\S)\S(?: \S)+(?!\S)")   # R5: single characters, ONE space apart
+LETTERS_ONLY = re.compile(r"[^\W\d_]+")
+APOSTROPHE_IN_WORD = re.compile(r"[^\W\d_][" + "".join(sorted(PREC_APOSTROPHES)) + r"][^\W\d_]")
+
 
 def tr_lower(text: str) -> str:
     """Turkish lowercasing that keeps every index: I -> ı, İ -> i, then per-char
@@ -156,7 +200,8 @@ class ChannelResult:
 
 class LexiconModule(BaseModule):
     name = ModuleName.M1_LEXICON
-    version = "0.2.1"    # 0.2.1: M1-ROUTE-1.1 - compound-root word boundaries; punctuation cut (EXCLUDED roots)
+    version = "0.3.0"    # 0.3.0: M1-PREC-1 - POSITIVE-root matching precision (rule v4, R1-R9); amîn is amen
+    #                      0.2.1: M1-ROUTE-1.1 - compound-root word boundaries; punctuation cut (EXCLUDED roots)
     #                      0.2.0: per-root routing A1 / B1 / B2 / B3 / none (M1-ROUTE-1), private `_matches`,
     #                      HOMONYM on mal / domuz compounds, EXCLUDED-root fixes (allık, split across words)
     #                      0.1.2: collision evidence lists roots in a fixed order, not set order
@@ -173,8 +218,17 @@ class LexiconModule(BaseModule):
             from terlik.types import TerlikOptions
         except ImportError as exc:
             raise RuntimeError("terlik is not installed: pip install -r modules/m1_lexicon/requirements.txt") from exc
+        from terlik.lang.tr.config import config as tr_config
         self._normalize = normalize
         self._engine = Terlik(TerlikOptions(mode="balanced"))
+        # M1-PREC-1: terlik's own pattern per root, its whitelist and its suffixes decide "a whole word
+        # of the root"; every spelling (root + variants) of a family-A root is a masked-root template.
+        self._patterns = self._engine.get_patterns()
+        self._whitelist = {w.lower() for w in tr_config.dictionary.whitelist}
+        suffixes = sorted({fold(tr_lower(s)) for s in tr_config.dictionary.suffixes}, key=lambda s: (-len(s), s))
+        self._anani = re.compile(r"anani(?:" + "|".join(map(re.escape, suffixes)) + r"){0,2}")
+        self._spellings = {e.root: sorted({tr_lower(w) for w in [e.root, *e.variants]})
+                           for e in tr_config.dictionary.entries if e.root in ROUTE_A}
         unrouted = set(self._engine.get_patterns()) - set(ROUTE_OF)
         if unrouted:
             raise RuntimeError(f"terlik roots with no M1-ROUTE-1 route {sorted(unrouted)}: "
@@ -202,10 +256,10 @@ class LexiconModule(BaseModule):
         roots: set[str] = set()
 
         for channel, text in channels.items():
-            result = self._scan(text)
+            offsets = raw_map if channel == RAW else self._normalized_offsets(ctx, text, raw_text, raw_map)
+            result = self._scan(text, self._original_view(ctx.text, text, offsets))
             hit[channel] = bool(result.hits)
             roots.update(root for root, _ in result.hits)
-            offsets = raw_map if channel == RAW else self._normalized_offsets(ctx, text, raw_text, raw_map)
             if offsets is None and (result.hits or result.collisions):
                 # No offset map for this channel (m2 published none and the lengths differ): the
                 # flag stands, but a score without a span would be dropped, so none is emitted.
@@ -255,6 +309,14 @@ class LexiconModule(BaseModule):
             },
             notes=notes,
         )
+
+    def _original_view(self, original: str, text: str, offsets: list[int] | None) -> Any:
+        """span in the channel text -> the ORIGINAL text it stands for (M1-PREC-1: R1, R2 and the cased
+        R8 form read the original evidence - m0 lowercases, m2 repairs leet). Without an offset map, the
+        channel text itself."""
+        if offsets is None:
+            return lambda span: text[span[0]:span[1]]
+        return lambda span: original[slice(*self._to_original(original, offsets, span))] if span[0] < span[1] else ""
 
     # -- homonyms (spec §3, §7) ------------------------------------------------
     # A matched ROOT whose standalone surface is also an innocent word in a declared context.
@@ -355,9 +417,233 @@ class LexiconModule(BaseModule):
                 return len(bare)
         return None
 
-    def _scan(self, text: str) -> ChannelResult:
-        lowered = tr_lower(text)
+    # -- POSITIVE-root precision (M1-PREC-1, rule v4) --------------------------------------------
+    # One judgement per terlik candidate of a family-A root: R1 -> R5 -> R3 -> R4 -> R2 -> R6 -> R7 -> R8
+    # (protocol §4). A rejection names its rule: "rule-v4 R<n>: <reason>".
+    @staticmethod
+    def _strip_edges(text: str, span: Span) -> Span:
+        """R3 (a): drop edge punctuation. Kept at an edge: letters, digits, @ and $ (leet letters), and a
+        LEADING "!" (leet i); removed: quotes, brackets, . , : ; ? …, a word-final "!", the hashtag "#",
+        "*" / "+" at an edge, emoji and every other symbol. Whitespace is removed too (spaced runs)."""
+        start, end = span
+        while start < end and not text[start].isalnum() and text[start] not in PREC_EDGE_KEPT \
+                and text[start] not in PREC_EDGE_KEPT_LEADING:
+            start += 1
+        while end > start and not text[end - 1].isalnum() and text[end - 1] not in PREC_EDGE_KEPT:
+            end -= 1
+        return start, end
+
+    @staticmethod
+    def _pieces(text: str, span: Span) -> list[Span]:
+        """R3 (c): the words glued inside one segment. Split at every character that is not
+        alphanumeric, not @ $ * + !, and not a run of . - _ or apostrophes standing between two
+        letters (a.q, g..t, taşAK'larını stay whole)."""
+        start, end = span
+        pieces: list[Span] = []
+        piece_start, i = start, start
+        while i < end:
+            ch = text[i]
+            if ch.isalnum() or ch in PREC_EDGE_KEPT or ch in PREC_IN_WORD:
+                i += 1
+                continue
+            j = i
+            while j < end and text[j] in PREC_IN_WORD_BETWEEN_LETTERS:
+                j += 1
+            if j > i and i > start and j < end and text[i - 1].isalpha() and text[j].isalpha():
+                i = j                                   # a joiner run between two letters: inside the word
+                continue
+            if piece_start < i:
+                pieces.append((piece_start, i))
+            i = max(j, i + 1)
+            piece_start = i
+        if piece_start < end:
+            pieces.append((piece_start, end))
+        return pieces
+
+    def _whole_word(self, root: str, word: str) -> str | None:
+        """Why `word` is not a whole word of `root` (protocol §2), or None: terlik's own pattern for the
+        root must match ALL of it, Turkish-lowercased or through terlik's normalizer; not a terlik
+        whitelist word; not one of m1's clean words (amca, sikinti, amin)."""
+        lowered = tr_lower(word)
+        normalized = self._normalize(word)
+        if lowered in self._whitelist or normalized in self._whitelist or word.lower() in self._whitelist:
+            return f"terlik whitelist word {lowered}"
+        pattern = self._patterns[root]
+        if not (pattern.fullmatch(lowered) or pattern.fullmatch(normalized)):
+            return "not a word of the root"
+        folded = fold(lowered)
+        clean = next((c for c in CLEAN_PREFIXES if folded.startswith(c) and len(c) > len(root)), None)
+        if clean is None:
+            clean = next((c for c, rx in CLEAN_WORDS.items() if rx.fullmatch(lowered)), None)
+        return None if clean is None else f"clean word {clean}"
+
+    def _words_of(self, root: str, text: str, span: Span) -> tuple[list[Span], str | None]:
+        """R3: the word(s) of a candidate - edge-stripped, a whole word of the root, or the glued
+        pieces of a segment that are - with the rejection reason when there is none."""
+        start, end = self._strip_edges(text, span)
+        if start >= end:
+            return [], "rule-v4 R3: no word left after edge punctuation"
+        reason = self._whole_word(root, text[start:end])
+        if reason is None:
+            return [(start, end)], None
+        words = []
+        for piece in self._pieces(text, (start, end)):
+            if piece == (start, end):
+                continue
+            p_start, p_end = self._strip_edges(text, piece)
+            if p_start < p_end and self._whole_word(root, text[p_start:p_end]) is None:
+                words.append((p_start, p_end))
+        return words, (None if words else f"rule-v4 R3: {reason}")
+
+    @staticmethod
+    def _tail_of_a_longer_word(text: str, span: Span) -> str | None:
+        """R4 (a): a word right after an apostrophe or a mask that follows a letter is a tail."""
+        start = span[0]
+        if start >= 2 and (text[start - 1] in PREC_APOSTROPHES or text[start - 1] in PREC_MASKS) \
+                and text[start - 2].isalpha():
+            return "rule-v4 R4: tail of an apostrophe or masked word"
+        return None
+
+    @staticmethod
+    def _after_english_i(text: str, start: int) -> bool:
+        """A lone I / i token, then whitespace, right before `start` (R7: "I am")."""
+        i = start
+        while i > 0 and text[i - 1].isspace():
+            i -= 1
+        return i < start and i >= 1 and text[i - 1] in "Iiİı" and (i == 1 or text[i - 2].isspace())
+
+    def _word_rules(self, root: str, word: str, evidence: str, text: str, start: int) -> str | None:
+        """R2, R6, R7, R8 on one word. `evidence` is the original text the word stands for (R2, cased R8)."""
+        if any(s and (s[0].isdigit() or s[-1].isdigit()) for s in (word, evidence)):
+            return "rule-v4 R2: digit at the word edge"
+        lowered = tr_lower(word)
+        stems = PREC_TURKISH_STEMS.get(root)
+        if stems:
+            letters = re.sub(r"(.)\1+", r"\1", "".join(ch for ch in lowered if ch not in PREC_IN_WORD_BETWEEN_LETTERS))
+            stem = next((s for s in stems if letters.startswith(s)), None)
+            if stem is not None:
+                rest = letters[len(stem):]
+                for suffix in PREC_INVARIANT_SUFFIXES:
+                    rest = rest.replace(suffix, "")
+                back_stem = any(v in PREC_BACK_VOWELS for v in stem)
+                if not (back_stem and any(v in PREC_HARMONY_BREAK_VOWELS for v in rest)):
+                    return f"rule-v4 R6: Turkish spelling {stem}, a different word"
+        if root == "am":
+            plain = lowered.replace("â", "a").replace("î", "i")
+            if LETTERS_ONLY.fullmatch(plain):
+                if plain == "am" and self._after_english_i(text, start):
+                    return "rule-v4 R7: English 'I am'"
+                if not PREC_AM_FORMS.fullmatch(plain):
+                    return f"rule-v4 R7: not an obscene am form ({plain})"
+        for form_root, form, space, pattern in PREC_CLEAN_FORMS:
+            if form_root != root:
+                continue
+            target = evidence if space == "cased" else fold(lowered) if space == "folded" else lowered
+            if (pattern or self._anani).fullmatch(target):
+                return f"rule-v4 R8: clean form {form}"
+        return None
+
+    def _valid_word(self, root: str, word: str, evidence: str, text: str, start: int) -> str | None:
+        """R4 (b), then R2, R6, R7, R8, on a whole word of the root: why it is not a valid word, or None."""
+        apostrophe = APOSTROPHE_IN_WORD.search(word)
+        if apostrophe is not None:
+            head = word[:apostrophe.start() + 1]
+            if self._whole_word(root, head) is not None or self._word_rules(root, head, head, text, start) is not None:
+                return "rule-v4 R4: the root is not before the apostrophe"
+        return self._word_rules(root, word, evidence, text, start)
+
+    def _judge_word(self, root: str, text: str, span: Span, original: Any) -> str | None:
+        """R4 (a) and _valid_word on one word span (already a whole word of the root)."""
+        return self._tail_of_a_longer_word(text, span) or \
+            self._valid_word(root, text[span[0]:span[1]], original(span), text, span[0])
+
+    def _spaced_run(self, text: str, span: Span) -> Span | None:
+        """R5 (b): the spaced run (single characters, ONE space apart) that holds the candidate."""
+        for run in SPACED_RUN.finditer(text):
+            if run.start() <= span[0] and span[1] <= run.end():
+                return run.span()
+        return None
+
+    def _positive_cut(self, root: str, text: str, span: Span, original: Any) -> Span | None:
+        """R5 (a): the first whitespace-token prefix that ends in punctuation and, without it, is a
+        valid word of the root (M1-ROUTE-1.1 §2's cut, for POSITIVE roots). Never lengthens a span."""
+        start, end = span
+        parts = text[start:end].split(" ")
+        for k in range(1, len(parts)):
+            prefix = " ".join(parts[:k])
+            bare = TRAILING_PUNCT.sub("", prefix)
+            if bare == prefix or not bare.strip() or any(ch.isspace() for ch in bare):
+                continue
+            words, _ = self._words_of(root, text, (start, start + len(bare)))
+            if len(words) == 1 and self._judge_word(root, text, words[0], original) is None:
+                return words[0]
+        return None
+
+    def _judge_positive(self, root: str, text: str, span: Span, original: Any) -> tuple[list[Span], str | None]:
+        """The hit span(s) M1-PREC-1 keeps for one candidate of a family-A root, or the rejection."""
+        surface = text[span[0]:span[1]]
+        if not any(ch.isalpha() for ch in original(span)):
+            return [], "rule-v4 R1: no letter"
+        if any(ch.isspace() or ch in PREC_CROSS_WORD for ch in surface):
+            cut = self._positive_cut(root, text, span, original)
+            if cut is not None:
+                return [cut], None
+            run = self._spaced_run(text, span)
+            if run is None:
+                return [], "rule-v4 R5: split across words"
+            run = self._strip_edges(text, run)
+            joined = text[run[0]:run[1]].replace(" ", "")
+            reason = self._whole_word(root, joined) if joined else "empty"
+            if reason is not None:
+                return [], f"rule-v4 R5: spaced run {joined} is not a word of the root ({reason})"
+            reason = self._valid_word(root, joined, original(run).replace(" ", ""), text, run[0])
+            return ([run], None) if reason is None else ([], f"{reason} (spaced run {joined})")
+        words, reason = self._words_of(root, text, span)
+        kept = []
+        for word in words:
+            reason = self._judge_word(root, text, word, original)
+            if reason is None:
+                kept.append(word)
+        return kept, (None if kept else reason)
+
+    def _masked_hits(self, text: str, lowered: str, taken: list[Span], original: Any) -> list[tuple[str, Span]]:
+        """R9: a token whose asterisk(s) complete a spelling of a family-A root. One asterisk is one
+        hidden letter; the writer's other letters are kept; the rebuilt word must be a valid word."""
         hits: list[tuple[str, Span]] = []
+        for token in re.finditer(r"\S+", text):
+            if PREC_MASK not in token.group():
+                continue
+            start, end = self._strip_edges(text, token.span())
+            word = lowered[start:end]
+            if not any(0 < i < len(word) - 1 and word[i - 1].isalnum() and word[i + 1].isalnum()
+                       for i, ch in enumerate(word) if ch == PREC_MASK):
+                continue
+            if any(s < end and start < e for s, e in taken):
+                continue
+            last_mask = word.rindex(PREC_MASK)
+            for root in sorted(ROUTE_A):
+                for spelling in self._spellings.get(root, ()):
+                    n = len(spelling)
+                    if n <= last_mask or n > len(word):
+                        continue
+                    if not all(c == PREC_MASK or fold(c) == fold(s) for c, s in zip(word, spelling)):
+                        continue
+                    rebuilt = "".join(s if c == PREC_MASK else c for c, s in zip(word, spelling)) + word[n:]
+                    if self._whole_word(root, rebuilt) is None and \
+                            self._valid_word(root, rebuilt, original((start, end)), text, start) is None:
+                        hits.append((root, (start, end)))
+                        break
+                else:
+                    continue
+                break
+        return hits
+
+    def _scan(self, text: str, original: Any = None) -> ChannelResult:
+        """terlik's matches on one channel text, judged. `original`: channel span -> the original text it
+        stands for (M1-PREC-1 reads the original evidence for R1, R2 and the cased R8 form)."""
+        original = original or (lambda span: text[span[0]:span[1]])
+        lowered = tr_lower(text)
+        candidates: list[tuple[str, Span]] = []
         collisions: list[tuple[str, Span]] = []
         for match in self._engine.get_matches(lowered):
             matched = self._tighten(match)
@@ -367,17 +653,40 @@ class LexiconModule(BaseModule):
             if clean is None:
                 clean = next((c for c, rx in CLEAN_WORDS.items() if rx.fullmatch(matched.strip())), None)
             if clean is None:
-                hits.append((match.root, span))
+                candidates.append((match.root, span))
             else:
                 collisions.append((f"{match.root} in {matched} (clean word {clean})", span))
+
         # A hit strictly inside another hit's span is an artefact of separator tolerance
         # ("a k" inside "s a l a k"): the enclosing match is the word, the inner one is not.
-        hits = [h for h in hits if not any(o is not h and o[1][0] <= h[1][0] and h[1][1] <= o[1][1] and o[1] != h[1]
-                                           for o in hits)]
-        # M1-ROUTE-1 §5: fixes for rule-v3 EXCLUDED roots only, applied AFTER the nested-hit filter
-        # so every POSITIVE-root hit (and whether it was nested) is exactly what it was before.
+        def nested(hit: tuple[str, Span], pool: list[tuple[str, Span]]) -> bool:
+            return any(o[1][0] <= hit[1][0] and hit[1][1] <= o[1][1] and o[1] != hit[1] for o in pool)
+
+        # EXCLUDED roots: exactly as before M1-PREC-1 - nested against every terlik candidate.
+        excluded = [c for c in candidates if c[0] not in ROUTE_A]
+        excluded_hits = [c for c in excluded if not nested(c, candidates)]
+
+        # POSITIVE roots (M1-PREC-1 §4): judged BEFORE the nested-hit filter, so a rejected glued
+        # segment ("[piç(3)") does not hide the valid word inside it ("piç").
+        positive_kept: list[tuple[str, Span]] = []
+        rejected: list[tuple[str, Span, str]] = []
+        for root, span in (c for c in candidates if c[0] in ROUTE_A and not nested(c, excluded)):
+            spans, reason = self._judge_positive(root, text, span, original)
+            positive_kept += [(root, s) for s in spans if (root, s) not in positive_kept]
+            if not spans:
+                rejected.append((root, span, reason or "rule-v4"))
+        taken = [s for _, s in positive_kept] + [s for _, s in excluded]
+        positive_kept += [h for h in self._masked_hits(text, lowered, taken, original) if h not in positive_kept]
+        positive_kept = [h for h in positive_kept if not nested(h, positive_kept + excluded)]
+        for root, span, reason in rejected:
+            evidence = f"{root} in {lowered[span[0]:span[1]].strip()} ({reason})"
+            if not any(s < span[1] and span[0] < e for _, (s, e) in positive_kept) \
+                    and (evidence, span) not in collisions:
+                collisions.append((evidence, span))
+
+        # M1-ROUTE-1 §5 / M1-ROUTE-1.1: fixes for rule-v3 EXCLUDED roots only, unchanged.
         kept: list[tuple[str, Span]] = []
-        for root, span in hits:
+        for root, span in excluded_hits:
             matched = lowered[span[0]:span[1]]
             reason = self._excluded_rejection(root, matched)
             cut = self._punctuation_cut(root, matched) if reason == SPLIT_REASON else None
@@ -387,7 +696,7 @@ class LexiconModule(BaseModule):
                 kept.append((root, (span[0], span[0] + cut)))      # M1-ROUTE-1.1 §2: the complete word only
             else:
                 collisions.append((f"{root} in {matched.strip()} ({reason})", span))
-        hits = kept
+        hits = sorted(positive_kept + kept, key=lambda h: (h[1][0], h[1][1], h[0]))
         for token in WORD.finditer(lowered):
             span = token.span()
             if any(s < span[1] and span[0] < e for _, (s, e) in hits + collisions):
