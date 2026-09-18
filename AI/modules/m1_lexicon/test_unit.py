@@ -3,6 +3,9 @@ from __future__ import annotations
 
 import copy
 import json
+import os
+import subprocess
+import sys
 import unittest
 from pathlib import Path
 from types import MappingProxyType
@@ -192,6 +195,26 @@ class LexiconModuleBehaviourTest(unittest.TestCase):
                 out = self.run_m1(text)
                 self.assertEqual(out.content, [])
                 self.assertFalse(out.signals["lexicon_hit"])
+
+    def test_collision_evidence_does_not_depend_on_the_hash_seed(self) -> None:
+        """Roots found inside one collision word are listed longest first, then alphabetically. They
+        used to follow set iteration order, i.e. PYTHONHASHSEED: under seeds 2 and 3 "hocam" read
+        "oc/am", under seed 0 "am/oc", so the derived label files differed byte-wise between runs.
+        Each seed runs in its own interpreter, because the seed is fixed at interpreter start."""
+        text = "Tamamdır hocam"
+        expected = ["raw: am in tamamdır", "raw: am/oc in hocam"]
+        self.assertEqual([g.evidence for g in self.run_m1(text).guards], expected)
+        script = ("import json, sys; from contracts.module_api import Context; "
+                  "from modules.m1_lexicon.module import LexiconModule; "
+                  "out = LexiconModule().process(Context(text=sys.argv[1])); "
+                  "sys.stdout.buffer.write(json.dumps([g.evidence for g in out.guards]).encode())")
+        root = Path(__file__).resolve().parents[2]
+        for seed in ("0", "2", "3"):
+            with self.subTest(PYTHONHASHSEED=seed):
+                run = subprocess.run([sys.executable, "-c", script, text], cwd=root, capture_output=True,
+                                     env={**os.environ, "PYTHONHASHSEED": seed}, timeout=300)
+                self.assertEqual(run.returncode, 0, run.stderr.decode("utf-8", "replace")[-2000:])
+                self.assertEqual(json.loads(run.stdout.decode("utf-8")), expected)
 
     def test_amen_is_a_clean_word_not_the_obscene_root(self) -> None:
         """terlik reads "amin" (amen) as am + in; its whitelist holds only the English "amen". Prayer

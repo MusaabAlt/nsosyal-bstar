@@ -114,7 +114,7 @@
   },
   "fast_path": false,
   "trace_id": "example-trace-id",
-  "artifact_hash": "4c6b16e6be3025a746c70cb00ef0999d0ca80998a81e27cb1f99c57196ce255e",
+  "artifact_hash": "dbd9c9f1386679818489ea1b6a1c84d605fc0f2fef96b8d817ef41d2032658f3",
   "notes": [
     "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m5_sarcasm (stub)",
     "[m4_implicit] C1–C5 not implemented yet",

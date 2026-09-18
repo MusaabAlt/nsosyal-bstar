@@ -94,7 +94,8 @@ class ChannelResult:
 
 class LexiconModule(BaseModule):
     name = ModuleName.M1_LEXICON
-    version = "0.1.1"    # 0.1.1: "amin" / "âmin" (amen) is a clean whole word, not am + in
+    version = "0.1.2"    # 0.1.2: collision evidence lists roots in a fixed order, not set order
+    #                      0.1.1: "amin" / "âmin" (amen) is a clean whole word, not am + in
     provides = frozenset({"content", "guards"})
     # ADR-001 runtime enforcement: whether content scores / guards carry spans.
     # spec.md §3: every match and every guard carries the span of the triggering substring.
@@ -109,7 +110,10 @@ class LexiconModule(BaseModule):
         self._engine = Terlik(TerlikOptions(mode="balanced"))
         # Compile the patterns now (class-level cache inside terlik), not on the first post.
         self._engine.get_matches("warmup")
-        self._roots = sorted({fold(root) for root in self._engine.get_patterns()}, key=len, reverse=True)
+        # Longest first, then alphabetical. Sorting on length alone kept equal-length roots in SET
+        # order, which follows PYTHONHASHSEED: "hocam" was reported as "am/oc" or "oc/am" depending on
+        # the process, so the derived label files were not byte-reproducible (labels were unaffected).
+        self._roots = sorted({fold(root) for root in self._engine.get_patterns()}, key=lambda root: (-len(root), root))
 
     def _run(self, ctx: Context) -> ModuleOutput:
         raw_text = ctx.best_text(RAW)
