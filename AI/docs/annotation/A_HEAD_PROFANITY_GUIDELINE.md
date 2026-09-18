@@ -1,8 +1,9 @@
-# Annotation guideline — "profanity present" for m3's A head (dev oracle), v1.0
+# Annotation guideline — "profanity present" for m3's A head (dev oracle), v1.1
 
-- **Status:** SEALED on commit (2026-09-18). A change to a rule means a new version number, a
-  re-read of every already-labelled row under the new rule, and a new sample id file. Labels
-  produced under v1.0 are never mixed with labels produced under another version.
+- **Status:** v1.1, SEALED on commit (2026-09-18). A change to a rule means a new version number,
+  a re-read of every already-labelled row under the new rule, and a new sample id file. Labels
+  produced under one version are never mixed with labels produced under another. v1.1 superseded
+  v1.0 before any row was labelled, so no re-read was needed (§10, version history).
 - **Purpose:** the **human evaluation oracle** for m3's A head ("profanity present", A1 carrier,
   ADR-005). Owner decision 2026-09-18 (HYBRID strategy): the A head is *trained* on terlik-derived
   pseudo-labels (train split) and *evaluated only* against this human-labelled dev subset. Every
@@ -27,14 +28,17 @@ For each post, answer **one** question:
 - `0` = no.
 
 "Profane expression" means a lexical item a Turkish speaker recognises as küfür / argo of the
-obscene kind: the roots a profanity lexicon is built from and their inflected, suffixed,
-compounded, abbreviated or obfuscated forms. The judgement is about the **word**, not about how
-offensive the post is overall.
+**obscene** kind: an obscene or profane root and its inflected, suffixed, compounded, abbreviated
+or obfuscated forms. The test is whether the root itself is obscene or profane — not whether the
+word is insulting, and not whether it appears on a profanity word list, since such lists also hold
+ordinary insults. An ordinary or mild insult that is derogatory but has no obscene or profane root
+(`aptal`, `salak`, `eşek herif`) is `0`, unless the same post also contains a genuine profane
+root. The judgement is about the **word**, not about how offensive the post is overall.
 
 ## 2. Decision procedure (in this order)
 
-1. **Read the post de-obfuscated in your head.** Leet (`g0t`), separators (`s.a.l.a.k`),
-   repetition (`aptaaaal`), missing Turkish letters (`sikinti` vs `sıkıntı`), spacing and
+1. **Read the post de-obfuscated in your head.** Leet (`g0t`), separators (`s.i.k.t.i.r`),
+   repetition (`siktiiiir`), missing Turkish letters (`sikinti` vs `sıkıntı`), spacing and
    abbreviations (`amk`, `aq`, `oç`) are all read as the word they stand for. Obfuscation never
    changes the answer (Axis 2 sits on top of content).
 2. **Find the candidate word(s).** Is there a token whose root is a profane root?
@@ -53,6 +57,7 @@ offensive the post is overall.
 |---|---|---|
 | **general offensiveness without a profane word** (`Bu suratla aynaya nasıl bakıyorsun`, `Onlardan başka ne beklenir`) | the corpus's OFF/NOT label is a different question; 63.5 % of OFF posts carry no profane root (study) | B or C family, judged elsewhere |
 | **a B-family expression** — a threat, a degrading remark, exclusion, sexual aggression **stated without a profane root** (`Seni bulurum`, `Çirkinsin`) | direct, literal harm is not lexical profanity | B1 / B2 / B3 / B5 (m3's B head) |
+| **an ordinary or mild insult** — a derogatory word with **no obscene or profane root** (`aptal`, `salak`, `eşek herif`) | the A head is explicit profanity: an obscene or profane root must be present. Being insulting is not enough (owner decision, v1.1) | outside the A head (e.g. B1, as for `eşek herif`); `1` only if the post also carries a genuine profane root |
 | **a C-family expression** — a stereotype, dehumanisation, coded or veiled expression, incitement, defamation whose harm is *implied* | the operational test of m4 spec §3: the harmful claim is reconstructed, not written | C1–C5 (m3's C head) |
 | **a sacred-concept expression** (swearing built on `Allah`, `kitap`, `din` and the like) | `A4` is concept-based and its approved root table does not exist yet (`docs/blockers/m1_a4_sacred_concepts.md`). Until the owner approves an A4 definition, sacred-concept content is **not** "profanity present" for this oracle. Record it: `notes: "A4 candidate"` | pending A4 |
 | **quoted or reported profanity** — the author repeats someone else's words to report, condemn or discuss them (`"…" demiş, ayıp`, counter-speech, meta-discussion about a swear word, a dictionary-style mention) | the word is *mentioned*, not *used*; the author is not swearing | CLEAN + quote guard, or another family |
@@ -62,10 +67,11 @@ offensive the post is overall.
 
 Two more rules:
 
-- **Dual-register words** (words with an innocent and a profane sense, e.g. body-part words,
-  animal words used as insults): `1` only when the profane sense is the one used. `Eşek gibi
-  çalıştım` is `0`; `Eşek herif` is a vulgar insult but not an obscene root — it is `0` under this
-  guideline (it belongs to B1), unless the post also carries a profane root.
+- **Dual-register words** (words with an innocent sense and an obscene sense, e.g. body-part
+  words): `1` only when the obscene sense is the one used. An animal word has an insulting sense
+  but no obscene one, so it falls under the ordinary-insult row above: `Eşek gibi çalıştım` is `0`
+  (ordinary sense) and `Eşek herif` is `0` (insult, no obscene root; it belongs to B1), unless the
+  post also carries a profane root.
 - **Self-directed or joking profanity** (`amına koyim ya, unutmuşum`): `1`. The oracle asks
   whether the word is present and used, not whether anyone is harmed.
 
@@ -142,13 +148,21 @@ copy them anywhere else.
 
 | post | label | note |
 |---|---|---|
-| `Sen ne aptal bir adamsın` | 1 | vulgar insult root `aptal`, used |
+| `Sen ne aptal bir adamsın` | 0 | ordinary insult, no obscene root (`1` in v1.0 — corrected in v1.1) |
+| `Salak herif, siktir git` | 1 | ordinary insult plus a genuine profane root (`siktir`): the profane root decides |
 | `Bu film tam bir bok` | 1 | profane root, non-human target — target is irrelevant here |
 | `s.i.k.t.i.r git` | 1 | obfuscated, read de-obfuscated |
 | `Sıkıntı yok, amca geldi` | 0 | substring collisions only |
 | `Saat 10 am'de görüşürüz` | 0 | homonym (`am` = time) |
-| `Adam bana "aptal" demiş, ayıp` | 0 | quoted / reported |
+| `Adam bana "siktir git" demiş, ayıp` | 0 | quoted / reported: the profane word is mentioned, not used |
 | `Onlardan başka ne beklenir zaten` | 0 | C1 stereotype, no profane word |
 | `Seni bulurum, bekle` | 0 | B2 threat, no profane word |
 | `Allah belanı versin` | 0 | `A4 candidate` (sacred concept, pending) |
-| `Eşek gibi çalıştım bugün` | 0 | dual-register word, innocent sense |
+| `Eşek gibi çalıştım bugün` | 0 | animal word, ordinary sense, no obscene root |
+
+## 10. Version history
+
+| version | date | change | labelled rows affected |
+|---|---|---|---|
+| v1.0 | 2026-09-18 | first sealed version | none: never used for labelling |
+| v1.1 | 2026-09-18 | Owner decision: the A head is **explicit profanity**. An ordinary or mild insult with no obscene or profane root (`aptal`, `salak`, `eşek herif`) is `0`, unless the post also carries a genuine profane root; general insult and offensiveness stay outside the A head. v1.0 contradicted itself here: §3 scored `Eşek herif` `0` as "a vulgar insult but not an obscene root" while §9 scored `aptal`, equally a non-obscene insult, `1`. Changed: §1 anchors "profane expression" to an obscene or profane root instead of "the roots a profanity lexicon is built from"; §2's de-obfuscation examples `s.a.l.a.k` and `aptaaaal` (both non-obscene insults, which read as profanity examples) become `s.i.k.t.i.r` and `siktiiiir`; §3 gains the ordinary-insult row and the dual-register rule's framing is corrected; §9 corrects `aptal` from `1` to `0`, adds one combination example, and its quotation example now quotes a genuine profane word instead of `aptal`. The de-obfuscation, quotation and every other rule are unchanged; only these examples and the definition changed | none |
