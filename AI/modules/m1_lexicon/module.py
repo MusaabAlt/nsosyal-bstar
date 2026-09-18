@@ -499,7 +499,7 @@ class LexiconModule(BaseModule):
     def _tail_of_a_longer_word(text: str, span: Span) -> str | None:
         """R4 (a): a word right after an apostrophe or a mask that follows a letter is a tail."""
         start = span[0]
-        if start >= 2 and (text[start - 1] in PREC_APOSTROPHES or text[start - 1] in PREC_MASKS) \
+        if start > 1 and (text[start - 1] in PREC_APOSTROPHES or text[start - 1] in PREC_MASKS) \
                 and text[start - 2].isalpha():
             return "rule-v4 R4: tail of an apostrophe or masked word"
         return None

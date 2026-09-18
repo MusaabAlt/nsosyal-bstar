@@ -67,7 +67,7 @@ def historical(commit: str, split: str, digest: str) -> dict[str, Any]:
 def current(split: str) -> tuple[dict[str, Any], str]:
     path = DERIVED / f"m1_lexicon_{split}_seed42.json"
     data = json.loads(path.read_text(encoding="utf-8"))
-    G.require(data["a_label_rule"]["version"] == 4, f"{path.name} is not a rule-v4 file")
+    G.require(data["a_label_rule"]["version"] == G.A_LABEL_RULE_VERSION, f"{path.name} is not a rule-v4 file")
     return data, G.sha256_file(path)
 
 

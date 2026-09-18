@@ -65,7 +65,10 @@ OPERATIONAL_LIMITS = {"MAX_BODY_BYTES": "HTTP request body size limit in api/mai
                       "seed": "the frozen split's seed (42) checked by eval/m1_lexicon_labels.py against the split "
                               "file: an identity check on an input, not a score cut-off",
                       "A_LABEL_RULE_VERSION": "version number of the pseudo-label rule, compared with a derived "
-                                              "file's header by --check: an identity check, not a score cut-off"}
+                                              "file's header by --check: an identity check, not a score cut-off",
+                      "TAXONOMY_VERSION": "version number of the frozen A-head taxonomy (rule v4 keeps rule v3's), "
+                                          "compared with a derived file's header by --check: an identity check, "
+                                          "not a score cut-off"}
 
 # tests/ is not scanned for literals: decision-layer tests must pin their own
 # thresholds to test the decision layer independently of placeholder values.
