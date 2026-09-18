@@ -261,6 +261,31 @@ class EndToEndTest(unittest.TestCase):
             self.assertFalse(result.signals["decision"]["post_offensive"], diagnose(result))
         self.check_verdict(result, actions.DEGRADED_ACTION, "degraded")
 
+    def test_prayer_word_with_exclamation_carries_no_obscene_root(self) -> None:
+        """Review 2026-09-18: "Amiiin!" reached A1 through m2's parallel channel ("!" read as a leet "i"
+        gave "amini" = am + ini). Fixed in m2 (0.1.2), not by widening m1's clean-word guard: the
+        obscene neighbours below must keep their family-A hit on this same path."""
+        for text in ("Amiiin!", "Allah razı olsun amin!", "AMİN!", "amin!?"):
+            with self.subTest(clean=text):
+                result = self.pipeline.analyze(text)
+                self.check_preconditions_held(result)
+                self.check_interfaces(result)
+                m1 = result.signals["m1_lexicon"]
+                self.assertFalse(m1["lexicon_hit_raw"] or m1["lexicon_hit_norm"], diagnose(result))
+                self.assertEqual(m1["matched_roots"], [], diagnose(result))
+                self.assertEqual([s for s in result.content if s.source.startswith("m1_lexicon")], [], diagnose(result))
+                self.assertTrue(any(g.code is GuardCode.SUBSTRING_COLLISION for g in result.guards), diagnose(result))
+        family_a = {ContentCode.A1, ContentCode.A2, ContentCode.A3}
+        for text, root in (("amına koyim", "amk"), ("aminakoyim", "amk"), ("senin amın", "am"), ("am", "am"),
+                           ("am!na koyim", "amk"), ("amk!", "amk")):
+            with self.subTest(obscene=text):
+                result = self.pipeline.analyze(text)
+                self.check_preconditions_held(result)
+                self.assertTrue(result.signals["m1_lexicon"]["lexicon_hit"], diagnose(result))
+                self.assertIn(root, result.signals["m1_lexicon"]["matched_roots"], diagnose(result))
+                self.assertTrue(any(s.code in family_a and s.source.startswith("m1_lexicon") for s in result.content),
+                                diagnose(result))
+
     def test_non_overlapping_collision_guard_suppresses_nothing(self) -> None:
         text = "Sen bir gerizekalısın, amcam da öyle"
         result = self.pipeline.analyze(text)

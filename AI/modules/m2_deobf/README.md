@@ -21,7 +21,7 @@ its notes.
 
 | Code | Tier | Rule |
 |---|---|---|
-| `LEET` | 1 | digit / symbol inside a token that also has letters, mapped by the fixed table (`4`→`a`, `3`→`e`, `1`→`i`, `0`→`o`, `5`→`s`, `7`→`t`, `8`→`b`, `6`/`9`→`g`, `@`→`a`, `$`→`s`, `!`→`i`, `2`→`i`); pure numbers, times, dates and protected tokens are never touched |
+| `LEET` | 1 | digit / symbol inside a token that also has letters, mapped by the fixed table (`4`→`a`, `3`→`e`, `1`→`i`, `0`→`o`, `5`→`s`, `7`→`t`, `8`→`b`, `6`/`9`→`g`, `@`→`a`, `$`→`s`, `!`→`i`, `2`→`i`); pure numbers, times, dates and protected tokens are never touched. An `!` that no letter follows closes the word and stays punctuation (0.1.2: `Amin!` is not `amini`); a word-internal `!` (`s!ktir`) is still leet |
 | `REPEAT` | 1 | a run of three or more identical letters folds to one (Turkish has legitimate doubles — `anne`, `elli` — never triples) |
 | `SPACED` | 1 | three or more single letters separated by single spaces join into one token |
 | `PUNCT_SPLIT` | 1 | three or more letters separated by the same punctuation character (`.`, `-`, `_`, `,`, `/`, `+`, `|`) join; `*` is excluded because it masks a letter rather than separating letters (spec §4) |

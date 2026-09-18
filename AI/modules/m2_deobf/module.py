@@ -104,9 +104,16 @@ def _is_letter(ch: str) -> bool:
     return ch.isalpha()
 
 
+def _leet_can_follow_bang(nxt: str) -> bool:
+    """True when the character after an "!" keeps the word going: a letter, or another leet symbol
+    that is not itself an "!". End of token, "!!" and "!?" all mean the "!" is punctuation."""
+    return nxt.isalpha() or (nxt in LEET_MAP and nxt != "!")
+
+
 class DeobfModule(BaseModule):
     name = ModuleName.M2_DEOBF
-    version = "0.1.1"    # 0.1.1: tier-2 latency guard made history-independent (charged per post, not per cache miss)
+    version = "0.1.2"    # 0.1.2: a word-final "!" is punctuation, never a leet "i" ("Amin!" is not "amini")
+    #                      0.1.1: tier-2 latency guard made history-independent (charged per post, not per cache miss)
     provides = frozenset({"normalized_text", "form"})
     # ADR-001 runtime enforcement: whether content scores / guards carry spans.
     # emits no content scores or guards (its form patterns carry spans when a map exists).
@@ -309,12 +316,17 @@ class DeobfModule(BaseModule):
             repairs.append(Repair(FormCode.PUNCT_SPLIT, CONF_PUNCT_SPLIT, span, surface, "".join(c for _, c in chunk)))
             surface = "".join(c for _, c in chunk)
 
-        # LEET: only where the mapped characters sit among letters of a real word shape
+        # LEET: only where the mapped characters sit among letters of a real word shape.
+        # An "!" that nothing letter-like follows closes the word: it is an exclamation mark, never a
+        # leet "i". Mapping it turned the prayer word "Amin!" into "amini", which m1 then read as the
+        # obscene root am + ini (0.1.2). A word-internal "!" ("s!ktir", "am!na") is still leet.
         letters = [c for c in surface if _is_letter(c)]
-        leet = [k for k, (_, c) in enumerate(chunk) if c in LEET_MAP]
+        leet = [k for k, (_, c) in enumerate(chunk)
+                if c in LEET_MAP and (c != "!" or _leet_can_follow_bang(surface[k + 1:k + 2]))]
         if leet and len(letters) >= 2 and len(leet) <= len(letters) and "'" not in surface and "’" not in surface \
                 and all(surface[k - 1:k].isalpha() or surface[k + 1:k + 2].isalpha() for k in leet):
-            chunk = [(i, LEET_MAP.get(c, c)) for i, c in chunk]
+            positions = set(leet)
+            chunk = [(i, LEET_MAP[c]) if k in positions else (i, c) for k, (i, c) in enumerate(chunk)]
             after = "".join(c for _, c in chunk)
             repairs.append(Repair(FormCode.LEET, CONF_LEET, span, surface, after))
             surface = after

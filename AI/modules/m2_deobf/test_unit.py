@@ -144,6 +144,29 @@ class DeobfModuleBehaviourTest(unittest.TestCase):
         self.assertEqual(self.codes(out), ["LEET"])
         self.assertEqual(out.form.patterns[0].evidence, "5al4k")
 
+    def test_word_final_exclamation_is_punctuation_not_leet(self) -> None:
+        """An "!" closing a word is an exclamation mark. Read as a leet "i" it turned the prayer word
+        "Amin!" into "amini", which m1 matches as the obscene root am + ini (review 2026-09-18)."""
+        for text, normalized, codes in (("Amin!", "amin!", []), ("Amiiin!", "amin!", ["REPEAT"]),
+                                        ("AMİN!", "amin!", []), ("âmin!", "âmin!", []), ("amin!?", "amin!?", []),
+                                        ("amin!!", "amin!!", []), ("Allah razı olsun amin!", "allah razı olsun amin!", []),
+                                        ("amk!", "amk!", [])):
+            with self.subTest(text=text):
+                out = self.run_m2(text)
+                self.assertEqual(out.normalized_text, normalized)
+                self.assertEqual(self.codes(out), codes)
+                self.assertNotIn("amini", out.normalized_text)
+
+    def test_word_internal_exclamation_is_still_leet(self) -> None:
+        """The fix is narrow: an "!" with a letter (or another leet symbol) after it still stands for "i",
+        and a token keeps its internal repair while its closing "!" stays punctuation."""
+        for text, normalized in (("am!na koyim", "amina koyim"), ("s!ktir git", "siktir git"), ("s!k", "sik"),
+                                 ("s!1k", "siik"), ("s!k!", "sik!")):
+            with self.subTest(text=text):
+                out = self.run_m2(text)
+                self.assertEqual(out.normalized_text, normalized)
+                self.assertEqual(self.codes(out), ["LEET"])
+
     def test_repeat(self) -> None:
         out = self.run_m2("saaalaaak herif")
         self.assertEqual(out.normalized_text, "salak herif")
