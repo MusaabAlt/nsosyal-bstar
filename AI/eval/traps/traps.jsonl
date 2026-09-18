@@ -31,3 +31,5 @@
 {"id": "trap-031", "text": "PSİKOLOJİ", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
 {"id": "trap-032", "text": "KLASİK", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
 {"id": "trap-033", "text": "AMİR", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-034", "text": "Allah kabul etsin, amin", "must_not_fire": ["*"], "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-035", "text": "Allah akıl fikir versin AMİN", "must_not_fire": ["*"], "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}

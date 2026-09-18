@@ -54,6 +54,15 @@ FOLD = str.maketrans("çğıöşü", "cgiosu")
 # per-process pattern cache and costs ~7 s on every construction.
 CLEAN_PREFIXES = ("amca", "sikinti")
 
+# Clean WHOLE words that terlik 0.1.0 reads as root + suffix, where a prefix rule would be wrong.
+#   amin / âmin - "amen": terlik reads am + in (its whitelist holds the English "amen" only), so
+#                 prayer language ("Allah kabul etsin, amin") fired the obscene root `am`.
+# Matched on the Turkish-lowercased, UNFOLDED surface of the whole match, elongation allowed
+# ("amiiin"). Deliberately NOT a CLEAN_PREFIXES entry: folding maps ı -> i, so the prefix "amin"
+# would also swallow "amına koyim" / "aminakoyim". And deliberately dotted-i only: "amın" (dotless)
+# is the genitive of the obscene root and stays a match.
+CLEAN_WORDS = {"amin": re.compile(r"[aâ]+m+i+n+")}
+
 WORD = re.compile(r"\w+", re.UNICODE)
 
 
@@ -85,7 +94,7 @@ class ChannelResult:
 
 class LexiconModule(BaseModule):
     name = ModuleName.M1_LEXICON
-    version = "0.1.0"
+    version = "0.1.1"    # 0.1.1: "amin" / "âmin" (amen) is a clean whole word, not am + in
     provides = frozenset({"content", "guards"})
     # ADR-001 runtime enforcement: whether content scores / guards carry spans.
     # spec.md §3: every match and every guard carries the span of the triggering substring.
@@ -208,6 +217,8 @@ class LexiconModule(BaseModule):
             span = (match.index, match.index + len(matched))
             word = fold(matched)
             clean = next((c for c in CLEAN_PREFIXES if word.startswith(c) and len(c) > len(match.root)), None)
+            if clean is None:
+                clean = next((c for c, rx in CLEAN_WORDS.items() if rx.fullmatch(matched.strip())), None)
             if clean is None:
                 hits.append((match.root, span))
             else:

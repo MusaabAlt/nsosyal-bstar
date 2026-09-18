@@ -193,6 +193,25 @@ class LexiconModuleBehaviourTest(unittest.TestCase):
                 self.assertEqual(out.content, [])
                 self.assertFalse(out.signals["lexicon_hit"])
 
+    def test_amen_is_a_clean_word_not_the_obscene_root(self) -> None:
+        """terlik reads "amin" (amen) as am + in; its whitelist holds only the English "amen". Prayer
+        language must not carry the obscene root (spec §4.1: a root inside a clean word is a collision).
+        The neighbours that ARE obscene - the dotless genitive "amın", "amına koyim", the ASCII
+        "aminakoyim" - must keep matching: the clean entry is a whole-word rule, never a prefix."""
+        for text in ("Allah kabul etsin, amin", "Allah akıl fikir versin AMİN", "Rabbim korusun, âmin.",
+                     "amin amin", "Amiiin!"):
+            with self.subTest(clean=text):
+                out = self.run_m1(text)
+                self.assertEqual(out.content, [], text)
+                self.assertFalse(out.signals["lexicon_hit"])
+                self.assertTrue(any(g.code is GuardCode.SUBSTRING_COLLISION and "clean word amin" in g.evidence
+                                    for g in out.guards), [g.evidence for g in out.guards])
+        for text in ("amına koyim", "aminakoyim", "senin amın", "am"):
+            with self.subTest(still_matches=text):
+                out = self.run_m1(text)
+                self.assertTrue(out.signals["lexicon_hit"], text)
+                self.assertTrue(out.content, text)
+
     def test_homonym_guard_on_am_as_a_time_abbreviation(self) -> None:
         # spec §7: "am" used as an abbreviation. terlik matches the standalone root; the HOMONYM
         # guard carries the same span so the decision layer suppresses exactly that match (ADR-001).

@@ -12,6 +12,7 @@ Without `terlik` the module loads with `ok=False` and says so in its notes.
 |---|---|---|---|
 | `terlik` (PyPI, Python port of `badursun/terlik.js`) | 0.1.0, pinned | MIT | roots, suffix engine, balanced mode; its `suffixable` flag per root is the two-tier (hard/soft) split of spec §4.2 |
 | `CLEAN_PREFIXES` in `module.py` (`amca`, `sikinti`) | this repo | project | clean words terlik 0.1.0 reads as root + suffix; each has its reason in the code |
+| `CLEAN_WORDS` in `module.py` (`amin` / `âmin`, amen) | this repo | project | clean WHOLE words terlik 0.1.0 reads as root + suffix where a prefix rule would swallow obscene forms (`amına`); dotted-i only, so the genitive `amın` still matches (0.1.1) |
 | `karaliste.txt` | frozen Day 1 | not used here | spec §5: historical comparison only; the study slice built from it is frozen in `AI/eval/frozen/study_slice_dev.json`; compared against terlik under `protocols/m1_terlik_vs_karaliste_protocol.md` (below) |
 | `HOMONYMS` in `module.py` (`am` as the time abbreviation: `10 am`, `10:30 am`, `am/pm`) | this repo | project | spec §3 / §7 `HOMONYM` guard: a matched root whose standalone surface is an innocent word in a declared context; the guard carries the match's span so only that match is suppressed (ADR-001). Add a row here for every new entry, with its context rule |
 | second-person / dual-register words (`moruk`, `lan`, `oğlum`) | — | — | not lexicon entries: spec §7 requires they never auto-fire; terlik 0.1.0 does not match them, pinned by `test_dual_register_words_never_auto_fire` and the fixtures |
