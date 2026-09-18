@@ -110,6 +110,40 @@ class TrainingSmokeTest(unittest.TestCase):
         self.assertIn("sha256 mismatch", out.notes[0])
         self.assertEqual(out.signals, {})
 
+    def test_metadata_correction_keeps_the_weights_and_the_module_still_loads(self) -> None:
+        """correct_metadata on a copy of this export rewritten into the pre-fix metadata format
+        (`a_human` keys, the generic "human dev oracle" sentence): weights.pt stays byte-identical,
+        the corrected copy verifies, and m3's loader (every digest checked) still loads and scores it."""
+        import shutil
+        from modules.m3_encoder.module import EncoderModule
+        from training.m3_encoder import correct_metadata as C, provenance as P
+
+        legacy = Path(self.tmp.name) / "legacy_export"
+        shutil.copytree(self.artifact, legacy)
+        for name in ("heads.json", "dev_eval.json"):
+            doc = json.loads((legacy / name).read_text(encoding="utf-8"))
+            doc["label_coverage"] = {s: {(P.LEGACY_REFERENCE_KEY if k == P.REFERENCE_KEY else k): v for k, v in c.items()}
+                                     for s, c in doc["label_coverage"].items()}
+            doc["label_sources"] = {(P.LEGACY_REFERENCE_KEY if k == P.REFERENCE_KEY else k): v
+                                    for k, v in doc["label_sources"].items()}
+            if name == "heads.json":
+                doc["a_head_supervision"] = C.LEGACY_SUPERVISION
+            (legacy / name).write_bytes(C.dump(doc))
+        entries = C.read_digests(legacy / "sha256.txt")
+        (legacy / "sha256.txt").write_bytes(C.write_digests([(C.sha256_file(legacy / n), n) for _, n in entries]))
+        weights = C.sha256_file(self.artifact / "weights.pt")
+        out = Path(self.tmp.name) / "corrected_export"
+        record = C.correct(legacy, out, weights)
+        self.assertEqual(C.sha256_file(out / "weights.pt"), weights)
+        self.assertEqual(set(record["weights_sha256"].values()), {weights})
+        self.assertEqual(C.verify(out, weights), [])
+        heads = json.loads((out / "heads.json").read_text(encoding="utf-8"))
+        self.assertEqual(heads["a_head_supervision"], P.a_head_supervision("human"))   # this smoke run declared human labels
+        with mock.patch.dict(os.environ, {"NSOSYAL_M3_ARTIFACT": str(out)}):
+            result = EncoderModule().process(Context(text="Sen çok aptal birisin."))
+        self.assertTrue(result.ok, result.notes)
+        self.assertEqual(result.signals["artifact"], heads["artifact_id"])
+
     def test_evaluate_loads_the_exported_artifact_without_the_training_class(self) -> None:
         from training.m3_encoder import evaluate as E
 
