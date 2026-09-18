@@ -107,8 +107,12 @@ def predict_rows(model, tokenizer, rows: list[D.Row], max_len: int, batch_size: 
     return probs
 
 
+REFERENCE_KINDS = ("human", "ai-assisted-human-adjudicated")
+
+
 def evaluate_rows(model, tokenizer, rows: list[D.Row], max_len: int, batch_size: int, device: str,
-                  n_boot: int = 1000, seed: int = 42, decision: float = 0.5) -> dict[str, Any]:
+                  n_boot: int = 1000, seed: int = 42, decision: float = 0.5,
+                  oracle_kind: str = "human") -> dict[str, Any]:
     """`decision` is the study's argmax point (0.5) used ONLY to report comparable training-time
     numbers; the deployed threshold is derived separately on this same dev split (m3 spec §8)."""
     probs = predict_rows(model, tokenizer, rows, max_len, batch_size, device)
@@ -122,7 +126,11 @@ def evaluate_rows(model, tokenizer, rows: list[D.Row], max_len: int, batch_size:
     #   "a"                        against the HUMAN oracle only - the only A-head quality claim
     #   "a_pseudo_label_agreement" against terlik pseudo-labels on the same rows - agreement, never accuracy
     human_idx = [i for i, r in enumerate(rows) if r.a_human != D.MISSING]
-    report["a"] = ({"oracle": "human", "labelled_rows": len(human_idx),
+    if oracle_kind not in REFERENCE_KINDS:
+        raise ValueError(f"oracle_kind {oracle_kind!r} is not one of {REFERENCE_KINDS}")
+    # `oracle` states the reference's TRUE provenance. "human" only for human-labelled rows; an
+    # AI-annotated, human-adjudicated reference is stamped as such and is never a human oracle.
+    report["a"] = ({"oracle": oracle_kind, "labelled_rows": len(human_idx),
                     **per_code_metrics([[rows[i].a_human] for i in human_idx],
                                        [[int(probs["a"][i] >= decision)] for i in human_idx],
                                        list(D.A_CODES), n_boot, seed)}
@@ -150,6 +158,20 @@ def evaluate_rows(model, tokenizer, rows: list[D.Row], max_len: int, batch_size:
     else:
         report["c"] = {"labelled_rows": 0, "note": "no C labels: head not evaluated"}
     return report
+
+
+def resolve_a_reference(parser, args) -> tuple[Path | None, str]:
+    """The A evaluation labels and their provenance kind. A reference that is not fully
+    human-labelled must say what it is: there is no way to pass it as a human oracle by omission."""
+    if args.labels_a_human and args.labels_a_reference:
+        parser.error("--labels-a-human and --labels-a-reference are mutually exclusive")
+    if args.labels_a_reference:
+        if not args.labels_a_reference_kind:
+            parser.error("--labels-a-reference needs --labels-a-reference-kind")
+        return args.labels_a_reference, args.labels_a_reference_kind
+    if args.labels_a_reference_kind:
+        parser.error("--labels-a-reference-kind given without --labels-a-reference")
+    return args.labels_a_human, "human"
 
 
 def load_exported(artifact_dir: str | Path):
@@ -187,7 +209,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--corpus", type=Path, default=D.corpus_path_from_env())
     parser.add_argument("--labels-a", type=Path, action="append",
                         help="pseudo-label file(s); on dev rows reported as agreement only (repeatable)")
-    parser.add_argument("--labels-a-human", type=Path, help="human oracle jsonl (dev rows): the A-head metric")
+    parser.add_argument("--labels-a-human", type=Path, help="HUMAN-labelled oracle jsonl (dev rows): the A-head metric")
+    parser.add_argument("--labels-a-reference", type=Path,
+                        help="evaluation reference jsonl that is NOT fully human-labelled (dev rows); needs "
+                             "--labels-a-reference-kind; mutually exclusive with --labels-a-human")
+    parser.add_argument("--labels-a-reference-kind", choices=[k for k in REFERENCE_KINDS if k != "human"],
+                        help="the reference's true provenance, stamped into the report as `a.oracle`")
     parser.add_argument("--labels-b", type=Path)
     parser.add_argument("--labels-c", type=Path)
     parser.add_argument("--max-len", type=int, default=128)
@@ -199,10 +226,12 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.reconfigure(encoding="utf-8")
     import torch
 
-    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c, labels_a_human=args.labels_a_human)
+    eval_labels, oracle_kind = resolve_a_reference(parser, args)
+    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c, labels_a_human=eval_labels)
     model, tokenizer, heads = load_exported(args.artifact)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    report = evaluate_rows(model, tokenizer, split.dev, args.max_len, args.batch_size, device, n_boot=args.n_boot)
+    report = evaluate_rows(model, tokenizer, split.dev, args.max_len, args.batch_size, device, n_boot=args.n_boot,
+                           oracle_kind=oracle_kind)
     report["artifact_id"] = heads["artifact_id"]
     report["label_coverage"] = split.label_coverage
     report["label_sources"] = split.label_sources

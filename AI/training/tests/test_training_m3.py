@@ -139,6 +139,40 @@ class TrainingSmokeTest(unittest.TestCase):
         self.assertTrue(all(len(s["sha256"]) == 64 for s in heads["label_sources"]["a"]))
         self.assertIn("a_head_supervision", heads)
 
+    def test_a_non_human_reference_must_state_its_provenance(self) -> None:
+        """An AI-annotated, human-adjudicated reference is never stamped `oracle: human`: it goes in
+        through --labels-a-reference, which refuses to run without its kind. (A handful of rows:
+        evaluating the whole dev split on CPU is not a unit test.)"""
+        import argparse
+        from training.m3_encoder import data as D, evaluate as E
+
+        def resolve(**kw):
+            ns = argparse.Namespace(labels_a_human=None, labels_a_reference=None, labels_a_reference_kind=None)
+            ns.__dict__.update(kw)
+            return E.resolve_a_reference(argparse.ArgumentParser(), ns)
+
+        self.assertEqual(resolve(labels_a_human=self.human_dev), (self.human_dev, "human"))
+        self.assertEqual(resolve(labels_a_reference=self.human_dev,
+                                 labels_a_reference_kind="ai-assisted-human-adjudicated"),
+                         (self.human_dev, "ai-assisted-human-adjudicated"))
+        self.assertEqual(resolve(), (None, "human"))
+        for bad in ({"labels_a_reference": self.human_dev},                                          # kind missing
+                    {"labels_a_reference_kind": "ai-assisted-human-adjudicated"},                   # file missing
+                    {"labels_a_reference": self.human_dev, "labels_a_human": self.human_dev,
+                     "labels_a_reference_kind": "ai-assisted-human-adjudicated"}):                  # both given
+            with self.assertRaises(SystemExit):
+                resolve(**bad)
+
+        split = D.build_split(labels_a_human=self.human_dev)
+        rows = [r for r in split.dev if r.a_human != D.MISSING]
+        model, tokenizer, _ = E.load_exported(self.artifact)
+        report = E.evaluate_rows(model, tokenizer, rows, 128, 8, "cpu", n_boot=20,
+                                 oracle_kind="ai-assisted-human-adjudicated")
+        self.assertEqual(report["a"]["oracle"], "ai-assisted-human-adjudicated")
+        self.assertEqual(report["a"]["labelled_rows"], 8)
+        with self.assertRaises(ValueError):
+            E.evaluate_rows(model, tokenizer, rows, 128, 8, "cpu", n_boot=5, oracle_kind="two-human")
+
     def test_a_label_loading_rules(self) -> None:
         from training.m3_encoder import data as D
 

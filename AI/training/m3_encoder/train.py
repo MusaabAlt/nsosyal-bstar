@@ -81,6 +81,11 @@ def main(argv: list[str] | None = None) -> int:
                         help="A pseudo-label file(s), repeatable: train rows supervise, dev rows report agreement only")
     parser.add_argument("--labels-a-human", type=Path,
                         help="human 'profanity present' jsonl on DEV rows: the A head's evaluation oracle, never trained on")
+    parser.add_argument("--labels-a-reference", type=Path,
+                        help="A evaluation reference on DEV rows that is NOT fully human-labelled; needs "
+                             "--labels-a-reference-kind; never trained on")
+    parser.add_argument("--labels-a-reference-kind", choices=[k for k in E.REFERENCE_KINDS if k != "human"],
+                        help="the reference's true provenance, stamped into dev_eval.json as `a.oracle`")
     parser.add_argument("--labels-b", type=Path)
     parser.add_argument("--labels-c", type=Path)
     parser.add_argument("--base", default=DEFAULT_BASE)
@@ -107,10 +112,11 @@ def main(argv: list[str] | None = None) -> int:
     from torch.optim.lr_scheduler import LambdaLR
     from transformers import AutoTokenizer
 
-    D.refuse_banned(args.base, *(str(p) for p in (args.corpus, *(args.labels_a or []), args.labels_a_human,
+    eval_labels, oracle_kind = E.resolve_a_reference(parser, args)
+    D.refuse_banned(args.base, *(str(p) for p in (args.corpus, *(args.labels_a or []), eval_labels,
                                                   args.labels_b, args.labels_c) if p))
     set_seed(args.seed)
-    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c, labels_a_human=args.labels_a_human)
+    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c, labels_a_human=eval_labels)
     train_rows, dev_rows = split.train, split.dev
     if args.smoke:
         rng = random.Random(args.seed)
@@ -195,7 +201,7 @@ def main(argv: list[str] | None = None) -> int:
             if args.smoke and global_step >= 2:
                 break
         dev_report = E.evaluate_rows(model, tokenizer, dev_rows, args.max_len, args.eval_batch_size, device,
-                                     n_boot=50 if args.smoke else 1000, seed=args.seed)
+                                     n_boot=50 if args.smoke else 1000, seed=args.seed, oracle_kind=oracle_kind)
         f1 = dev_report["binary"]["macro_f1"]["value"]
         record = {"epoch": epoch, "train_loss": running / max(1, n_batches),
                   "train_loss_parts": {k: v / max(1, n_batches) for k, v in parts_sum.items()},
@@ -224,7 +230,8 @@ def main(argv: list[str] | None = None) -> int:
     meta = {"base_model": args.base, "date": date, "seed": args.seed, "epochs": args.epochs,
             "best_epoch": int(state["epoch"]), "hyperparams": {k: v for k, v in vars(args).items()
                                                                if k not in ("out", "corpus", "labels_a", "labels_a_human",
-                                                                            "labels_b", "labels_c")},
+                                                                            "labels_a_reference", "labels_b", "labels_c")},
+            "a_evaluation_reference_kind": oracle_kind if eval_labels else None,
             "split": split.meta, "label_coverage": split.label_coverage, "label_sources": split.label_sources,
             "a_head_supervision": "terlik-derived pseudo-labels (keyword); quality claims only against the human "
                                   "dev oracle (dev_eval.json 'a'), never against pseudo-label agreement",
@@ -234,16 +241,16 @@ def main(argv: list[str] | None = None) -> int:
     artifact_dir = out / "artifact" / artifact_id
     digests = M.export_artifact(model, tokenizer_dir, artifact_dir, artifact_id, trained, meta)
     report = E.evaluate_rows(model, tokenizer, dev_rows, args.max_len, args.eval_batch_size, device,
-                             n_boot=50 if args.smoke else 1000, seed=args.seed)
+                             n_boot=50 if args.smoke else 1000, seed=args.seed, oracle_kind=oracle_kind)
     report.update({"artifact_id": artifact_id, "digests": digests, "label_coverage": split.label_coverage,
                    "label_sources": split.label_sources, "smoke": bool(args.smoke)})
     (artifact_dir / "dev_eval.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"exported {artifact_dir}  weights sha256 {digests['weights.pt']}")
     print(f"dev binary macro-F1 {report['binary']['macro_f1']['value']:.4f}  trained heads {trained}")
     a = report["a"]
-    if a.get("oracle") == "human":
+    if a.get("oracle"):
         m = a["A1"]
-        print(f"A head vs HUMAN oracle ({a['labelled_rows']} dev rows, support {m['support']}"
+        print(f"A head vs reference [{a['oracle']}] ({a['labelled_rows']} dev rows, support {m['support']}"
               f"{', INSUFFICIENT SAMPLE' if m['insufficient_sample'] else ''}): "
               f"P {m['precision']['value']} R {m['recall']['value']} F1 {m['f1']['value']}")
     else:
