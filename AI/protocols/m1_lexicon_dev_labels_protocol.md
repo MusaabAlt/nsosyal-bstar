@@ -164,3 +164,11 @@ AI-assisted, human-adjudicated dev reference, which the generator never reads.
 date): the explicit, versioned A-head taxonomy (17 POSITIVE roots, 130 EXCLUDED, no REVIEW), so no
 dev row is `null`. The dev file stays diagnostic, pseudo-label agreement only, and is never merged
 with the 500-row AI-assisted, human-adjudicated dev reference, which the generator never reads.
+
+## Amendment 2026-09-18 (d) — matches read from m1's private match signal
+
+Same change as the train protocol's amendment (c) of the same date: the generator (5.0.0) reads
+matches from m1's private `_matches` signal instead of the decision layer's `channel_scores`,
+because under M1-ROUTE-1 (`protocols/m1_runtime_routing_protocol.md`) a dictionary match may emit
+no content code. Rule v3 and every other §4 check are unchanged; every dev `a_label` must equal
+the file at git `7f5e003` (`8f4dcdfe…`).

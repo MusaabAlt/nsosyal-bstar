@@ -389,3 +389,26 @@ generator's. Row fields are unchanged from rule v2 (`a_label_v1` kept for compar
 
 Rule-v2 files: git `87bc41d` (train sha256 `64783e6d…`, dev `c8684b79…`). Rule-v1 files: git
 `d7925de` (train `1f6f6cc2…`, dev `03c98955…`), the supervision of the first GPU candidate.
+
+## Amendment 2026-09-18 (c) — matches read from m1's private match signal (generator 5.0.0)
+
+Committed before any file is generated under it. m1 now routes each root to its runtime content
+code (`protocols/m1_runtime_routing_protocol.md`, M1-ROUTE-1): the rule-v3 POSITIVE roots stay on
+the family-A carrier, EXCLUDED roots emit `B1` / `B2` / `B3` or no content code at all. A match
+with no content code is still a dictionary match, so content scores can no longer stand for the
+matches.
+
+- **§5 / §7 reading the matches.** The generator reads every match (root, channel, original span)
+  from m1's private `_matches` signal, taken from m1's own output inside the generator's pipeline,
+  NOT from `signals.decision.channel_scores`. It never reads the runtime route. Every other check
+  is unchanged: each match carries a span inside the text, and each channel flag equals "a match on
+  that channel, or a spanless-channel note".
+- **Rule unchanged.** `a_label` is still rule v3: 1 iff a valid hit holds a POSITIVE root. The
+  runtime route of a root has no path into `a_label`.
+- **Acceptance.** Regenerated files must carry the same `a_label` on every row as the files the
+  rule-v3 candidate was trained on (git `7f5e003`: train `78d845a5…`, dev `8f4dcdfe…`). A
+  difference is a failure of this amendment, not a label change.
+- **Expected non-label differences**, all from M1-ROUTE-1 §4–§5 on EXCLUDED roots only: fewer
+  `alık` hits (`Ali Kınık`, `allık`, split-across-words), and HOMONYM records on `mal` / `domuz`
+  compounds. They may change `a_label_v1`, the counts and the `roots` of rows whose valid hit came
+  only from such a match; never `a_label`.
