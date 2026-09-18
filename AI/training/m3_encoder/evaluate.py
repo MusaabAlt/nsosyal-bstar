@@ -16,6 +16,7 @@ from typing import Any
 
 from training.m3_encoder import data as D
 from training.m3_encoder import model as M
+from training.m3_encoder import provenance as P
 
 
 def _percentile(values: list[float], q: float) -> float | None:
@@ -107,12 +108,12 @@ def predict_rows(model, tokenizer, rows: list[D.Row], max_len: int, batch_size: 
     return probs
 
 
-REFERENCE_KINDS = ("human", "ai-assisted-human-adjudicated")
+REFERENCE_KINDS = P.REFERENCE_KINDS
 
 
 def evaluate_rows(model, tokenizer, rows: list[D.Row], max_len: int, batch_size: int, device: str,
                   n_boot: int = 1000, seed: int = 42, decision: float = 0.5,
-                  oracle_kind: str = "human") -> dict[str, Any]:
+                  oracle_kind: str | None = None) -> dict[str, Any]:
     """`decision` is the study's argmax point (0.5) used ONLY to report comparable training-time
     numbers; the deployed threshold is derived separately on this same dev split (m3 spec §8)."""
     probs = predict_rows(model, tokenizer, rows, max_len, batch_size, device)
@@ -123,24 +124,26 @@ def evaluate_rows(model, tokenizer, rows: list[D.Row], max_len: int, batch_size:
     report["binary"] = binary_metrics(gold_bin, pred_bin, n_boot, seed)
 
     # A head, two SEPARATE blocks (owner decision 2026-09-18, HYBRID strategy):
-    #   "a"                        against the HUMAN oracle only - the only A-head quality claim
+    #   "a"                        against the DECLARED evaluation reference only - the only A-head
+    #                              quality claim; its provenance kind is stamped in "oracle"
     #   "a_pseudo_label_agreement" against terlik pseudo-labels on the same rows - agreement, never accuracy
-    human_idx = [i for i, r in enumerate(rows) if r.a_human != D.MISSING]
-    if oracle_kind not in REFERENCE_KINDS:
+    ref_idx = [i for i, r in enumerate(rows) if r.a_reference != D.MISSING]
+    if ref_idx and oracle_kind is None:
+        # No default kind: a reference evaluated without its kind would otherwise be stamped by omission.
+        raise ValueError("evaluation-reference rows present but no oracle_kind: state the reference's provenance")
+    if oracle_kind is not None and oracle_kind not in REFERENCE_KINDS:
         raise ValueError(f"oracle_kind {oracle_kind!r} is not one of {REFERENCE_KINDS}")
     # `oracle` states the reference's TRUE provenance. "human" only for human-labelled rows; an
     # AI-annotated, human-adjudicated reference is stamped as such and is never a human oracle.
-    report["a"] = ({"oracle": oracle_kind, "labelled_rows": len(human_idx),
-                    **per_code_metrics([[rows[i].a_human] for i in human_idx],
-                                       [[int(probs["a"][i] >= decision)] for i in human_idx],
+    report["a"] = ({"oracle": oracle_kind, "labelled_rows": len(ref_idx),
+                    **per_code_metrics([[rows[i].a_reference] for i in ref_idx],
+                                       [[int(probs["a"][i] >= decision)] for i in ref_idx],
                                        list(D.A_CODES), n_boot, seed)}
-                   if human_idx else {"oracle": None, "labelled_rows": 0,
-                                      "note": "no human A labels: NO A-head quality claim can be made "
-                                              "(docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md)"})
+                   if ref_idx else {"oracle": None, "labelled_rows": 0, "note": P.NO_REFERENCE_NOTE})
     a_idx = [i for i, r in enumerate(rows) if r.a != D.MISSING]
     report["a_pseudo_label_agreement"] = (
         {"labelled_rows": len(a_idx),
-         "note": "agreement with terlik-derived pseudo-labels (keyword labels); NOT accuracy, NOT a quality claim",
+         "note": P.PSEUDO_LABEL_AGREEMENT_NOTE,
          **per_code_metrics([[rows[i].a] for i in a_idx], [[int(probs["a"][i] >= decision)] for i in a_idx],
                             list(D.A_CODES), n_boot, seed)}
         if a_idx else {"labelled_rows": 0, "note": "no pseudo-labels on the evaluated rows"})
@@ -171,7 +174,8 @@ def resolve_a_reference(parser, args) -> tuple[Path | None, str]:
         return args.labels_a_reference, args.labels_a_reference_kind
     if args.labels_a_reference_kind:
         parser.error("--labels-a-reference-kind given without --labels-a-reference")
-    return args.labels_a_human, "human"
+    # No reference at all -> no kind: nothing is stamped "human" unless human labels were given.
+    return args.labels_a_human, ("human" if args.labels_a_human else None)
 
 
 def load_exported(artifact_dir: str | Path):
@@ -227,7 +231,7 @@ def main(argv: list[str] | None = None) -> int:
     import torch
 
     eval_labels, oracle_kind = resolve_a_reference(parser, args)
-    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c, labels_a_human=eval_labels)
+    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c, labels_a_reference=eval_labels)
     model, tokenizer, heads = load_exported(args.artifact)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     report = evaluate_rows(model, tokenizer, split.dev, args.max_len, args.batch_size, device, n_boot=args.n_boot,

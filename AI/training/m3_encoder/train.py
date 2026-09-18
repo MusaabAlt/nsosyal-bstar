@@ -28,6 +28,7 @@ from pathlib import Path
 from training.m3_encoder import data as D
 from training.m3_encoder import evaluate as E
 from training.m3_encoder import model as M
+from training.m3_encoder import provenance as P
 
 DEFAULT_BASE = "dbmdz/bert-base-turkish-cased"
 
@@ -116,7 +117,7 @@ def main(argv: list[str] | None = None) -> int:
     D.refuse_banned(args.base, *(str(p) for p in (args.corpus, *(args.labels_a or []), eval_labels,
                                                   args.labels_b, args.labels_c) if p))
     set_seed(args.seed)
-    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c, labels_a_human=eval_labels)
+    split = D.build_split(args.corpus, args.labels_a, args.labels_b, args.labels_c, labels_a_reference=eval_labels)
     train_rows, dev_rows = split.train, split.dev
     if args.smoke:
         rng = random.Random(args.seed)
@@ -233,8 +234,8 @@ def main(argv: list[str] | None = None) -> int:
                                                                             "labels_a_reference", "labels_b", "labels_c")},
             "a_evaluation_reference_kind": oracle_kind if eval_labels else None,
             "split": split.meta, "label_coverage": split.label_coverage, "label_sources": split.label_sources,
-            "a_head_supervision": "terlik-derived pseudo-labels (keyword); quality claims only against the human "
-                                  "dev oracle (dev_eval.json 'a'), never against pseudo-label agreement",
+            # Built from the RESOLVED reference kind (provenance.py): never "human" unless it is.
+            "a_head_supervision": P.a_head_supervision(oracle_kind if eval_labels else None),
             "dev_fingerprint": D.DEV_FINGERPRINT, "max_len": args.max_len, "truncation": "first tokens kept",
             "smoke": bool(args.smoke), "random_init": bool(getattr(model, "random_init", False)),
             "history": history}
@@ -254,8 +255,8 @@ def main(argv: list[str] | None = None) -> int:
               f"{', INSUFFICIENT SAMPLE' if m['insufficient_sample'] else ''}): "
               f"P {m['precision']['value']} R {m['recall']['value']} F1 {m['f1']['value']}")
     else:
-        print("A head: no human oracle given - no A-head quality claim (pseudo-label agreement is in dev_eval.json "
-              "under a_pseudo_label_agreement and is NOT accuracy)")
+        print("A head: no evaluation reference given - no A-head quality claim (pseudo-label agreement is in "
+              "dev_eval.json under a_pseudo_label_agreement and is NOT accuracy)")
     return 0
 
 

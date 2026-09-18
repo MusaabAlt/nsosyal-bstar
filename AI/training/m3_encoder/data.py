@@ -5,9 +5,12 @@ Heads and their label sources (docs/blockers/m3_head_labels.md, owner decisions 
   binary  OFF / NOT from the corpus itself - always available
   A       "profanity present" on the A1 carrier. TRAINING supervision: the terlik-derived
           pseudo-labels of the frozen TRAIN split (eval/derived/m1_lexicon_train_seed42.json,
-          `a_label`, protocols/m1_lexicon_train_labels_protocol.md). EVALUATION oracle: the
-          human-labelled dev subset (`--labels-a-human`, docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md).
-          Pseudo-labels on dev rows are only ever reported as AGREEMENT, never as accuracy.
+          `a_label`, protocols/m1_lexicon_train_labels_protocol.md). EVALUATION: a declared DEV
+          reference under docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md whose provenance kind is
+          stated on the command line (`--labels-a-human` for a fully human-labelled set,
+          `--labels-a-reference` + `--labels-a-reference-kind` otherwise; provenance.py). Its rows are
+          `a_reference` here and in every published key. Pseudo-labels on dev rows are only ever
+          reported as AGREEMENT, never as accuracy.
   B       B1 / B2 / B3 / B5, multi-label - from a label file (no corpus exists yet)
   C       C1 .. C5, single label - from a label file (slice being labelled)
 A head without a label file is trained on nothing: its loss is masked on every row and the
@@ -24,6 +27,8 @@ import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
+
+from training.m3_encoder.provenance import REFERENCE_KEY
 
 AI_ROOT = Path(__file__).resolve().parents[2]
 REPO_ROOT = AI_ROOT.parent
@@ -66,7 +71,7 @@ class Row:
     a: int = MISSING                     # 0 / 1 / MISSING - pseudo-label (training supervision)
     b: tuple[int, ...] = (MISSING,) * len(B_CODES)   # per code 0 / 1 / MISSING
     c: int = MISSING                     # index into C_CODES / MISSING
-    a_human: int = MISSING               # 0 / 1 / MISSING - human label (evaluation oracle only)
+    a_reference: int = MISSING           # 0 / 1 / MISSING - evaluation-reference label (never trained on)
 
 
 @dataclass
@@ -189,19 +194,20 @@ def _as_paths(value: Any) -> list[Path]:
 
 def build_split(corpus_path: str | Path | None = None, labels_a: Any = None,
                 labels_b: str | Path | None = None, labels_c: str | Path | None = None,
-                labels_a_human: str | Path | None = None) -> Split:
+                labels_a_reference: str | Path | None = None) -> Split:
     """Rows of the frozen split with every head's label attached (MISSING where a head has no
     label for the row). `labels_a` is one path or several (pseudo-labels: train supervision, and
-    on dev rows only agreement reporting); `labels_a_human` is the human oracle (dev rows), never
-    used for training. `label_coverage` records, per head and split, how many rows are
-    labelled - the number every metric must be read against."""
+    on dev rows only agreement reporting); `labels_a_reference` is the A evaluation reference (dev
+    rows), never used for training - its provenance KIND is resolved by the caller
+    (evaluate.resolve_a_reference), not here. `label_coverage` records, per head and split, how many
+    rows are labelled - the number every metric must be read against."""
     a_paths = _as_paths(labels_a)
-    for p in (corpus_path, *a_paths, labels_b, labels_c, labels_a_human):
+    for p in (corpus_path, *a_paths, labels_b, labels_c, labels_a_reference):
         if p is not None:
             refuse_banned(p)
     train_raw, dev_raw, meta = load_frozen_split(corpus_path)
     a, a_sources = load_a_label_files(a_paths)
-    a_human, a_human_sources = load_a_label_files([labels_a_human]) if labels_a_human else ({}, [])
+    a_ref, a_ref_sources = load_a_label_files([labels_a_reference]) if labels_a_reference else ({}, [])
     b = load_b_labels(labels_b) if labels_b else {}
     c = load_c_labels(labels_c) if labels_c else {}
 
@@ -211,26 +217,27 @@ def build_split(corpus_path: str | Path | None = None, labels_a: Any = None,
             rid = str(r["id"])
             out.append(Row(row_id=rid, text=r["text"], binary=int(r["label"] == "OFF"),
                            a=a.get(rid, MISSING), b=b.get(rid, (MISSING,) * len(B_CODES)),
-                           c=c.get(rid, MISSING), a_human=a_human.get(rid, MISSING)))
+                           c=c.get(rid, MISSING), a_reference=a_ref.get(rid, MISSING)))
         return out
 
     train, dev = convert(train_raw), convert(dev_raw)
-    human_on_train = sum(r.a_human != MISSING for r in train)
-    if human_on_train:
-        # The oracle is a dev subset by design (guideline §1): a human label on a train row would
-        # let an evaluation number be read on rows the encoder was fitted on.
-        raise ValueError(f"{human_on_train} human A labels fall on TRAIN rows; the oracle must be a dev subset")
+    reference_on_train = sum(r.a_reference != MISSING for r in train)
+    if reference_on_train:
+        # The evaluation reference is a dev subset by design (guideline §1): a reference label on a
+        # train row would let an evaluation number be read on rows the encoder was fitted on.
+        raise ValueError(f"{reference_on_train} evaluation-reference A labels fall on TRAIN rows; "
+                         "the reference must be a dev subset")
     coverage = {}
     for name, rows in (("train", train), ("dev", dev)):
         coverage[name] = {"rows": len(rows), "binary": len(rows),
                           "a": sum(r.a != MISSING for r in rows),
-                          "a_human": sum(r.a_human != MISSING for r in rows),
+                          REFERENCE_KEY: sum(r.a_reference != MISSING for r in rows),
                           "b": sum(r.b[0] != MISSING for r in rows),
                           "c": sum(r.c != MISSING for r in rows)}
     return Split(train=train, dev=dev, meta={k: v for k, v in meta.items() if k not in ("train_ids", "dev_ids",
                                                                                           "train_indices", "dev_indices")},
                  label_coverage=coverage,
-                 label_sources={"a": a_sources, "a_human": a_human_sources,
+                 label_sources={"a": a_sources, REFERENCE_KEY: a_ref_sources,
                                 "b": [{"file": Path(labels_b).name, "sha256": sha256_of(labels_b), "kind": "jsonl"}] if labels_b else [],
                                 "c": [{"file": Path(labels_c).name, "sha256": sha256_of(labels_c), "kind": "jsonl"}] if labels_c else []})
 

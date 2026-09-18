@@ -130,14 +130,36 @@ class TrainingSmokeTest(unittest.TestCase):
         self.assertEqual(report["a_pseudo_label_agreement"]["labelled_rows"], 8)
         self.assertIn("NOT accuracy", report["a_pseudo_label_agreement"]["note"])
         self.assertEqual(report["label_coverage"]["train"]["a"], 64)
-        self.assertEqual(report["label_coverage"]["train"]["a_human"], 0)
-        self.assertEqual(report["label_coverage"]["dev"]["a_human"], 8)
+        self.assertEqual(report["label_coverage"]["train"]["a_reference"], 0)
+        self.assertEqual(report["label_coverage"]["dev"]["a_reference"], 8)
         heads = json.loads((self.artifact / "heads.json").read_text(encoding="utf-8"))
         kinds = [s["kind"] for s in heads["label_sources"]["a"]]
         self.assertEqual(kinds, ["derived-pseudo-label", "jsonl"])
-        self.assertEqual([s["file"] for s in heads["label_sources"]["a_human"]], ["a_dev_human.jsonl"])
+        self.assertEqual([s["file"] for s in heads["label_sources"]["a_reference"]], ["a_dev_human.jsonl"])
         self.assertTrue(all(len(s["sha256"]) == 64 for s in heads["label_sources"]["a"]))
-        self.assertIn("a_head_supervision", heads)
+        # The supervision sentence is built from the resolved kind: this smoke run declared human labels.
+        self.assertEqual(heads["a_evaluation_reference_kind"], "human")
+        self.assertIn("fully human-labelled", heads["a_head_supervision"])
+        self.assertIn("NOT accuracy", heads["a_head_supervision"])
+
+    def test_published_metadata_never_uses_the_legacy_human_key(self) -> None:
+        """`a_human` read as "human labels" whatever the reference was. Neither published file may
+        carry it (or the old generic "human dev oracle" wording) anywhere in its tree."""
+        def keys(node):
+            if isinstance(node, dict):
+                for k, v in node.items():
+                    yield k
+                    yield from keys(v)
+            elif isinstance(node, list):
+                for v in node:
+                    yield from keys(v)
+
+        for name in ("heads.json", "dev_eval.json"):
+            with self.subTest(file=name):
+                text = (self.artifact / name).read_text(encoding="utf-8")
+                self.assertNotIn("a_human", set(keys(json.loads(text))))
+                self.assertNotIn("human dev oracle", text)
+                self.assertNotIn("no human A labels", text)
 
     def test_a_non_human_reference_must_state_its_provenance(self) -> None:
         """An AI-annotated, human-adjudicated reference is never stamped `oracle: human`: it goes in
@@ -155,7 +177,7 @@ class TrainingSmokeTest(unittest.TestCase):
         self.assertEqual(resolve(labels_a_reference=self.human_dev,
                                  labels_a_reference_kind="ai-assisted-human-adjudicated"),
                          (self.human_dev, "ai-assisted-human-adjudicated"))
-        self.assertEqual(resolve(), (None, "human"))
+        self.assertEqual(resolve(), (None, None))                  # no reference -> no kind, never "human"
         for bad in ({"labels_a_reference": self.human_dev},                                          # kind missing
                     {"labels_a_reference_kind": "ai-assisted-human-adjudicated"},                   # file missing
                     {"labels_a_reference": self.human_dev, "labels_a_human": self.human_dev,
@@ -163,8 +185,8 @@ class TrainingSmokeTest(unittest.TestCase):
             with self.assertRaises(SystemExit):
                 resolve(**bad)
 
-        split = D.build_split(labels_a_human=self.human_dev)
-        rows = [r for r in split.dev if r.a_human != D.MISSING]
+        split = D.build_split(labels_a_reference=self.human_dev)
+        rows = [r for r in split.dev if r.a_reference != D.MISSING]
         model, tokenizer, _ = E.load_exported(self.artifact)
         report = E.evaluate_rows(model, tokenizer, rows, 128, 8, "cpu", n_boot=20,
                                  oracle_kind="ai-assisted-human-adjudicated")
@@ -172,6 +194,8 @@ class TrainingSmokeTest(unittest.TestCase):
         self.assertEqual(report["a"]["labelled_rows"], 8)
         with self.assertRaises(ValueError):
             E.evaluate_rows(model, tokenizer, rows, 128, 8, "cpu", n_boot=5, oracle_kind="two-human")
+        with self.assertRaisesRegex(ValueError, "no oracle_kind"):                # no stamping by omission
+            E.evaluate_rows(model, tokenizer, rows, 128, 8, "cpu", n_boot=5)
 
     def test_a_label_loading_rules(self) -> None:
         from training.m3_encoder import data as D
@@ -199,7 +223,35 @@ class TrainingSmokeTest(unittest.TestCase):
         on_train = Path(self.tmp.name) / "human_on_train.jsonl"
         on_train.write_text(json.dumps({"row_id": self.train_ids[0], "label": 1}) + "\n", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "TRAIN rows"):
-            D.build_split(labels_a_human=on_train)
+            D.build_split(labels_a_reference=on_train)
+
+
+class ProvenanceWordingTest(unittest.TestCase):
+    """The published sentence about A-head quality is built from the resolved reference kind
+    (training/m3_encoder/provenance.py). Needs no torch."""
+
+    def test_each_kind_is_described_truthfully(self) -> None:
+        from training.m3_encoder import provenance as P
+
+        ai = P.a_head_supervision("ai-assisted-human-adjudicated")
+        self.assertIn("AI-assisted, human-adjudicated", ai)
+        self.assertIn("NOT a human oracle", ai)
+        self.assertIn("kind 'ai-assisted-human-adjudicated'", ai)
+        self.assertNotIn("fully human-labelled", ai)
+        human = P.a_head_supervision("human")
+        self.assertIn("fully human-labelled", human)
+        self.assertNotIn("AI-assisted", human)
+        none = P.a_head_supervision(None)
+        self.assertIn("NO A-head quality claim", none)
+        for text in (ai, human, none):
+            with self.subTest(text=text[-40:]):
+                self.assertIn("NOT accuracy", text)
+                self.assertNotIn("human dev oracle", text)
+        with self.assertRaises(ValueError):
+            P.a_head_supervision("two-human")
+        self.assertEqual(set(P.REFERENCE_DESCRIPTIONS), set(P.REFERENCE_KINDS))
+        self.assertIn("NOT accuracy", P.PSEUDO_LABEL_AGREEMENT_NOTE)
+        self.assertNotIn("human", P.NO_REFERENCE_NOTE)
 
 
 if __name__ == "__main__":
