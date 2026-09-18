@@ -2,7 +2,8 @@
 
 Runs on a synthetic legacy artifact (random bytes stand in for weights.pt; no torch needed): the
 exact files an exporter before 2026-09-18 (third pass) wrote, with the generic "human dev oracle"
-sentence and the `a_human` keys.
+sentence and the `a_human` keys. The committed rule-v3 correction is checked for reproducibility
+in CommittedRuleV3CorrectionTest (mandatory: the record is a repository file).
 """
 from __future__ import annotations
 
@@ -17,6 +18,10 @@ from training.m3_encoder import correct_metadata as C
 from training.m3_encoder import provenance as P
 
 AI_ROOT = Path(__file__).resolve().parents[2]
+# The committed correction of the rule-v3 candidate (docs/training/runs/...): exported originals, the
+# corrected metadata and the tool's record, produced on a scratch copy of the Drive artifact.
+RULE_V3 = AI_ROOT / "docs" / "training" / "runs" / "m3-berturk-multihead-a-rule-v3-20260918-074806.metadata"
+RULE_V3_WEIGHTS = "41d98d7fa2599907f4b3f4c22b24bdd2990b90ffecae4563d09e16fabf91e145"
 
 
 def sha(data: bytes) -> str:
@@ -161,6 +166,41 @@ class CorrectMetadataTest(unittest.TestCase):
                                  "--expect-weights-sha256", self.weights]), 0)
         self.assertEqual(C.main(["verify", "--artifact", str(self.dst), "--expect-weights-sha256", self.weights]), 0)
         self.assertEqual(C.main(["verify", "--artifact", str(self.dst), "--expect-weights-sha256", "0" * 64]), 1)
+
+
+class CommittedRuleV3CorrectionTest(unittest.TestCase):
+    """The committed correction of m3-berturk-multihead-a-rule-v3-20260918-074806 is exactly what the
+    tool derives from the exported originals, and it never touched weights.pt."""
+
+    def test_corrected_files_are_derived_from_the_originals(self) -> None:
+        originals = {p.name: p.read_bytes() for p in (RULE_V3 / "original").iterdir()
+                     if p.name in ("heads.json", "dev_eval.json", "sha256.txt")}
+        derived, _ = C.derive(originals)
+        for name, data in derived.items():
+            with self.subTest(file=name):
+                self.assertEqual((RULE_V3 / "corrected" / name).read_bytes(), data)
+        old, new = (C.read_digests(RULE_V3 / d / "sha256.txt") for d in ("original", "corrected"))
+        self.assertEqual(dict((n, d) for d, n in old)["weights.pt"], RULE_V3_WEIGHTS)
+        self.assertEqual(dict((n, d) for d, n in new)["weights.pt"], RULE_V3_WEIGHTS)
+        self.assertEqual({n for (a, n), (b, _) in zip(old, new) if a != b}, {"heads.json"})
+
+    def test_record_proves_the_weights_were_not_changed(self) -> None:
+        record = json.loads((RULE_V3 / "corrected" / C.RECORD).read_text(encoding="utf-8"))
+        self.assertEqual(record["artifact_id"], "m3-berturk-multihead-a-rule-v3-20260918-074806")
+        self.assertEqual(set(record["weights_sha256"].values()), {RULE_V3_WEIGHTS})
+        self.assertEqual(record["files"]["weights.pt"],
+                         {"original_sha256": RULE_V3_WEIGHTS, "corrected_sha256": RULE_V3_WEIGHTS, "changed": False})
+        for name, info in record["files"].items():
+            for folder, key in (("original", "original_sha256"), ("corrected", "corrected_sha256")):
+                path = RULE_V3 / folder / name
+                if path.is_file():
+                    with self.subTest(file=f"{folder}/{name}"):
+                        self.assertEqual(sha(path.read_bytes()), info[key])
+        self.assertEqual({n for n, i in record["files"].items() if i["changed"]},
+                         {"heads.json", "dev_eval.json", "sha256.txt"})
+        heads = json.loads((RULE_V3 / "corrected" / "heads.json").read_text(encoding="utf-8"))
+        self.assertEqual(heads["a_evaluation_reference_kind"], "ai-assisted-human-adjudicated")
+        self.assertIn("NOT a human oracle", heads["a_head_supervision"])
 
 
 if __name__ == "__main__":
