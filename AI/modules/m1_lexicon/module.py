@@ -1,15 +1,22 @@
-"""m1_lexicon - lexicon profanity signal, independent of the neural model.
+"""m1_lexicon - lexicon signal, independent of the neural model.
 
 Catches:
-  * explicit profane roots with legal Turkish suffixes ("aptallar", "siktiler"),
-    via `terlik` 0.1.0 in balanced mode (spec.md §4.3): its suffix engine accepts a
+  * every root of terlik's Turkish dictionary with legal Turkish suffixes ("aptallar",
+    "siktiler"), via `terlik` 0.1.0 in balanced mode (spec.md §4.3): its suffix engine accepts a
     root only when what follows is a suffix it knows, and it tolerates leet,
     separators and repetition ("g0t", "s i k")
+  * ROUTES each matched root to the content code whose contract meaning fits
+    (protocols/m1_runtime_routing_protocol.md, M1-ROUTE-1): the 17 explicit obscene / profane
+    roots of pseudo-label rule v3 on the family-A carrier (A1); ordinary insults on B1
+    (degradation); threats on B2; curses / exclusion on B3; topic or neutral vocabulary on no
+    content code at all - still a match, a hit and a matched root
   * the same on the normalized channel from m2, reported separately (spec.md §3)
   * substring collisions: a root found inside a word the boundary test rejected
     ("sik" in "psikoloji", "am" in "amca") -> SUBSTRING_COLLISION on that word
-  * NON_HUMAN_TARGET on each of its own family-A matches when m6 publishes
-    target_type non_human (ADR-005)
+  * NON_HUMAN_TARGET on each of its own content scores when m6 publishes target_type
+    non_human (ADR-005); thresholds.yaml decides which codes it may suppress
+  * every match in the private `_matches` signal (root, channel, span, route), including the
+    matches that emit no content code, for the pseudo-label generator
 
 Deliberately does NOT:
   * search free substrings. A root inside a longer word is a collision, never a
@@ -19,7 +26,9 @@ Deliberately does NOT:
   * use karaliste (spec.md §5: historical comparison point only)
   * produce A4 or HOMONYM yet: the sacred-concept extension and its homonym rules
     are not built (spec.md §4.3, §8)
-  * guess a target: A1 is only the family-A carrier, fusion assigns A1/A2/A3
+  * guess a target: A1 is only the family-A carrier, fusion assigns A1/A2/A3; B1 / B2 / B3
+    are not target-assigned
+  * put an ordinary insult on the family-A carrier: family A is the rule-v3 POSITIVE set only
 
 Turkish casing: text is lowercased Turkish-style (I -> ı, İ -> i) before terlik
 sees it. terlik's own folding maps I -> i, which turns "SIKINTI" (sıkıntı) into a
@@ -65,6 +74,46 @@ CLEAN_WORDS = {"amin": re.compile(r"[aâ]+m+i+n+")}
 
 WORD = re.compile(r"\w+", re.UNICODE)
 
+# -- runtime routing (protocols/m1_runtime_routing_protocol.md, M1-ROUTE-1) --------------------
+# Data, copied from the protocol's ROUTE_* lines; tests/test_m1_lexicon_labels.py checks that
+# they equal the protocol, that ROUTE_A equals the frozen rule-v3 POSITIVE set, and that the five
+# sets partition the pinned terlik dictionary. m1 refuses to load if terlik holds a root the table
+# does not route: an unrouted root would otherwise be silently dropped or silently called profanity.
+ROUTE_A = frozenset({
+    "am", "amcı", "amk", "bok", "gavat", "göt", "hassiktir", "orospu", "oç", "pezevenk", "piç", "sakso", "sg",
+    "sik", "sktrgt", "taşak", "yarrak"})
+ROUTE_B1 = frozenset({
+    "ahlaksız", "ahmak", "akılsız", "alçak", "alık", "andaval", "aptal", "arsız", "avanak", "ağzıbozuk",
+    "aşağılık", "aşifte", "baldırıçıplak", "beyinamip", "beyinsiz", "budala", "dalkavuk", "dallama", "dangalak",
+    "dangoz", "densiz", "denyo", "domuz", "dümenci", "dürzü", "edepsiz", "embesil", "enayi", "ezik", "eşek",
+    "eşoğlueşek", "fahişe", "fırıldak", "gerizekalı", "gerzek", "görgüsüz", "hayasız", "haysiyetsiz", "hergele",
+    "hödük", "hımbıl", "hınzır", "ibne", "ikiyüzlü", "kafasız", "kahpe", "kalleş", "kaltak", "kalınkafalı",
+    "kancık", "kansız", "karaktersiz", "kepaze", "kevaşe", "kötüniyetli", "küstah", "kıro", "kıtakıllı",
+    "madrabaz", "maganda", "magat", "mal", "mankafa", "manyak", "maymun", "müptezel", "namussuz", "nankör",
+    "onursuz", "oğlancı", "pislik", "puşt", "rezil", "sahtekar", "salak", "saloz", "sersem", "serseri", "soysuz",
+    "sürtük", "terbiyesiz", "ukala", "utanmaz", "vefasız", "yalaka", "yarımakıllı", "yavşak", "yobaz",
+    "yüzkarası", "yüzsüz", "zonta", "zugar", "zukkafa", "çomar", "çüş", "öküz", "üçkağıtçı", "şapşal",
+    "şarlatan", "şerefsiz"})
+ROUTE_B2 = frozenset({
+    "boğazınıkeserim", "canınıalırım", "ensenibulurum", "gömerler", "kafanıkırarım", "mezarınıkazarım",
+    "öldürücem"})
+ROUTE_B3 = frozenset({
+    "allahbelanıversin", "asılası", "belanıbulurum", "cehenneme", "defol", "geber", "gömülesi", "kesilesi",
+    "yakılası"})
+ROUTE_NONE = frozenset({
+    "dingil", "dolandırıcı", "döl", "fuhuş", "glk", "hapiyedin", "kalpazan", "kaybol", "kaşar", "kerhane", "meme",
+    "tabanvansen", "tokmakçı", "yıkık"})
+ROUTE_CLASSES: dict[str, tuple[frozenset[str], ContentCode | None]] = {
+    "A": (ROUTE_A, ContentCode.A1), "B1": (ROUTE_B1, ContentCode.B1), "B2": (ROUTE_B2, ContentCode.B2),
+    "B3": (ROUTE_B3, ContentCode.B3), "NONE": (ROUTE_NONE, None)}
+ROUTE_OF: dict[str, str] = {root: name for name, (roots, _) in ROUTE_CLASSES.items() for root in roots}
+# The rule-v3 EXCLUDED set: the only roots the M1-ROUTE-1 §5 match fixes may touch.
+EXCLUDED_ROOTS = ROUTE_B1 | ROUTE_B2 | ROUTE_B3 | ROUTE_NONE
+
+# M1-ROUTE-1 §5.1: "allık" (blush) is a clean word that terlik's repetition tolerance reads as
+# the EXCLUDED root "alık". Whole match, Turkish-lowercased, unfolded; scoped to that root.
+EXCLUDED_CLEAN_WORDS: dict[str, dict[str, re.Pattern[str]]] = {"alık": {"allık": re.compile(r"a+l{2,}[ıi]+k+")}}
+
 
 def tr_lower(text: str) -> str:
     """Turkish lowercasing that keeps every index: I -> ı, İ -> i, then per-char
@@ -94,7 +143,9 @@ class ChannelResult:
 
 class LexiconModule(BaseModule):
     name = ModuleName.M1_LEXICON
-    version = "0.1.2"    # 0.1.2: collision evidence lists roots in a fixed order, not set order
+    version = "0.2.0"    # 0.2.0: per-root routing A1 / B1 / B2 / B3 / none (M1-ROUTE-1), private `_matches`,
+    #                      HOMONYM on mal / domuz compounds, EXCLUDED-root fixes (allık, split across words)
+    #                      0.1.2: collision evidence lists roots in a fixed order, not set order
     #                      0.1.1: "amin" / "âmin" (amen) is a clean whole word, not am + in
     provides = frozenset({"content", "guards"})
     # ADR-001 runtime enforcement: whether content scores / guards carry spans.
@@ -104,10 +155,16 @@ class LexiconModule(BaseModule):
     def _load(self) -> None:
         try:
             from terlik import Terlik
+            from terlik.normalizer import normalize
             from terlik.types import TerlikOptions
         except ImportError as exc:
             raise RuntimeError("terlik is not installed: pip install -r modules/m1_lexicon/requirements.txt") from exc
+        self._normalize = normalize
         self._engine = Terlik(TerlikOptions(mode="balanced"))
+        unrouted = set(self._engine.get_patterns()) - set(ROUTE_OF)
+        if unrouted:
+            raise RuntimeError(f"terlik roots with no M1-ROUTE-1 route {sorted(unrouted)}: "
+                               "protocols/m1_runtime_routing_protocol.md must route every dictionary root")
         # Compile the patterns now (class-level cache inside terlik), not on the first post.
         self._engine.get_matches("warmup")
         # Longest first, then alphabetical. Sorting on length alone kept equal-length roots in SET
@@ -124,6 +181,8 @@ class LexiconModule(BaseModule):
         raw_map = self._raw_offsets(ctx, raw_text)
         notes: list[str] = []
         content: list[ContentScore] = []
+        matches: list[dict[str, Any]] = []        # every match, whatever its route (private `_matches`)
+        match_spans: list[Span] = []              # one per (channel, original span): homonym context
         collisions: dict[Span, str] = {}
         hit = {RAW: False, NORMALIZED: False}
         roots: set[str] = set()
@@ -139,20 +198,31 @@ class LexiconModule(BaseModule):
                 notes.append(f"{channel}: {len(result.hits)} match(es), {len(result.collisions)} collision(s) "
                              "without a map to original offsets; flag reported, no span items emitted")
                 continue
-            seen: set[Span] = set()
-            for _, span in result.hits:
+            seen_spans: set[Span] = set()
+            seen: set[tuple[str, Span]] = set()
+            emitted: set[tuple[ContentCode, Span]] = set()
+            for root, span in result.hits:
                 original = self._to_original(ctx.text, offsets, span)
-                if original not in seen:
-                    seen.add(original)
-                    content.append(ContentScore(code=ContentCode.A1, score=1.0,
-                                                source=f"{SOURCE}@{channel}", span=original))
+                if original not in seen_spans:
+                    seen_spans.add(original)
+                    match_spans.append(original)
+                if (root, original) in seen:
+                    continue
+                seen.add((root, original))
+                route = ROUTE_OF[root]
+                matches.append({"root": root, "channel": channel, "span": list(original), "route": route})
+                code = ROUTE_CLASSES[route][1]
+                if code is None or (code, original) in emitted:
+                    continue                      # NONE: a real match that is not itself abusive
+                emitted.add((code, original))
+                content.append(ContentScore(code=code, score=1.0, source=f"{SOURCE}@{channel}", span=original))
             for evidence, span in result.collisions:
                 collisions.setdefault(self._to_original(ctx.text, offsets, span), f"{channel}: {evidence}")
 
         guards = [GuardResult(code=GuardCode.SUBSTRING_COLLISION, score=1.0, source=SOURCE,
                               evidence=evidence, span=span)
                   for span, evidence in sorted(collisions.items())]
-        guards += self._homonym_guards(ctx.text, content)
+        guards += self._homonym_guards(ctx.text, match_spans)
         guards += self._non_human_guards(ctx, content, notes)
 
         return ModuleOutput(
@@ -164,35 +234,48 @@ class LexiconModule(BaseModule):
                 "lexicon_hit_norm": hit[NORMALIZED],
                 "matched_roots": sorted(roots),
                 "engine": ENGINE,
+                # Private (pipeline.run.public_signals keeps "_" keys out of the response): every
+                # match with its original span, including routes that emit no content code. The
+                # pseudo-label generator reads the matches from here, never from content scores.
+                "_matches": matches,
             },
             notes=notes,
         )
 
     # -- homonyms (spec §3, §7) ------------------------------------------------
     # A matched ROOT whose standalone surface is also an innocent word in a declared context.
-    # Data: surface -> (context regex over the ORIGINAL text around the match, reason). Sources in
-    # README.md. The guard is scoped by span (ADR-001): it suppresses only that match.
-    HOMONYMS: dict[str, tuple[re.Pattern[str], str]] = {
-        # "am" as the time-of-day abbreviation: "10 am", "10:30 am", "am/pm", "am-pm"
-        "am": (re.compile(r"(\d{1,2}(?:[:.]\d{2})?\s*$)|(^\s*[/\-]\s*pm\b)|(\bpm\s*[/\-]\s*$)", re.IGNORECASE),
-               "time abbreviation (am/pm)"),
+    # Data: surface -> (regex over the text BEFORE the match or None, regex over the text AFTER it
+    # or None, reason, lowered). `lowered`: the context is Turkish-lowercased first (tr_lower), so a
+    # pattern written in lowercase Turkish letters also reads "MAL VARLIĞI". Sources in README.md.
+    # The guard is scoped by span (ADR-001): it suppresses only that match, and only the codes
+    # thresholds.yaml lists for HOMONYM.
+    _AM = re.compile(r"(\d{1,2}(?:[:.]\d{2})?\s*$)|(^\s*[/\-]\s*pm\b)|(\bpm\s*[/\-]\s*$)", re.IGNORECASE)
+    HOMONYMS: dict[str, tuple[re.Pattern[str] | None, re.Pattern[str] | None, str, bool]] = {
+        # "am" as the time-of-day abbreviation: "10 am", "10:30 am", "am/pm", "am-pm" (both sides, as before)
+        "am": (_AM, _AM, "time abbreviation (am/pm)", False),
+        # M1-ROUTE-1 §4: "mal" as property / goods in a closed set of compounds. "mal", "mal mısın",
+        # "mal gibi" keep firing: only the next word decides, and only from this list.
+        "mal": (None, re.compile(r"^\s+(?:varl[ıi]|sahib|m[üu]lk|beyan|bildirim|m[üu]d[üu]r|ve\s+hizmet)"),
+                "property / goods compound (mal varlığı, mal sahibi, mal mülk, ...)", True),
+        # M1-ROUTE-1 §4: the food and disease compounds only; "domuz herif" keeps firing.
+        "domuz": (None, re.compile(r"^\s+(?:eti|et|gribi)(?!\w)"), "food / disease compound (domuz eti, domuz gribi)",
+                  True),
     }
 
-    def _homonym_guards(self, text: str, content: list[ContentScore]) -> list[GuardResult]:
+    def _homonym_guards(self, text: str, spans: list[Span]) -> list[GuardResult]:
         guards: list[GuardResult] = []
-        for score in content:
-            if score.span is None:
-                continue
-            start, end = score.span
+        for start, end in spans:
             surface = tr_lower(text[start:end])
             entry = self.HOMONYMS.get(surface)
             if entry is None:
                 continue
-            pattern, reason = entry
+            before_rx, after_rx, reason, lowered = entry
             before, after = text[max(0, start - 12):start], text[end:end + 12]
-            if pattern.search(before) or pattern.search(after):
+            if lowered:
+                before, after = tr_lower(before), tr_lower(after)
+            if (before_rx is not None and before_rx.search(before)) or (after_rx is not None and after_rx.search(after)):
                 guards.append(GuardResult(code=GuardCode.HOMONYM, score=1.0, source=SOURCE,
-                                          evidence=f"'{text[start:end]}': {reason}", span=score.span))
+                                          evidence=f"'{text[start:end]}': {reason}", span=(start, end)))
         return guards
 
     # -- matching ------------------------------------------------------------
@@ -211,6 +294,26 @@ class LexiconModule(BaseModule):
             if any(m.root == match.root and m.index == 0 and m.word == prefix for m in self._engine.get_matches(prefix)):
                 return prefix
         return word
+
+    def _letters(self, text: str) -> str:
+        """The letters of `text` in terlik's own matching space (Turkish lowercase, folded, leet
+        mapped), every non-letter removed and every run of one letter collapsed to one."""
+        return re.sub(r"(.)\1+", r"\1", re.sub(r"[^a-z]", "", self._normalize(text)))
+
+    def _excluded_rejection(self, root: str, matched: str) -> str | None:
+        """Why an EXCLUDED-root match is not a hit (M1-ROUTE-1 §5), or None. POSITIVE roots: None.
+        terlik's separator tolerance can join letters across a word boundary and take the rest
+        as a suffix ("Ali Kınık" -> alık + ınık). A whitespace-split match is kept only when its
+        letters ARE the root ("a l ı k", "sal ak"); split AND inflected is rejected."""
+        if root not in EXCLUDED_ROOTS:
+            return None
+        stripped = matched.strip()
+        clean = next((c for c, rx in EXCLUDED_CLEAN_WORDS.get(root, {}).items() if rx.fullmatch(stripped)), None)
+        if clean is not None:
+            return f"clean word {clean}"
+        if any(ch.isspace() for ch in stripped) and self._letters(stripped) != self._letters(root):
+            return "split across words, not the bare root"
+        return None
 
     def _scan(self, text: str) -> ChannelResult:
         lowered = tr_lower(text)
@@ -231,6 +334,16 @@ class LexiconModule(BaseModule):
         # ("a k" inside "s a l a k"): the enclosing match is the word, the inner one is not.
         hits = [h for h in hits if not any(o is not h and o[1][0] <= h[1][0] and h[1][1] <= o[1][1] and o[1] != h[1]
                                            for o in hits)]
+        # M1-ROUTE-1 §5: fixes for rule-v3 EXCLUDED roots only, applied AFTER the nested-hit filter
+        # so every POSITIVE-root hit (and whether it was nested) is exactly what it was before.
+        kept: list[tuple[str, Span]] = []
+        for root, span in hits:
+            reason = self._excluded_rejection(root, lowered[span[0]:span[1]])
+            if reason is None:
+                kept.append((root, span))
+            else:
+                collisions.append((f"{root} in {lowered[span[0]:span[1]].strip()} ({reason})", span))
+        hits = kept
         for token in WORD.finditer(lowered):
             span = token.span()
             if any(s < span[1] and span[0] < e for _, (s, e) in hits + collisions):

@@ -111,13 +111,17 @@ guards:
   # (m1 spec.md §3). Under ADR-001 a guard only suppresses its own module's scores, so
   # every entry here lists codes m1 produces.
   #   SUBSTRING_COLLISION, HOMONYM
-  #   NON_HUMAN_TARGET - moved from m6 to m1 (ADR-005): m1 raises it on its own A-family
-  #   matches when m6's published target is non_human. A4 is not listed: sacred
+  #   NON_HUMAN_TARGET - moved from m6 to m1 (ADR-005): m1 raises it on its own content
+  #   scores when m6's published target is non_human. A4 is not listed: sacred
   #   profanity is concept-based, not target-based.
+  #   B1 (m1's lexical degradation route, protocols/m1_runtime_routing_protocol.md, M1-ROUTE-1)
+  #   is listed for NON_HUMAN_TARGET ("aptal film") and HOMONYM ("mal varlığı", "domuz eti").
+  #   B2 / B3 (threat, curse) are deliberately NOT listed for NON_HUMAN_TARGET: they aim at
+  #   people. Owner approval 2026-09-18; lists only, no number changed.
   # A guard is added here only together with the spec contract that produces it.
   SUBSTRING_COLLISION: {threshold: 0.50, suppresses: [A]}              # PLACEHOLDER
-  HOMONYM:             {threshold: 0.50, suppresses: [A]}              # PLACEHOLDER
-  NON_HUMAN_TARGET:    {threshold: 0.50, suppresses: [A1, A2, A3]}     # PLACEHOLDER
+  HOMONYM:             {threshold: 0.50, suppresses: [A, B1]}          # PLACEHOLDER
+  NON_HUMAN_TARGET:    {threshold: 0.50, suppresses: [A1, A2, A3, B1]} # PLACEHOLDER
 
 # Evaluation order. The first active guard that covers a fired code is
 # credited with suppressing it (matters for explanations and audits).

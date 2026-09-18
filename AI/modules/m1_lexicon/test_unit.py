@@ -13,7 +13,8 @@ from types import MappingProxyType
 from contracts.codes import ContentCode, GuardCode, ModuleName
 from contracts.module_api import PROVIDABLE_FIELDS, Context, ModuleOutput
 from contracts.schema import ContentScore, GuardResult
-from modules.m1_lexicon.module import LexiconModule
+from modules.m1_lexicon.module import (EXCLUDED_ROOTS, ROUTE_A, ROUTE_B1, ROUTE_B2, ROUTE_B3, ROUTE_CLASSES,
+                                        ROUTE_NONE, ROUTE_OF, LexiconModule)
 
 
 class LexiconModuleContractTest(unittest.TestCase):
@@ -118,11 +119,13 @@ class LexiconModuleBehaviourTest(unittest.TestCase):
                 self.assertIn(GuardCode.SUBSTRING_COLLISION, {g.code for g in out.guards})
 
     def test_inflected_root_matches_on_morpheme_boundary(self) -> None:
-        for text, word in (("Onlar aptallar", "aptallar"), ("Sen bir gerizekalısın", "gerizekalısın"),
-                           ("siktiler", "siktiler")):
+        # M1-ROUTE-1: an ordinary insult routes to B1, an explicit profane root to the A1 carrier.
+        for text, word, code in (("Onlar aptallar", "aptallar", ContentCode.B1),
+                                 ("Sen bir gerizekalısın", "gerizekalısın", ContentCode.B1),
+                                 ("siktiler", "siktiler", ContentCode.A1)):
             with self.subTest(text=text):
                 out = self.run_m1(text)
-                self.assertEqual([s.code for s in out.content], [ContentCode.A1])
+                self.assertEqual([s.code for s in out.content], [code])
                 start, end = out.content[0].span
                 self.assertEqual(text[start:end], word)
                 self.assertTrue(out.signals["lexicon_hit"])
@@ -138,7 +141,7 @@ class LexiconModuleBehaviourTest(unittest.TestCase):
     def test_turkish_capital_i_is_dotless(self) -> None:
         # SIKINTI is sıkıntı: default lower() would read it as a profane root.
         self.assertEqual(self.run_m1("SIKINTI").content, [])
-        self.assertEqual([s.code for s in self.run_m1("APTALLAR").content], [ContentCode.A1])
+        self.assertEqual([s.code for s in self.run_m1("APTALLAR").content], [ContentCode.B1])
 
     def test_scores_tagged_with_channel(self) -> None:
         out = self.run_m1("a.p.t.a.l", charsafe_text="a.p.t.a.l", normalized_text="aptal....")
@@ -267,7 +270,9 @@ class LexiconModuleBehaviourTest(unittest.TestCase):
                           if g.code is GuardCode.SUBSTRING_COLLISION}, {"Amcam", "psikoloji"})
         self.assertEqual({g.source for g in out.guards}, {"m1_lexicon"})
 
-    def test_non_human_target_raises_guard_on_family_a_matches(self) -> None:
+    def test_non_human_target_raises_guard_on_its_content_scores(self) -> None:
+        # The guard is raised on each content span; thresholds.yaml decides which codes it may
+        # suppress (A1-A3 and B1 since M1-ROUTE-1).
         text = "aptal film"
         out = self.run_m1(text, signals=fake_m6_target("non_human", 0.9))
         guards = [g for g in out.guards if g.code is GuardCode.NON_HUMAN_TARGET]
@@ -277,6 +282,86 @@ class LexiconModuleBehaviourTest(unittest.TestCase):
                           if g.code is GuardCode.NON_HUMAN_TARGET], [])
         self.assertEqual([g for g in self.run_m1("film", signals=fake_m6_target("non_human", 0.9)).guards
                           if g.code is GuardCode.NON_HUMAN_TARGET], [])
+
+    # -- M1-ROUTE-1 (protocols/m1_runtime_routing_protocol.md) ---------------------------------
+    def test_routing_table_partitions_the_dictionary_and_keeps_family_a_narrow(self) -> None:
+        self.module.process(Context(text="warmup"))                     # loads terlik
+        dictionary = set(self.module._engine.get_patterns())
+        classes = [roots for roots, _ in ROUTE_CLASSES.values()]
+        self.assertEqual(set().union(*classes), dictionary)
+        self.assertEqual(sum(map(len, classes)), len(dictionary))       # disjoint
+        self.assertEqual((len(ROUTE_A), len(ROUTE_B1), len(ROUTE_B2), len(ROUTE_B3), len(ROUTE_NONE)),
+                         (17, 100, 7, 9, 14))
+        self.assertEqual(EXCLUDED_ROOTS, dictionary - ROUTE_A)
+        self.assertEqual({code for _, code in ROUTE_CLASSES.values()},
+                         {ContentCode.A1, ContentCode.B1, ContentCode.B2, ContentCode.B3, None})
+
+    def test_each_route_emits_its_code_and_every_match_stays_a_match(self) -> None:
+        for text, root, code in (("orospu", "orospu", ContentCode.A1), ("aptal", "aptal", ContentCode.B1),
+                                 ("öldürücem seni", "öldürücem", ContentCode.B2), ("geber", "geber", ContentCode.B3),
+                                 ("meme kanseri", "meme", None), ("kaşar peyniri", "kaşar", None)):
+            with self.subTest(text=text):
+                out = self.run_m1(text)
+                self.assertTrue(out.signals["lexicon_hit"])
+                self.assertEqual(out.signals["matched_roots"], [root])
+                self.assertEqual([s.code for s in out.content], [] if code is None else [code])
+                self.assertEqual([(m["root"], m["channel"], m["route"]) for m in out.signals["_matches"]],
+                                 [(root, "raw", ROUTE_OF[root])])
+                self.assertEqual(text[slice(*out.signals["_matches"][0]["span"])].lower()[:len(root) - 1],
+                                 root[:len(root) - 1])
+
+    def test_private_matches_mirror_every_spanned_match_on_both_channels(self) -> None:
+        out = self.run_m1("sen salak mısın", normalized_text="sen salak mısın")
+        self.assertEqual(sorted((m["channel"], tuple(m["span"])) for m in out.signals["_matches"]),
+                         [("normalized", (4, 9)), ("raw", (4, 9))])
+        self.assertEqual(sorted((s.source, s.span) for s in out.content),
+                         [("m1_lexicon@normalized", (4, 9)), ("m1_lexicon@raw", (4, 9))])
+
+    def test_homonym_guard_on_property_and_food_compounds_only(self) -> None:
+        for text, surface in (("mal varlığı açıklandı", "mal"), ("MAL VARLIĞI", "MAL"), ("mal sahibi geldi", "mal"),
+                              ("mal mülk", "mal"), ("mal ve hizmet", "mal"), ("domuz eti", "domuz"),
+                              ("domuz et", "domuz"), ("domuz gribi", "domuz")):
+            with self.subTest(protected=text):
+                out = self.run_m1(text)
+                b1 = [s for s in out.content if s.code is ContentCode.B1]
+                self.assertEqual([text[s.span[0]:s.span[1]] for s in b1], [surface])
+                self.assertEqual([g.span for g in out.guards if g.code is GuardCode.HOMONYM], [b1[0].span])
+        for text in ("mal", "mal mısın", "mal gibi", "domuz", "domuz herif", "domuz etinden"):
+            with self.subTest(still_fires=text):
+                out = self.run_m1(text)
+                self.assertEqual([s.code for s in out.content], [ContentCode.B1])
+                self.assertEqual([g for g in out.guards if g.code is GuardCode.HOMONYM], [])
+
+    def test_excluded_root_boundary_and_clean_word(self) -> None:
+        for text in ("alık", "sen alıksın", "a l ı k", "sal ak", "salak mısın"):
+            with self.subTest(hit=text):
+                out = self.run_m1(text)
+                self.assertTrue(out.signals["lexicon_hit"])
+                self.assertEqual([s.code for s in out.content], [ContentCode.B1])
+        for text, evidence in (("Ali Kınık", "split across words"), ("ali, kimi", "split across words"),
+                               ("Ali kim", "split across words"), ("allık", "clean word allık")):
+            with self.subTest(collision=text):
+                out = self.run_m1(text)
+                self.assertFalse(out.signals["lexicon_hit"])
+                self.assertEqual(out.content, [])
+                self.assertEqual(out.signals["_matches"], [])
+                self.assertTrue(any(g.code is GuardCode.SUBSTRING_COLLISION and evidence in g.evidence
+                                    for g in out.guards), [g.evidence for g in out.guards])
+        for text in ("Ali", "Ali'nin"):
+            with self.subTest(clean=text):
+                out = self.run_m1(text)
+                self.assertFalse(out.signals["lexicon_hit"])
+                self.assertEqual(out.guards, [])
+
+    def test_excluded_root_fixes_never_touch_a_positive_root(self) -> None:
+        # M1-ROUTE-1 §5 is scoped to EXCLUDED roots: POSITIVE-root matching is unchanged in this
+        # version (its own precision work is a separate task), split matches included.
+        self.module.process(Context(text="warmup"))
+        for root in sorted(ROUTE_A):
+            self.assertIsNone(self.module._excluded_rejection(root, f"{root[0]} {root[1:]}x"), root)
+        for text in ("s i k", "o r o s p u"):
+            with self.subTest(text=text):
+                self.assertEqual([s.code for s in self.run_m1(text).content], [ContentCode.A1])
 
     def test_deterministic(self) -> None:
         text = "Amcam aptallar psikoloji"

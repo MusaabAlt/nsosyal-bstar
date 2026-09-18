@@ -28,4 +28,5 @@ artifact; `TBD` means the artifact does not exist yet.
 |---|---|---|---|
 | 2026-09-15 | m3-berturk-pytorch-fp32-epoch1, m3-berturk-tokenizer | added: study baseline wrapped as m3 inference; dev reproduction exact (0 label flips) | Musaab |
 | 2026-09-17 | m6-gazetteer-groups, m6-gazetteer-non | added: m6_target v1 gazetteers (stems with suffix-aware matching), guideline protocols/m6_target_guideline.md | Musaab (assistant) |
+| 2026-09-18 | thresholds-v0.1.0 | guard suppression LISTS only (no number changed): `NON_HUMAN_TARGET` [A1, A2, A3] -> [A1, A2, A3, B1], `HOMONYM` [A] -> [A, B1], for m1's B1 route (`protocols/m1_runtime_routing_protocol.md`, M1-ROUTE-1); owner approval | Musaab (assistant) |
 | 2026-09-15 | thresholds-v0.0.0-placeholder -> thresholds-v0.1.0 | `binary_offensive` 0.50 -> 0.320188 (stage 1, r = 3), raw channel only | Musaab |

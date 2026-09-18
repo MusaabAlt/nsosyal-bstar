@@ -130,7 +130,7 @@ class M0ToM1OffsetsTest(unittest.TestCase):
         out = m1.process(Context(text=text, charsafe_text=m0_out.charsafe_text,
                                  signals={ModuleName.M0_CHARSAFE.value: m0_out.signals}))
         self.assertTrue(out.ok, out.notes)
-        self.assertEqual([s.code.value for s in out.content], ["A1"])
+        self.assertEqual([s.code.value for s in out.content], ["B1"])         # "aptal": B1 under M1-ROUTE-1
         start, end = out.content[0].span
         self.assertEqual(text[start:end], "ap​tal")     # the ORIGINAL substring, invisible char included
 
@@ -167,12 +167,17 @@ class M1ToDecisionSignalsTest(unittest.TestCase):
         self.assertIs(fusion.lookup_signal(signals, "m1_lexicon.lexicon_hit"), True)
         self.assertIs(fusion.lookup_signal(signals, "m1_lexicon.lexicon_hit_norm"), False)
 
-    def test_hit_and_emitted_content_agree_on_the_raw_channel(self) -> None:
-        for text, expected in (("Onlar aptallar", True), ("Bu bir test cumlesi", False), ("SIKINTI YOK", False)):
+    def test_hit_and_emitted_matches_agree_on_the_raw_channel(self) -> None:
+        """The raw flag and the evidence agree: lexicon_hit_raw is true iff m1's private `_matches`
+        holds a raw match. Since M1-ROUTE-1 a match emits content only when its root routes to a
+        code: topic vocabulary ("meme") is a hit with no content score."""
+        for text, hit, content in (("Onlar aptallar", True, True), ("meme kanseri", True, False),
+                                   ("Bu bir test cumlesi", False, False), ("SIKINTI YOK", False, False)):
             out = self.m1.process(Context(text=text))
             with self.subTest(text=text):
-                self.assertIs(out.signals["lexicon_hit_raw"], expected)
-                self.assertEqual(bool(out.content), expected)
+                self.assertIs(out.signals["lexicon_hit_raw"], hit)
+                self.assertIs(any(m["channel"] == "raw" for m in out.signals["_matches"]), hit)
+                self.assertEqual(bool(out.content), content)
 
 
 class M3ToDecisionSignalsTest(unittest.TestCase):

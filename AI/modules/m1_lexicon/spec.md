@@ -38,10 +38,15 @@ The derived file never defines a slice, and the frozen file is never regenerated
 **Reads:** `ctx.text` **and** `ctx.normalized_text` — run on both, report both. `ctx.signals["m6_target"]` — the target M6 publishes (`target_type`, `target_confidence`).
 
 **Writes:**
-- `out.signals["lexicon_hit"]` — bool, true if any legitimate match on either channel
+- `out.signals["lexicon_hit"]` — bool, true if any legitimate match on either channel, whatever the match's route
 - `out.signals["lexicon_hit_raw"]` / `["lexicon_hit_norm"]` — per channel
-- `out.content` — family-A profanity on the `A1` carrier (the decision layer assigns `A1`/`A2`/`A3` from M6's target, ADR-005), and `A4`
-- `out.guards` — `SUBSTRING_COLLISION`, `HOMONYM`, and `NON_HUMAN_TARGET`: raised on each of this module's family-A matches when M6's published `target_type` is `non_human`, with `score` = M6's `target_confidence` and `span` = that match's span (ADR-005)
+- `out.signals["_matches"]` — PRIVATE (kept out of the response by the pipeline): every match with `root`, `channel`, original `span` and `route`, including matches that emit no content code; the pseudo-label generator reads matches from here
+- `out.content` — one score of 1.0 per match, on the code its root is ROUTED to (`AI/protocols/m1_runtime_routing_protocol.md`, M1-ROUTE-1, owner approval 2026-09-18):
+  - the 17 explicit obscene / profane roots of pseudo-label rule v3 → the family-A carrier `A1` (the decision layer assigns `A1`/`A2`/`A3` from M6's target, ADR-005); these are the ONLY lexical family-A roots
+  - ordinary insults (100 roots) → `B1` (degradation); threats (7) → `B2`; curses / exclusion (9) → `B3`. B means "non-profane abuse; no profane root required": a deterministic lexical B code needs no trained B head. M6's target does not recode B codes
+  - topic or neutral vocabulary (14 roots, e.g. `meme`, `fuhuş`, `kaşar`) → no content score: still a match, a hit and a matched root
+  - `A4` when the sacred-concept extension exists
+- `out.guards` — `SUBSTRING_COLLISION`, `HOMONYM`, and `NON_HUMAN_TARGET`: raised on each of this module's content scores when M6's published `target_type` is `non_human`, with `score` = M6's `target_confidence` and `span` = that match's span (ADR-005); `thresholds.yaml` decides which codes each guard may suppress (`NON_HUMAN_TARGET`: A1–A3 and B1; `HOMONYM`: A and B1)
 
 **Every match and every guard carries `span`** — the `(start, end)` of the exact substring of the original text that triggered it (`ContentScore.span`, `GuardResult.span`), plus `GuardResult.source = "m1_lexicon"`. A match or guard with no span is a contract violation: the decision layer scopes guards by span overlap (ADR-001), and without spans a collision guard on `amcam` could clear a real insult elsewhere in the same post.
 
