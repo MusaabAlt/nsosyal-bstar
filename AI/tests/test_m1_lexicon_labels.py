@@ -70,10 +70,11 @@ def sha256_bytes(data: bytes) -> str:
 class SyntheticData:
     """A corpus TSV, a split file and a decoy test-set file, written to `root`."""
 
-    # rule v2 classes (train protocol): siktir / bok / am are POSITIVE, aptal is EXCLUDED, orospu is REVIEW
+    # rule v3 classes (train protocol): siktir / bok / am / orospu are POSITIVE; aptal (ordinary insult) and
+    # kahpe (gendered insult, owner decision) are EXCLUDED
     TRAIN = [("1", "siktir git", "OFF"), ("2", "sen xbok", "OFF"), ("3", "psikoloji dersi", "NOT"),
              ("4", "saat 10 am", "NOT"), ("5", "Bu bir test cumlesi", "NOT"), ("6", "amca geldi", "NOT"),
-             ("11", "aptal herif", "OFF"), ("12", "orospu", "OFF")]
+             ("11", "aptal herif", "OFF"), ("12", "orospu", "OFF"), ("13", "kahpe", "OFF")]
     DEV = [("7", "aptal", "OFF"), ("8", "merhaba", "NOT")]
     TEST = [("9", "salak", "OFF"), ("10", "iyi", "NOT")]
 
@@ -226,34 +227,40 @@ class GeneratorTest(unittest.TestCase):
         with self.subTest(case="clean"):
             self.assertEqual(rows["5"]["a_label"], 0)
             self.assertEqual(rows["5"]["matches"], [])
-        with self.subTest(case="rule v2: ordinary insult is a hit but NOT a positive"):
+        with self.subTest(case="rule v3: ordinary insult is a hit but NOT a positive"):
             self.assertTrue(rows["11"]["lexicon_hit"])
             self.assertEqual((rows["11"]["a_label_v1"], rows["11"]["a_label"]), (1, 0))
             self.assertEqual(rows["11"]["root_classes"], {"positive": [], "excluded": ["aptal"], "review": []})
-        with self.subTest(case="rule v2: REVIEW-class-only post is masked, never guessed"):
-            self.assertTrue(rows["12"]["lexicon_hit"])
-            self.assertEqual(rows["12"]["a_label_v1"], 1)
-            self.assertIsNone(rows["12"]["a_label"])
-            self.assertEqual(rows["12"]["root_classes"]["review"], ["orospu"])
-        with self.subTest(case="rule v2: positive class"):
+        with self.subTest(case="rule v3: orospu is an explicit profane root"):
+            self.assertEqual((rows["12"]["a_label_v1"], rows["12"]["a_label"]), (1, 1))
+            self.assertEqual(rows["12"]["root_classes"], {"positive": ["orospu"], "excluded": [], "review": []})
+        with self.subTest(case="rule v3: owner decision - kahpe is a gendered insult, EXCLUDED"):
+            self.assertTrue(rows["13"]["lexicon_hit"])
+            self.assertEqual((rows["13"]["a_label_v1"], rows["13"]["a_label"]), (1, 0))
+            self.assertEqual(rows["13"]["root_classes"], {"positive": [], "excluded": ["kahpe"], "review": []})
+        with self.subTest(case="rule v3: no row is masked"):
+            self.assertTrue(all(r["a_label"] in (0, 1) for r in data["rows"]))
+        with self.subTest(case="rule v3: positive class"):
             self.assertEqual(rows["1"]["root_classes"]["positive"], ["sik"])
             self.assertEqual(rows["4"]["root_classes"]["positive"], ["am"])
         for r in data["rows"]:
             self.assertEqual(r["lexicon_hit"], r["lexicon_hit_raw"] or r["lexicon_hit_norm"])
-        self.assertEqual(data["counts"]["a_label"], 3)            # rows 1, 2, 4
-        self.assertEqual(data["counts"]["a_label_null"], 1)       # row 12
-        self.assertEqual(data["counts"]["a_label_v1"], 5)         # rows 1, 2, 4, 11, 12
-        self.assertEqual(data["counts"]["v1_positive_now_zero"], 1)
-        self.assertEqual(data["counts"]["v1_positive_now_null"], 1)
+        self.assertEqual(data["counts"]["a_label"], 4)            # rows 1, 2, 4, 12
+        self.assertEqual(data["counts"]["a_label_null"], 0)
+        self.assertEqual(data["counts"]["a_label_v1"], 6)         # rows 1, 2, 4, 11, 12, 13
+        self.assertEqual(data["counts"]["v1_positive_now_zero"], 2)   # rows 11, 13
+        self.assertEqual(data["counts"]["v1_positive_now_null"], 0)
         self.assertEqual(data["counts"]["v1_zero_now_positive"], 0)
         self.assertEqual(data["counts"]["normalized_only"], 1)
-        self.assertEqual(data["counts"]["both"], 4)   # rows 1, 4, 11, 12
+        self.assertEqual(data["counts"]["both"], 5)   # rows 1, 4, 11, 12, 13
         self.assertEqual(data["counts"]["raw_only"], 0)
         self.assertEqual(data["counts"]["norm_hit_unmapped"], 0)
         self.assertEqual(data["counts"]["rows_all_matches_homonym"], 1)
-        self.assertEqual(data["a_label_rule"]["version"], 2)
+        self.assertEqual(data["a_label_rule"]["version"], 3)
         self.assertEqual(data["a_label_rule"]["terlik_tr_dictionary_sha256"], G.TERLIK_TR_DICTIONARY_SHA256)
-        self.assertEqual(data["a_label_rule"]["class_sizes"], {"positive": 21, "excluded": 115, "review": 11})
+        self.assertEqual(data["a_label_rule"]["class_sizes"], {"positive": 17, "excluded": 130, "review": 0})
+        self.assertEqual(data["a_label_rule"]["taxonomy_sha256"], G.taxonomy_sha256())
+        self.assertEqual(data["a_label_rule"]["positive_roots"], sorted(G.POSITIVE_ROOTS))
 
     def test_raw_only_positive_and_unmapped_normalized_hit(self) -> None:
         # raw-only: the injected m2 loses the profane word; unmapped: it repairs "xaptal" but publishes no
@@ -295,15 +302,52 @@ class GeneratorTest(unittest.TestCase):
 
     # -- rule v2: the lexical classes and the evaluation-leakage firewall ----------------
     def test_lexical_classes_follow_the_protocol_table(self) -> None:
+        """Rule v3: A = an explicit obscene / profane lexical root; every dictionary root decided."""
         classes = G.lexical_classes()
         self.assertEqual(len(classes), 147)
-        for root in ("sik", "amk", "göt", "am", "bok", "piç", "oç"):
-            self.assertEqual(classes[root], G.POSITIVE, root)
-        for root in ("aptal", "salak", "eşek", "rezil", "geber", "allahbelanıversin"):      # owner decision v1.1; B2; A4
-            self.assertEqual(classes[root], G.EXCLUDED, root)
-        self.assertEqual(sorted(r for r, c in classes.items() if c == G.REVIEW),
-                         ["fahişe", "gavat", "ibne", "kahpe", "kaltak", "orospu", "oğlancı", "pezevenk", "puşt",
-                          "sürtük", "tabanvansen"])
+        self.assertEqual({r for r, c in classes.items() if c == G.POSITIVE},
+                         {"am", "amcı", "amk", "bok", "gavat", "göt", "hassiktir", "oç", "orospu", "pezevenk", "piç",
+                          "sakso", "sg", "sik", "sktrgt", "taşak", "yarrak"})
+        self.assertEqual([r for r, c in classes.items() if c == G.REVIEW], [])
+        for root, why in (("aptal", "ordinary insult"), ("salak", "ordinary insult"), ("eşek", "ordinary insult"),
+                          ("rezil", "derogatory"), ("ibne", "identity slur"), ("puşt", "identity slur"),
+                          ("meme", "sexual-topic vocabulary"), ("döl", "sexual-topic vocabulary"),
+                          ("fuhuş", "sexual-topic vocabulary"), ("kerhane", "sexual-topic vocabulary"),
+                          ("kahpe", "gendered insult, owner"), ("sürtük", "gendered insult, owner"),
+                          ("kaltak", "gendered insult, owner"), ("kancık", "gendered insult, owner"),
+                          ("kevaşe", "gendered insult, owner"), ("kaşar", "gendered insult"),
+                          ("aşifte", "gendered insult"), ("fahişe", "formal term"), ("geber", "threat"),
+                          ("allahbelanıversin", "sacred concept")):
+            self.assertEqual(classes[root], G.EXCLUDED, f"{root}: {why}")
+
+    def test_protocol_lists_are_the_generator_sets(self) -> None:
+        """The rule the protocol freezes is the rule the generator runs: the three RULE_V3_* lines of
+        the train protocol equal POSITIVE_ROOTS / EXCLUDED_ROOTS / REVIEW_ROOTS."""
+        text = (G.AI_ROOT / G.PROTOCOLS["train"]).read_text(encoding="utf-8")
+        parsed = {}
+        for name in ("POSITIVE", "EXCLUDED", "REVIEW"):
+            m = re.search(rf"^RULE_V3_{name} \((\d+)\):(.*)$", text, re.M)
+            self.assertIsNotNone(m, name)
+            items = [x.strip() for x in m.group(2).split(",") if x.strip()]
+            self.assertEqual(len(items), int(m.group(1)), name)
+            parsed[name] = frozenset(items)
+        self.assertEqual(parsed["POSITIVE"], G.POSITIVE_ROOTS)
+        self.assertEqual(parsed["EXCLUDED"], G.EXCLUDED_ROOTS)
+        self.assertEqual(parsed["REVIEW"], G.REVIEW_ROOTS)
+
+    def test_unexpected_dictionary_conditions_stop(self) -> None:
+        roots = sorted(G.POSITIVE_ROOTS | G.EXCLUDED_ROOTS)
+        self.assertEqual(len(G.classify(roots)), 147)
+        with self.assertRaisesRegex(G.ProtocolStop, "no rule-v3 class"):
+            G.classify(roots + ["yenikelime"])
+        with self.assertRaisesRegex(G.ProtocolStop, "does not hold"):
+            G.classify([r for r in roots if r != "sik"])
+
+    def test_masking_mechanism_is_kept_for_a_future_review_class(self) -> None:
+        self.assertIsNone(G.a_label_of(1, {"positive": [], "excluded": [], "review": ["x"]}))
+        self.assertEqual(G.a_label_of(1, {"positive": ["sik"], "excluded": [], "review": ["x"]}), 1)
+        self.assertEqual(G.a_label_of(1, {"positive": [], "excluded": ["aptal"], "review": []}), 0)
+        self.assertEqual(G.a_label_of(0, {"positive": [], "excluded": [], "review": []}), 0)
 
     def test_another_terlik_dictionary_stops_the_run(self) -> None:
         other = Path(self.tmp.name) / "dictionary.json"
@@ -319,8 +363,13 @@ class GeneratorTest(unittest.TestCase):
         for forbidden in ("annotation/private", "a_dev_ai_assisted", "a_dev_human", ".adjudication", "a_head_dev_sample",
                           "a_head_eval", "sample_seed42"):
             self.assertNotIn(forbidden, source, forbidden)
-        rule = source.split("def lexical_classes")[1].split("\ndef ")[0]
+        rule = (source.split("def classify")[1].split("\ndef ")[0]
+                + source.split("def lexical_classes")[1].split("\ndef ")[0])
         self.assertIsNone(re.search(r"\d{5}", rule), "a corpus row id inside the class rule")
+        self.assertFalse(any(ch.isdigit() for r in G.POSITIVE_ROOTS | G.EXCLUDED_ROOTS for ch in r),
+                         "a digit inside the explicit taxonomy")
+        for forbidden in ("sample_scores", "dev_eval", "dev_predictions", "a_head_eval", "runs/m3_multihead"):
+            self.assertNotIn(forbidden, source, forbidden)
 
     # -- staleness ---------------------------------------------------------------------
     def test_check_passes_on_a_fresh_file_and_flags_doctored_ones(self) -> None:
@@ -335,6 +384,7 @@ class GeneratorTest(unittest.TestCase):
             "rows edited": lambda d: d["rows"][0].__setitem__("a_label", 1 - d["rows"][0]["a_label"]),
             "row dropped": lambda d: d["rows"].pop(),
             "terlik version": lambda d: d["engine"].__setitem__("terlik", "0.0.0"),
+            "taxonomy digest": lambda d: d["a_label_rule"].__setitem__("taxonomy_sha256", "0" * 64),
         }
         for name, doctor in cases.items():
             with self.subTest(case=name):

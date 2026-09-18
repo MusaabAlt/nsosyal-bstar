@@ -263,3 +263,129 @@ a_label = 0     otherwise  (no hit, or only EXCLUDED roots)
 
 Rule-v1 files remain in git history at `d7925de` and are the supervision recorded in the first
 candidate's `heads.json`: train sha256 `1f6f6cc21c553f68…`, dev sha256 `03c9895541cc6d86…`.
+
+---
+
+## Amendment 2026-09-18 (b) — pseudo-label rule **v3**: the frozen A-head lexical taxonomy
+
+**Status:** pre-registered. Committed BEFORE any v3 label is generated or counted. Supersedes rule
+v2 for every file generated from generator version 4.0.0 on, on train and dev alike (the dev file
+stays diagnostic, agreement only). Rule v2 was an intermediate taxonomy experiment: its classes came
+from terlik's `category` / `severity` metadata, which admitted sexual-topic vocabulary as
+profanity and left 11 roots masked for review.
+
+### Definition (owner, 2026-09-18)
+
+**A = an explicit obscene / profane lexical root is present and used by the author.** A is NOT:
+
+- an ordinary insult;
+- derogatory language;
+- an identity slur merely because it is offensive;
+- sexual-topic vocabulary;
+- a gendered insult merely because it is vulgar.
+
+### Source of the taxonomy, and what it was NOT derived from
+
+Every one of the 147 roots of the pinned terlik 0.1.0 Turkish dictionary (sha256
+`e83a97b38c553227cd20c2b5688939fda6037fb30b4964e9fd063a125a9a641c`) is classified by the definition above,
+annotation guideline v1.1's text, and the owner decisions below. terlik's `category` was the
+starting point of the taxonomy review; it is no longer the rule. **The rule is the explicit list.**
+
+The taxonomy was NOT derived from the 500-row AI-assisted, human-adjudicated dev reference, from
+any candidate prediction or error, or from the test set. The review that proposed it read only the
+dictionary entries and the guideline; the owner decided the four boundary roots and confirmed the
+rest. Disclosure: `kaşar` occurs in one reference row that the owner adjudicated `0`, a fact known
+before the review. Its exclusion follows from the definition (literal meaning a cheese; slang sense
+a gendered insult, "promiscuous"), applied to the whole gendered-insult class alike (`aşifte`,
+`fahişe`, `kahpe`, `sürtük`, `kaltak`, `kancık`, `kevaşe`). Whoever evaluates the next candidate
+should note that one row.
+
+### Rule v3
+
+Let *valid hit* and *R* (m1's `matched_roots` for the post) be as in §5 and rule v2.
+
+```
+a_label = 1   if valid hit AND R ∩ POSITIVE_ROOTS ≠ ∅
+a_label = 0   otherwise
+```
+
+The REVIEW class is **empty** in v3, so no row is `null`. The masking mechanism (`null` for a post
+whose only matches are REVIEW roots) is kept in the code for a future version.
+
+### The explicit sets
+
+Machine-checked: `tests/test_m1_lexicon_labels.py` parses these three lines and requires them to
+equal the generator's `POSITIVE_ROOTS`, `EXCLUDED_ROOTS` and `REVIEW_ROOTS`.
+
+```text
+RULE_V3_POSITIVE (17): am, amcı, amk, bok, gavat, göt, hassiktir, orospu, oç, pezevenk, piç, sakso, sg, sik, sktrgt, taşak, yarrak
+RULE_V3_EXCLUDED (130): ahlaksız, ahmak, akılsız, allahbelanıversin, alçak, alık, andaval, aptal, arsız, asılası, avanak, ağzıbozuk, aşağılık, aşifte, baldırıçıplak, belanıbulurum, beyinamip, beyinsiz, boğazınıkeserim, budala, canınıalırım, cehenneme, dalkavuk, dallama, dangalak, dangoz, defol, densiz, denyo, dingil, dolandırıcı, domuz, döl, dümenci, dürzü, edepsiz, embesil, enayi, ensenibulurum, ezik, eşek, eşoğlueşek, fahişe, fuhuş, fırıldak, geber, gerizekalı, gerzek, glk, gömerler, gömülesi, görgüsüz, hapiyedin, hayasız, haysiyetsiz, hergele, hödük, hımbıl, hınzır, ibne, ikiyüzlü, kafanıkırarım, kafasız, kahpe, kalleş, kalpazan, kaltak, kalınkafalı, kancık, kansız, karaktersiz, kaybol, kaşar, kepaze, kerhane, kesilesi, kevaşe, kötüniyetli, küstah, kıro, kıtakıllı, madrabaz, maganda, magat, mal, mankafa, manyak, maymun, meme, mezarınıkazarım, müptezel, namussuz, nankör, onursuz, oğlancı, pislik, puşt, rezil, sahtekar, salak, saloz, sersem, serseri, soysuz, sürtük, tabanvansen, terbiyesiz, tokmakçı, ukala, utanmaz, vefasız, yakılası, yalaka, yarımakıllı, yavşak, yobaz, yüzkarası, yüzsüz, yıkık, zonta, zugar, zukkafa, çomar, çüş, öküz, öldürücem, üçkağıtçı, şapşal, şarlatan, şerefsiz
+RULE_V3_REVIEW (0):
+```
+
+### POSITIVE roots and their basis
+
+| root | meaning | basis |
+|---|---|---|
+| sik | penis; to fuck | obscene sexual root (guideline §1) |
+| amk | "amına koyayım" | named in guideline §2 (abbreviations read as the word) |
+| yarrak | vulgar word for penis | obscene anatomical root |
+| göt | arse | named in guideline §3 (`göt` in `götürmek`) |
+| am | vulgar word for vulva | named in guideline §3 (`am` in `amca`) |
+| taşak | vulgar word for testicles | obscene anatomical root |
+| hassiktir | expletive built on `sik` | a form of `sik` |
+| sktrgt | "siktir git", abbreviated | a form of `sik` |
+| sg | "siktir git", abbreviated | a form of `sik`; a two-letter token, so a matching-precision risk to measure |
+| amcı | vulgar, built on `am` | a form of `am` |
+| sakso | slang for oral sex | an obscene sexual term under guideline §1, not neutral vocabulary |
+| bok | shit | named in guideline §3 and §9; scatological |
+| piç | bastard | named in guideline §3 (`piç` in `kerpiç`) |
+| oç | "orospu çocuğu" | named in guideline §2 |
+| orospu | whore, used as a swear word | the guideline already counts its compound `oç` as profane |
+| pezevenk | pimp, used as a swear word | owner confirmed, parity with `piç` / `oç` |
+| gavat | pimp or cuckold, used as a swear word | owner confirmed, parity with `piç` / `oç` |
+
+### Roots whose class changed from rule v2, and the owner decisions
+
+| root | rule v2 | rule v3 | reason | decided |
+|---|---|---|---|---|
+| döl | POSITIVE | EXCLUDED | biological vocabulary (semen, seed, offspring): sexual-topic | review proposal, owner approved |
+| meme | POSITIVE | EXCLUDED | breast; everyday anatomy: sexual-topic | review proposal, owner approved |
+| kerhane | POSITIVE | EXCLUDED | brothel: a place noun, not an obscene root | review proposal, owner approved |
+| fuhuş | POSITIVE | EXCLUDED | prostitution: a formal legal and news term | review proposal, owner approved |
+| aşifte | POSITIVE | EXCLUDED | dated gendered insult, no obscene root | review proposal, owner approved |
+| kaşar | POSITIVE | EXCLUDED | a cheese; slang gendered insult | review proposal, owner approved |
+| kancık | POSITIVE | EXCLUDED | female dog; gendered insult | **owner decision** |
+| orospu | REVIEW | POSITIVE | swear word; guideline names its compound `oç` | review proposal, owner approved |
+| pezevenk | REVIEW | POSITIVE | swear word, no neutral sense | **owner confirmed** |
+| gavat | REVIEW | POSITIVE | swear word, no neutral sense | **owner confirmed** |
+| kahpe | REVIEW | EXCLUDED | gendered insult with common figurative use | **owner decision** |
+| sürtük | REVIEW | EXCLUDED | gendered insult | **owner decision** |
+| kaltak | REVIEW | EXCLUDED | gendered insult | **owner decision** |
+| fahişe | REVIEW | EXCLUDED | prostitute: the formal term | review proposal, owner approved |
+| ibne | REVIEW | EXCLUDED | identity slur | review proposal, owner approved |
+| puşt | REVIEW | EXCLUDED | identity slur | review proposal, owner approved |
+| oğlancı | REVIEW | EXCLUDED | derogatory descriptive term | review proposal, owner approved |
+| tabanvansen | REVIEW | EXCLUDED | not a recognisable Turkish word | review proposal, owner approved |
+| kevaşe | EXCLUDED | EXCLUDED | gendered insult, near-synonym of `orospu`; kept excluded, consistent with `kahpe` | **owner confirmed** |
+
+Every other root keeps its rule-v2 class: the 115 roots rule v2 already excluded stay excluded,
+and the 14 remaining rule-v2 positives stay positive.
+
+### Unexpected dictionary conditions — the generator stops
+
+- the installed dictionary's sha256 is not the pinned one;
+- a dictionary root belongs to no set, or to two sets;
+- a root of the explicit sets is not in the dictionary.
+
+### What each file records
+
+Header `a_label_rule`: version 3, the dictionary sha256, `taxonomy_sha256` (sha256 of the
+canonical JSON of the three sorted lists and the version), `positive_roots`, `excluded_roots`,
+`review_roots`, `class_sizes`. `--check` reports a file whose taxonomy digest differs from the
+generator's. Row fields are unchanged from rule v2 (`a_label_v1` kept for comparison).
+
+### Previous files (preserved)
+
+Rule-v2 files: git `87bc41d` (train sha256 `64783e6d…`, dev `c8684b79…`). Rule-v1 files: git
+`d7925de` (train `1f6f6cc2…`, dev `03c98955…`), the supervision of the first GPU candidate.

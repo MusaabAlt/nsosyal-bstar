@@ -5,9 +5,9 @@ protocols/m1_lexicon_train_labels_protocol.md (--split train).
 Writes, for every row of the chosen split, what m1_lexicon publishes at runtime through the
 current m0 -> m2 -> m6 -> m1 path: the three hit flags, the channel, the matched roots, the span
 of every match, every substring collision, every HOMONYM guard, and the A-head pseudo-label
-`a_label` (train protocol, rule v2: a valid hit on a POSITIVE-class root -> 1, on REVIEW-class roots
-only -> null (masked), otherwise 0; the classes come from terlik's category metadata and the sealed
-annotation guideline, never from any evaluation set).
+`a_label` (train protocol, rule v3: a valid hit on a root of the explicit POSITIVE set -> 1, otherwise
+0; the set is the frozen A-head taxonomy - explicit obscene / profane lexical roots - recorded in the
+protocol and never derived from any evaluation set).
 
 Deliberately does NOT:
   * define the evaluation slice (m4's slice is eval/frozen/study_slice_dev.json, frozen)
@@ -48,7 +48,7 @@ REPO_ROOT = AI_ROOT.parent
 SOURCE = "m1_lexicon"
 GENERATOR = "AI/eval/m1_lexicon_labels.py"
 # Bump on any change to the row schema, the a_label rule, or what the header records.
-GENERATOR_VERSION = "3.0.0"
+GENERATOR_VERSION = "4.0.0"
 
 PROTOCOLS = {
     "dev": "protocols/m1_lexicon_dev_labels_protocol.md",
@@ -70,15 +70,48 @@ ROW_FIELDS = ["row_id", "lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm", "c
               "roots", "root_classes{positive,excluded,review}", "matches[channel,start,end,surface]",
               "collisions[start,end,surface,evidence]", "homonyms[start,end,surface,evidence]"]
 
-# -- pseudo-label rule v2 (train protocol, amendment 2026-09-18) ---------------------------------
-# The lexical classes are a function of terlik's OWN per-root metadata and of roots the sealed
-# annotation guideline names in its text - nothing else. Never edit a class because of how a dev
-# row was labelled or scored: that is evaluation leakage. An owner decision on the REVIEW class
-# is a rule-version bump, recorded in the protocol first.
-A_LABEL_RULE_VERSION = 2
+# -- pseudo-label rule v3 (train protocol, amendment 2026-09-18 (b)) ------------------------------
+# The A head is explicit profanity: an obscene / profane lexical root. The taxonomy is an EXPLICIT,
+# versioned list over every root of the pinned terlik dictionary, frozen in the protocol before any
+# v3 label existed; tests require the protocol's lists to equal these sets. Never move a root because
+# of how a dev row was labelled or scored: that is evaluation leakage. Any change is a rule-version
+# bump recorded in the protocol first.
+A_LABEL_RULE_VERSION = 3
 TERLIK_TR_DICTIONARY_SHA256 = "e83a97b38c553227cd20c2b5688939fda6037fb30b4964e9fd063a125a9a641c"
-GUIDELINE_NAMED_PROFANE = frozenset({"bok", "piç", "oç"})     # guideline §3 / §9, §3, §2 (since v1.0)
 POSITIVE, EXCLUDED, REVIEW = "positive", "excluded", "review"
+POSITIVE_ROOTS = frozenset({
+    "am", "amcı", "amk", "bok", "gavat", "göt", "hassiktir", "orospu", "oç", "pezevenk", "piç", "sakso",
+    "sg", "sik", "sktrgt", "taşak", "yarrak"
+})
+EXCLUDED_ROOTS = frozenset({
+    "ahlaksız", "ahmak", "akılsız", "allahbelanıversin", "alçak", "alık", "andaval", "aptal", "arsız",
+    "asılası", "avanak", "ağzıbozuk", "aşağılık", "aşifte", "baldırıçıplak", "belanıbulurum", "beyinamip",
+    "beyinsiz", "boğazınıkeserim", "budala", "canınıalırım", "cehenneme", "dalkavuk", "dallama", "dangalak",
+    "dangoz", "defol", "densiz", "denyo", "dingil", "dolandırıcı", "domuz", "döl", "dümenci", "dürzü",
+    "edepsiz", "embesil", "enayi", "ensenibulurum", "ezik", "eşek", "eşoğlueşek", "fahişe", "fuhuş",
+    "fırıldak", "geber", "gerizekalı", "gerzek", "glk", "gömerler", "gömülesi", "görgüsüz", "hapiyedin",
+    "hayasız", "haysiyetsiz", "hergele", "hödük", "hımbıl", "hınzır", "ibne", "ikiyüzlü", "kafanıkırarım",
+    "kafasız", "kahpe", "kalleş", "kalpazan", "kaltak", "kalınkafalı", "kancık", "kansız", "karaktersiz",
+    "kaybol", "kaşar", "kepaze", "kerhane", "kesilesi", "kevaşe", "kötüniyetli", "küstah", "kıro",
+    "kıtakıllı", "madrabaz", "maganda", "magat", "mal", "mankafa", "manyak", "maymun", "meme",
+    "mezarınıkazarım", "müptezel", "namussuz", "nankör", "onursuz", "oğlancı", "pislik", "puşt", "rezil",
+    "sahtekar", "salak", "saloz", "sersem", "serseri", "soysuz", "sürtük", "tabanvansen", "terbiyesiz",
+    "tokmakçı", "ukala", "utanmaz", "vefasız", "yakılası", "yalaka", "yarımakıllı", "yavşak", "yobaz",
+    "yüzkarası", "yüzsüz", "yıkık", "zonta", "zugar", "zukkafa", "çomar", "çüş", "öküz", "öldürücem",
+    "üçkağıtçı", "şapşal", "şarlatan", "şerefsiz"
+})
+REVIEW_ROOTS: frozenset[str] = frozenset()    # empty in v3: every root is decided
+
+
+def taxonomy_record() -> dict[str, Any]:
+    """The frozen taxonomy as a canonical record: what the header stores and the digest covers."""
+    return {"version": A_LABEL_RULE_VERSION, POSITIVE: sorted(POSITIVE_ROOTS), EXCLUDED: sorted(EXCLUDED_ROOTS),
+            REVIEW: sorted(REVIEW_ROOTS)}
+
+
+def taxonomy_sha256() -> str:
+    canonical = json.dumps(taxonomy_record(), ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
 
 def terlik_tr_dictionary() -> Path:
@@ -89,26 +122,27 @@ def terlik_tr_dictionary() -> Path:
     return Path(spec.origin).resolve().parent / "lang" / "tr" / "dictionary.json"
 
 
+def classify(roots: list[str]) -> dict[str, str]:
+    """root -> POSITIVE / EXCLUDED / REVIEW from the explicit rule-v3 sets. Stops on any unexpected
+    dictionary condition: a root in no set or in two sets, or a set root the dictionary lacks."""
+    sets = {POSITIVE: POSITIVE_ROOTS, EXCLUDED: EXCLUDED_ROOTS, REVIEW: REVIEW_ROOTS}
+    overlap = (POSITIVE_ROOTS & EXCLUDED_ROOTS) | (POSITIVE_ROOTS & REVIEW_ROOTS) | (EXCLUDED_ROOTS & REVIEW_ROOTS)
+    require(not overlap, f"roots in two rule-v3 classes: {sorted(overlap)}")
+    unclassified = [r for r in roots if not any(r in members for members in sets.values())]
+    require(not unclassified, f"dictionary roots in no rule-v3 class: {unclassified}")
+    absent = sorted((POSITIVE_ROOTS | EXCLUDED_ROOTS | REVIEW_ROOTS) - set(roots))
+    require(not absent, f"rule-v3 roots the dictionary does not hold: {absent}")
+    return {r: next(c for c, members in sets.items() if r in members) for r in roots}
+
+
 def lexical_classes(dictionary: Path | None = None) -> dict[str, str]:
-    """root -> POSITIVE / EXCLUDED / REVIEW, from terlik's category and severity (protocol table)."""
+    """The rule-v3 class of every root of the pinned terlik dictionary (protocol amendment (b))."""
     path = dictionary or terlik_tr_dictionary()
     require(path.is_file(), f"terlik dictionary missing: {path}")
     got = sha256_file(path)
     require(got == TERLIK_TR_DICTIONARY_SHA256, f"terlik dictionary sha256 {got} is not the pinned one: the "
-                                                 "lexical classes were defined on other bytes")
-    classes: dict[str, str] = {}
-    for entry in json.loads(path.read_text(encoding="utf-8"))["entries"]:
-        root, category, severity = entry["root"], entry["category"], entry["severity"]
-        if category == "sexual" or root in GUIDELINE_NAMED_PROFANE:
-            classes[root] = POSITIVE
-        elif (category == "insult" and severity in ("low", "medium")) or (category == "general" and severity == "high"):
-            classes[root] = EXCLUDED
-        elif (category == "insult" and severity == "high") or category == "slur" or \
-                (category == "general" and severity == "medium"):
-            classes[root] = REVIEW
-        else:
-            raise ProtocolStop(f"terlik root {root!r} ({category}/{severity}) belongs to no protocol class")
-    return classes
+                                                 "taxonomy was frozen on other bytes")
+    return classify([e["root"] for e in json.loads(path.read_text(encoding="utf-8"))["entries"]])
 
 README = {
     "dev": (
@@ -134,9 +168,9 @@ README = {
 LIMITS = [
     "Gold is binary OFF/NOT: any rate computed from this file measures lexicon hits against OFF, never "
     "'profanity present' against a human judgement (the corpus has no A codes).",
-    "a_label is a keyword pseudo-label (rule v2: terlik matches restricted to the POSITIVE lexical class): an "
-    "A head trained on it learns that class's coverage; REVIEW-class-only rows are null (masked) until the "
-    "owner classifies those roots. Its quality is known only against an independent evaluation reference.",
+    "a_label is a keyword pseudo-label (rule v3: terlik matches restricted to the explicit POSITIVE set of "
+    "obscene / profane roots): an A head trained on it learns that set's coverage, not what terlik misses. Its "
+    "quality is known only against an independent evaluation reference.",
     "The raw channel is m0's charsafe text, not the untouched original; spans are original offsets.",
     "The normalized channel is m2's parallel channel (tier 1 + zeyrek-validated tier 2) mapped through "
     "m2's _offsets (ADR-008); a normalized-only hit without a valid span is labelled 0 and counted.",
@@ -292,8 +326,9 @@ def a_label_v1_of(raw: bool, norm: bool, matches: list[dict[str, Any]]) -> int:
 
 
 def a_label_of(valid_hit: int, root_classes: dict[str, list[str]]) -> int | None:
-    """Rule v2: 1 on a POSITIVE-class root; None (masked, no supervision) when only REVIEW-class
-    roots matched - the owner has not classified them; 0 otherwise."""
+    """Rule v3: 1 on a root of the explicit POSITIVE set; 0 otherwise. None (masked, no supervision)
+    only when REVIEW roots alone matched - the REVIEW class is empty in v3, so it never happens; the
+    mechanism is kept for a future version."""
     if not valid_hit:
         return 0
     if root_classes[POSITIVE]:
@@ -464,13 +499,16 @@ def build_header(spec: Spec, meta: dict[str, Any], engine: dict[str, Any], hashe
         "a_label_rule": {
             "version": A_LABEL_RULE_VERSION,
             "text": "valid hit := lexicon_hit_raw OR (lexicon_hit_norm AND a normalized-channel match with a valid "
-                    "span). a_label = 1 if valid hit and a matched root is POSITIVE; null (masked) if valid hit and "
-                    "only REVIEW roots matched; 0 otherwise - protocols/m1_lexicon_train_labels_protocol.md, "
-                    "amendment 2026-09-18 (rule v2, aligned with annotation guideline v1.1)",
+                    "span). a_label = 1 if valid hit and a matched root is in the explicit POSITIVE set; null only if "
+                    "REVIEW roots alone matched (the REVIEW class is empty in v3); 0 otherwise - "
+                    "protocols/m1_lexicon_train_labels_protocol.md, amendment 2026-09-18 (b) (rule v3: A = explicit "
+                    "obscene / profane lexical root)",
             "terlik_tr_dictionary_sha256": TERLIK_TR_DICTIONARY_SHA256,
-            "guideline_named_profane_roots": sorted(GUIDELINE_NAMED_PROFANE),
+            "taxonomy_sha256": taxonomy_sha256(),
+            "positive_roots": sorted(POSITIVE_ROOTS),
+            "excluded_roots": sorted(EXCLUDED_ROOTS),
+            "review_roots": sorted(REVIEW_ROOTS),
             "class_sizes": {c: sum(1 for v in classes.values() if v == c) for c in (POSITIVE, EXCLUDED, REVIEW)},
-            "review_roots_pending_owner_decision": sorted(r for r, c in classes.items() if c == REVIEW),
         },
         "counts": counts_of(rows),
         "rows_sha256": hashlib.sha256(block.encode("utf-8")).hexdigest(),
@@ -541,6 +579,8 @@ def check_file(path: Path, spec: Spec | None = None) -> list[str]:
         problems.append(f"a_label rule version {rule.get('version')} != {A_LABEL_RULE_VERSION}")
     if rule.get("terlik_tr_dictionary_sha256") != TERLIK_TR_DICTIONARY_SHA256:
         problems.append("a_label rule was applied with another terlik dictionary")
+    if rule.get("taxonomy_sha256") != taxonomy_sha256():
+        problems.append("a_label taxonomy differs from the generator's frozen rule-v3 sets")
     try:
         if sha256_file(terlik_tr_dictionary()) != TERLIK_TR_DICTIONARY_SHA256:
             problems.append("installed terlik dictionary differs from the pinned sha256")

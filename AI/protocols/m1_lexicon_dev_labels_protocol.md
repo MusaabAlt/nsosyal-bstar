@@ -157,3 +157,10 @@ date): POSITIVE / EXCLUDED / REVIEW lexical classes from terlik's category metad
 guideline text; `null` for REVIEW-only posts; `a_label_v1` kept for comparison. The dev file stays
 diagnostic: pseudo-label agreement only. It is independent of, and never merged with, the 500-row
 AI-assisted, human-adjudicated dev reference, which the generator never reads.
+
+## Amendment 2026-09-18 (c) — pseudo-label rule v3
+
+`a_label` on the dev file follows rule **v3** of the train protocol (its amendment (b) of the same
+date): the explicit, versioned A-head taxonomy (17 POSITIVE roots, 130 EXCLUDED, no REVIEW), so no
+dev row is `null`. The dev file stays diagnostic, pseudo-label agreement only, and is never merged
+with the 500-row AI-assisted, human-adjudicated dev reference, which the generator never reads.
