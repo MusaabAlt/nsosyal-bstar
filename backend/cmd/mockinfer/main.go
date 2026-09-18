@@ -49,7 +49,10 @@ type server struct {
 	failRate      float64
 	itemFailRate  float64
 	readyAt       time.Time
-	log           *slog.Logger
+	// demo reports every configured category as live, so the panel shows one
+	// card per moderation class next to the seeded demo feed (cmd/seed).
+	demo bool
+	log  *slog.Logger
 }
 
 func main() {
@@ -60,6 +63,7 @@ func main() {
 	failRate := flag.Float64("fail-rate", 0, "probability a whole batch returns HTTP 500")
 	itemFailRate := flag.Float64("item-fail-rate", 0, "probability one item returns ok:false")
 	loadTime := flag.Duration("load-time", 0, "answer 503 loading for this long after start")
+	demo := flag.Bool("demo", false, "report every category in thresholds.yaml as live (for the seeded demo panel)")
 	flag.Parse()
 
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
@@ -70,12 +74,13 @@ func main() {
 	}
 	s.delay, s.perItem, s.failRate, s.itemFailRate = *delay, *perItem, *failRate, *itemFailRate
 	s.readyAt = time.Now().Add(*loadTime)
+	s.demo = *demo
 	s.log = log
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /predict_batch", s.predict)
 	mux.HandleFunc("GET /health", s.health)
-	log.Info("mock inference service", "addr", *addr, "delay", *delay, "per_item", *perItem, "fail_rate", *failRate, "load_time", *loadTime)
+	log.Info("mock inference service", "addr", *addr, "delay", *delay, "per_item", *perItem, "fail_rate", *failRate, "load_time", *loadTime, "demo", *demo)
 	srv := &http.Server{Addr: *addr, Handler: mux, ReadHeaderTimeout: 5 * time.Second}
 	if err := srv.ListenAndServe(); err != nil {
 		log.Error("serve", "error", err)
@@ -124,15 +129,20 @@ func (s *server) health(w http.ResponseWriter, _ *http.Request) {
 	if s.loading() {
 		status = "loading"
 	}
+	// What the real service reports today (AI/serving/capabilities.py).
+	capabilities := []map[string]string{
+		{"code": "A1", "module": "m1_lexicon"},
+		{"code": "binary_offensive", "module": "m3_encoder"},
+	}
+	degraded := []string{"m2_deobf", "m6_target", "m1_lexicon", "m3_encoder", "m5_sarcasm"}
+	if s.demo {
+		capabilities, degraded = demoCapabilities, []string{}
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"status":           status,
 		"artifact_hash":    s.artifactHash,
-		"degraded_modules": []string{"m2_deobf", "m6_target", "m1_lexicon", "m3_encoder", "m5_sarcasm"},
-		// What the real service reports today (AI/serving/capabilities.py).
-		"capabilities": []map[string]string{
-			{"code": "A1", "module": "m1_lexicon"},
-			{"code": "binary_offensive", "module": "m3_encoder"},
-		},
+		"degraded_modules": degraded,
+		"capabilities":     capabilities,
 		// Sample data: the UI shows the Temsili veri marker while this service runs.
 		"representative": true,
 	})
@@ -202,4 +212,27 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(v)
+}
+
+// demoCapabilities is every category AI/decision/thresholds.yaml configures,
+// in the order the panel shows them. Reported only with -demo, beside the
+// seeded feed from cmd/seed; the real service reports what it can actually
+// detect today.
+var demoCapabilities = []map[string]string{
+	{"code": "A1", "module": "m1_lexicon"},
+	{"code": "A2", "module": "m1_lexicon"},
+	{"code": "A3", "module": "m1_lexicon"},
+	{"code": "A4", "module": "m1_lexicon"},
+	{"code": "B1", "module": "m3_encoder"},
+	{"code": "B2", "module": "m3_encoder"},
+	{"code": "B3", "module": "m3_encoder"},
+	{"code": "B4", "module": "m3_encoder"},
+	{"code": "B5", "module": "m3_encoder"},
+	{"code": "C1", "module": "m4_implicit"},
+	{"code": "C2", "module": "m4_implicit"},
+	{"code": "C3", "module": "m4_implicit"},
+	{"code": "C4", "module": "m4_implicit"},
+	{"code": "C5", "module": "m4_implicit"},
+	{"code": "D1", "module": "m5_sarcasm"},
+	{"code": "binary_offensive", "module": "m3_encoder"},
 }

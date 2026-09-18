@@ -138,6 +138,7 @@ type overviewResponse struct {
 	Analysed       kpi                  `json:"analysed"`
 	Detected       kpi                  `json:"detected"`
 	Automatic      kpi                  `json:"automatic"`
+	Verdicts       store.VerdictCounts  `json:"verdicts"`
 	Pending        store.QueueCounts    `json:"queue"`
 	Categories     []overviewCategory   `json:"categories"`
 	CategoriesErr  string               `json:"categories_error,omitempty"`
@@ -214,6 +215,7 @@ func (a *API) panelOverview(w http.ResponseWriter, r *http.Request) {
 		SharePct: sharePct(counts.Detected.Current, counts.Analysed.Current),
 	}
 	resp.Automatic = kpi{Value: counts.Automatic.Current, Previous: &counts.Automatic.Previous, ChangePct: changePct(counts.Automatic)}
+	resp.Verdicts = counts.Verdicts
 	resp.Patterns = counts.Patterns
 
 	live := 0

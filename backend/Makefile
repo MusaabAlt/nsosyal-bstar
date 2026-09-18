@@ -7,6 +7,11 @@
 #
 # Demo laptop:
 #   make build       one executable: bin/nsosyal-server(.exe)
+#
+# Presentation (a full dashboard with no audience and no model):
+#   make demo-mock   mock service reporting every category as live (:8001)
+#   make demo-seed   fill the database with the invented demo feed (DELETES DATA)
+#   make run
 
 TEST_DATABASE_URL ?= postgres://nsosyal:nsosyal_dev@127.0.0.1:5432/nsosyal_test?sslmode=disable
 BIN := bin/nsosyal-server$(if $(filter Windows_NT,$(OS)),.exe,)
@@ -30,6 +35,17 @@ frontend:
 ## mock: the stand-in Python service (30ms per batch + 5ms per text)
 mock:
 	go run ./cmd/mockinfer
+
+## demo-mock: the mock service reporting every configured category as live, so
+## the panel shows one card per moderation class beside the seeded feed
+demo-mock:
+	go run ./cmd/mockinfer -demo
+
+## demo-seed: replace the database contents with the invented demo feed.
+## DESTRUCTIVE: -reset truncates comments, sessions, decisions, moderator
+## actions and metrics. Never run it against a database you want to keep.
+demo-seed:
+	go run ./cmd/seed -reset
 
 ## ai-setup: install the real inference service into the project venv (../.venv)
 ai-setup:

@@ -425,10 +425,23 @@ type PatternCount struct {
 	Count int64  `json:"count"`
 }
 
+// VerdictCounts is how many comments in the window ended on each verdict the
+// decision layer can produce. Undecided are the ones whose evaluation did not
+// complete (final_action NULL), never folded into another bucket.
+type VerdictCounts struct {
+	Block     int64 `json:"block"`
+	Escalate  int64 `json:"escalate"`
+	Review    int64 `json:"review"`
+	Nudge     int64 `json:"nudge"`
+	Clean     int64 `json:"clean"`
+	Undecided int64 `json:"undecided"`
+}
+
 type OverviewCounts struct {
 	Analysed  Pair           `json:"analysed"`
 	Detected  Pair           `json:"detected"`
 	Automatic Pair           `json:"automatic"`
+	Verdicts  VerdictCounts  `json:"verdicts"`
 	Series    []Series       `json:"series"`
 	Patterns  []PatternCount `json:"patterns"`
 }
@@ -452,13 +465,21 @@ SELECT count(*) FILTER (WHERE c.created_at >= $1),
        count(*) FILTER (WHERE c.created_at >= $1 AND `+detectedSQL+`),
        count(*) FILTER (WHERE c.created_at < $1 AND `+detectedSQL+`),
        count(*) FILTER (WHERE c.created_at >= $1 AND d.final_action IN ('block', 'nudge')),
-       count(*) FILTER (WHERE c.created_at < $1 AND d.final_action IN ('block', 'nudge'))
+       count(*) FILTER (WHERE c.created_at < $1 AND d.final_action IN ('block', 'nudge')),
+       count(*) FILTER (WHERE c.created_at >= $1 AND d.final_action = 'block'),
+       count(*) FILTER (WHERE c.created_at >= $1 AND d.final_action = 'escalate'),
+       count(*) FILTER (WHERE c.created_at >= $1 AND d.final_action = 'review'),
+       count(*) FILTER (WHERE c.created_at >= $1 AND d.final_action = 'nudge'),
+       count(*) FILTER (WHERE c.created_at >= $1 AND d.final_action = 'clean'),
+       count(*) FILTER (WHERE c.created_at >= $1 AND d.final_action IS NULL)
 FROM comments c JOIN moderation_decisions d ON d.comment_id = c.id
 WHERE c.created_at >= $2 AND c.created_at < $3`,
 		r.Start, prevStart, r.Now).Scan(
 		&out.Analysed.Current, &out.Analysed.Previous,
 		&out.Detected.Current, &out.Detected.Previous,
-		&out.Automatic.Current, &out.Automatic.Previous)
+		&out.Automatic.Current, &out.Automatic.Previous,
+		&out.Verdicts.Block, &out.Verdicts.Escalate, &out.Verdicts.Review,
+		&out.Verdicts.Nudge, &out.Verdicts.Clean, &out.Verdicts.Undecided)
 	if err != nil {
 		return out, fmt.Errorf("overview totals: %w", err)
 	}

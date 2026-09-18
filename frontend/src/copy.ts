@@ -98,6 +98,82 @@ export const copy = {
     },
   },
 
+  /*
+   * Genel Bakış. The page answers four questions in order: how much was
+   * analysed, what the system found, how it is distributed, and what a
+   * moderator is looking at right now.
+   */
+  overview: {
+    totalLabel: 'Analiz edilen içerik',
+    totalUnit: 'gönderi ve yorum',
+    totalWindow: { live: 'son 1 saatte', today: 'bugün', week: 'son 7 günde' } as Record<string, string>,
+    detectedLabel: 'Tespit edilen saldırganlık',
+    automaticLabel: 'Otomatik işlem',
+    offensiveLabel: 'Genel saldırganlık sinyali',
+    handledLabel: 'Moderatör işlemi',
+
+    humanReview: 'İnsan incelemesi',
+    humanReviewNote: 'Sistem kesin karar veremedi veya politika gereği moderatör onayı istiyor.',
+    humanReviewTotal: (n: string) => `kuyrukta toplam ${n} içerik`,
+    humanReviewCta: 'Kuyruğa git',
+
+    classes: 'Moderasyon sınıfları',
+    classesNote: 'Her sınıf kendi modülü, kendi eşiği ve kendi eylemiyle değerlendirilir',
+    classEmpty: 'Bu aralıkta tespit yok',
+    classTotal: 'toplam tespit',
+
+    distribution: 'Kategori dağılımı',
+    distributionEmpty: 'Bu aralıkta hiçbir kategori tespit edilmedi.',
+    statusTitle: 'Moderasyon durumu',
+    statusNote: 'Karar katmanının bu aralıkta verdiği sonuçlar',
+
+    recent: 'Son moderasyon hareketleri',
+    recentFilter: { detected: 'Tespitler', all: 'Tüm akış' } as Record<string, string>,
+    recentEmpty: 'Bu aralıkta gösterilecek içerik yok.',
+    columns: {
+      content: 'İçerik',
+      user: 'Kullanıcı',
+      category: 'Kategori',
+      status: 'Durum',
+      time: 'Zaman',
+    },
+    why: 'Neden?',
+    whyTitle: 'Karar gerekçesi',
+    whyClose: 'Kapat',
+    whyModules: 'Katkıda bulunan modüller',
+    whyScores: 'Kategori skorları',
+    whyGuards: 'Koruyucu kontroller',
+    whyNoGuards: 'Hiçbir koruyucu kontrol tetiklenmedi.',
+    whyNoScores: 'Yanıtta kategori skoru yok.',
+    whyVerdict: 'Sistem kararı',
+    whyModuleEmpty: 'Bu modül bu karara katkı vermedi.',
+    whyLatency: 'Modül süreleri',
+    // The pipeline's modules in the order they run (AI/contracts ModuleName).
+    modules: {
+      m0_charsafe: 'Karakter güvenliği',
+      m1_lexicon: 'Sözlük eşleşmesi',
+      m2_deobf: 'Gizleme çözme',
+      m3_encoder: 'Dil modeli sınıflandırma',
+      m4_implicit: 'Örtük saldırganlık',
+      m5_sarcasm: 'Alaycılık',
+      m6_target: 'Hedef belirleme',
+    } as Record<string, string>,
+    moduleNoSignal: 'sinyal yok',
+    moduleDegraded: 'modül yanıt vermedi',
+    charsafeClean: 'şüpheli karakter yok',
+    charsafeChanged: (removed: number, mapped: number) => `${removed} görünmez karakter, ${mapped} benzer karakter`,
+    lexiconHit: 'sözlük eşleşmesi var',
+    lexiconMiss: 'sözlük eşleşmesi yok',
+    deobfNone: 'gizleme kalıbı yok',
+    targetLine: (kind: string, score: string) => `${kind} · güven ${score}`,
+    offensiveLine: (score: string, threshold: string) => `skor ${score} · eşik ${threshold}`,
+    whyContribution: 'Katkı',
+    whyFired: 'Eşiği aştı',
+    whyNotFired: 'Eşik altında',
+    whyUndecided: 'Karar yok',
+    whySuppressed: 'Koruyucu bastırdı',
+  },
+
   live: {
     placeholder: 'Analiz etmek için bir mesaj yazın…',
     inputLabel: 'Analiz edilecek mesaj',
@@ -250,6 +326,19 @@ export const copy = {
     notRunHeading: 'Çalışmayan modüller', // ours
     moduleStatusMissing: 'Yanıt modül durumunu içermiyor.', // ours
     evaluated: (total: number, n: number) => `${total} kategoriden ${n}${accusative(n)} değerlendirildi`, // design-system 4.12
+  },
+
+  /*
+   * The four words the dashboard shows for a final classification. They name
+   * the OUTCOME of a decision, where copy.verdict names the ACTION the
+   * decision layer asks for; both come from the same final_action.
+   */
+  moderation: {
+    clean: 'Temiz',
+    warning: 'Uyarı',
+    review: 'İnceleme',
+    blocked: 'Engellendi',
+    incomplete: 'Tamamlanmadı',
   },
 
   stages: {

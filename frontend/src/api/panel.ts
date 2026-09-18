@@ -81,6 +81,16 @@ export interface OverviewCategory extends Category {
   buckets: number[]
 }
 
+/** How many comments in the window ended on each verdict; counted by the server. */
+export interface VerdictCounts {
+  block: number
+  escalate: number
+  review: number
+  nudge: number
+  clean: number
+  undecided: number
+}
+
 export interface Overview {
   range: RangeName
   start: string
@@ -90,6 +100,7 @@ export interface Overview {
   analysed: Kpi
   detected: Kpi
   automatic: Kpi
+  verdicts: VerdictCounts
   queue: QueueCounts
   categories: OverviewCategory[]
   categories_error?: string

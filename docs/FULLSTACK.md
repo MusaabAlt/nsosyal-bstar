@@ -205,19 +205,29 @@ The frontend went through two designs on this branch.
 2. **Now:** the **ATI-SOSYAL Moderasyon Paneli**, from the claude.ai/design
    project "ATI-SOSYAL Paneli". It uses NSosyal's own look: pill sidebar,
    brand gradient, cards, dark and light mode. Every value comes from the
-   Go API; nothing is sample data.
+   Go API; the frontend holds no sample data of its own. For a presentation
+   the *database* can be filled with an invented feed instead (see "Demo
+   mode" in section 5) — the screens do not know the difference, because
+   the queries behind them are the same.
 
 ### Pages
 
 | Route | Page | Shows | Data |
 |---|---|---|---|
-| `/` | Genel Bakış | 4 KPI tiles, one card per detection engine (count, trend, threshold, status), detections-over-time chart, escape patterns, recent detections with Onayla / Gizle / Kaldır. Tabs: Canlı, Bugün, 7 Gün. | `panel/overview`, `panel/items` |
+| `/` | Genel Bakış | Headline card (total analysed, detected + share, automatic actions, general offensive signal, moderator actions), prominent **İnsan incelemesi** card, one card per moderation class (A / B / C / D) with a count for every category inside it, category distribution bars, moderation status (Temiz / Uyarı / İnceleme / Engellendi / Tamamlanmadı), and a recent-activity table where every row opens **Neden?**. Tabs: Canlı, Bugün (default), 7 Gün. | `panel/overview`, `panel/items` |
 | `/analiz` | Canlı Analiz | Composer with presets → normalization strip, one result card per category (score, threshold marker, fired or not, action, module time), explanation with highlighted spans, final decision with "Yanlış pozitif bildir" and "Kuyruğa ekle". | `POST /api/comments`, `categories`, `panel/actions` |
 | `/kuyruk` | Moderasyon Kuyruğu | Tabs Bekleyen / İncelenen / Otomatik işlenen, filters (only detected, category, search), list with checkboxes and bulk actions, detail panel (scores table, system decision, previous messages, history). Keys A / H / R. | `panel/items`, `panel/items/{id}`, `panel/queue-counts`, `panel/actions` |
 | `/motorlar` | Tespit Motorları | One card per category: module, status, threshold, default action, whether the threshold is derived or a placeholder, today's count and trend. | `panel/overview?range=today` |
 | `/kurallar` | Kurallar & Eşikler | Read-only table of every category's threshold and action, with the source file. | `categories` |
 | `/gecmis` | Olay Geçmişi | Moderator actions and system detections grouped by day; tabs Tümü / Moderatör / Sistem; header search lands here; CSV export. | `panel/events` |
 | `/saglik` | Sistem Sağlığı | Devices, requests/s, p95 latency, error rate; latency and request charts; Go / Postgres / model / queue status; warning banners. | `health`, `stats`, `panel/metrics` |
+
+**Neden?** (`components/panel/WhyDialog.vue`) is the decision's evidence: the
+message, the verdict and its Turkish explanation, one line per pipeline module
+saying what it contributed and how long it took, every category the encoder
+scored with its threshold and outcome (fired / below threshold / suppressed by
+a guard), and the guards themselves with the codes they cleared. It reads the
+stored result only; it derives nothing.
 
 Always visible: the sidebar (with the pending badge), the header search, the
 **Sistem durumu** rail on wide screens, the **Canlı Akış** dock with the
@@ -269,6 +279,37 @@ bin/nsosyal-server.exe     # migrates, starts Python, serves http://<laptop-ip>:
 
 During development: `make run` in `backend/` plus `npm run dev` in
 `frontend/` (http://127.0.0.1:5173, proxies `/api` to the Go server).
+
+### Demo mode: a full panel without an audience
+
+For a presentation the panel needs a feed behind it. Two commands provide one
+without touching the model:
+
+```bash
+cd backend
+make demo-mock             # mock inference on :8001, every category reported live
+make demo-seed             # DESTRUCTIVE: replaces the database with the demo feed
+make run
+```
+
+- `cmd/seed` writes an invented feed (`cmd/seed/samples.go`): invented
+  nicknames, invented posts, ~40 000 comments over 14 days following a daily
+  traffic curve. No real NSosyal user or message goes through it. The rows have
+  the same shape the running system writes, so the panel's numbers are still
+  counted from stored data by the same queries — nothing on screen is a
+  placeholder. Flags: `-days`, `-comments`, `-seed` (the same seed gives the
+  same feed), `-degraded-pct`, `-artifact`.
+- `-reset` truncates `comments`, `sessions`, `moderation_decisions`,
+  `analysis_results`, `moderator_actions` and `request_metrics`. Without it the
+  command refuses to run on a database that already holds comments.
+- `mockinfer -demo` reports every category in `thresholds.yaml` as live, so the
+  panel shows one card per moderation class. Without `-demo` it reports what the
+  real service reports today (A1 and `binary_offensive`).
+- Pass `-artifact <hash>` from the inference service's `/health` if you want
+  **Model sürümü** on screen to match the service that is running.
+- Two weeks of data is the default on purpose: the "7 Gün" range compares
+  itself with the week before it, and a window with nothing behind it shows an
+  absurd change percentage.
 
 **Port 8080 on this laptop is taken by Apache.** Set
 `NSOSYAL_SERVER_ADDR=0.0.0.0:8090` in `backend/.env`, and
