@@ -48,9 +48,12 @@ RULE_V3_TRAINING = {"train": ("7f5e003", "78d845a5fed8dd38441d9ef23f416b85ed8d2b
 RULE_V3_LAST = {"train": ("dd6a855", "ce3ef280f6dd4ebcbfdc0cc2045d61aa8dc59ef2f1c3c222e9192e1ba785f5f5"),
                 "dev": ("dd6a855", "79afe7b9e0a5fa999c4fa64b3c844064e0b7b851601d88305cfd94d6ed69a468")}
 RULE = re.compile(r"rule-v4 (R\d)")
+# R7 also extends m1's prayer clean word to "amîn": clean words were already applied under rule v3, so a
+# rule-v3 match that is now a "clean word amin" collision can only come from that extension.
+PRAYER = re.compile(r"\(clean word amin\)$")
 RULE_NAMES = {"R1": "no letter", "R2": "edge digit", "R3": "edge punctuation / not a word of the root",
               "R4": "apostrophe or mask inside a word", "R5": "cross-word", "R6": "Turkish-letter spelling",
-              "R7": "am morphology", "R8": "stable clean form", "R9": "masked-root alignment"}
+              "R7": "am morphology (and the prayer word amîn)", "R8": "stable clean form", "R9": "masked-root alignment"}
 
 
 def historical(commit: str, split: str, digest: str) -> dict[str, Any]:
@@ -90,8 +93,9 @@ def split_report(split: str) -> tuple[dict[str, Any], list[dict[str, Any]]]:
                 continue
             text = evidence.get((m["start"], m["end"]), "")
             rule = RULE.search(text)
+            code = rule.group(1) if rule else ("R7" if PRAYER.search(text) else None)
             lost.append({"channel": m["channel"], "start": m["start"], "end": m["end"], "surface": m["surface"],
-                         "rule": rule.group(1) if rule else None, "evidence": text.split(": ", 1)[-1] or None})
+                         "rule": code, "evidence": text.split(": ", 1)[-1] or None})
         added = [dict(m) for m in n["matches"] if (m["channel"], m["start"], m["end"]) not in before]
         rules = sorted({m["rule"] for m in lost if m["rule"]})
         if n["a_label"] == 1 and not rules:
