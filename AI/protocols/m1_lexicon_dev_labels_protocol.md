@@ -149,3 +149,11 @@ supersede the paragraphs they name; everything else stands.
 6. **§4 Reading the scores.** Per-channel scores are read from `signals.decision.channel_scores`
    (pre-fusion, one entry per source) rather than the fused `content` list, which keeps one entry
    per code and span and would hide an identical normalized channel (train protocol §4).
+
+## Amendment 2026-09-18 (b) — pseudo-label rule v2
+
+`a_label` on the dev file follows rule **v2** of the train protocol (its amendment of the same
+date): POSITIVE / EXCLUDED / REVIEW lexical classes from terlik's category metadata and the sealed
+guideline text; `null` for REVIEW-only posts; `a_label_v1` kept for comparison. The dev file stays
+diagnostic: pseudo-label agreement only. It is independent of, and never merged with, the 500-row
+AI-assisted, human-adjudicated dev reference, which the generator never reads.

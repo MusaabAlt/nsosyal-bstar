@@ -155,3 +155,111 @@ python -m eval.m1_lexicon_labels --split train --out eval/derived/m1_lexicon_tra
 ```
 
 The file is committed only after this protocol is committed, in a separate, later commit.
+
+---
+
+## Amendment 2026-09-18 — pseudo-label rule **v2** (aligned with annotation guideline v1.1)
+
+**Status:** pre-registered. Committed BEFORE any v2 label is generated or counted. Supersedes §5
+(rule v1) for every file generated from generator version 3.0.0 on. Applies identically to the
+dev file (diagnostic / agreement reporting only).
+
+### Why v1 is superseded
+
+Rule v1 labelled a post positive on **any** terlik match. terlik's Turkish dictionary is broader
+than the A head's concept: of its 147 roots only 18 are category `sexual`; 104 are category
+`insult` (`aptal`, `salak`, `eşek`, `rezil` …). Annotation guideline v1.1 (owner decision
+2026-09-18) defines the A head as **explicit profanity — an obscene or profane root present** and
+scores ordinary insults `0`. The first GPU candidate (`m3-berturk-multihead-2026-09-18`, trained
+on v1 labels) is therefore recorded as TECHNICALLY_VALID_BUT_A_SEMANTICALLY_MISALIGNED
+(`docs/training/runs/m3-berturk-multihead-2026-09-18.md`). A threshold cannot repair a
+target-definition mismatch; the supervision must change.
+
+### Source of the rule — and what it was NOT derived from
+
+The rule is a function of two committed, pre-existing sources only:
+
+1. **terlik 0.1.0's own metadata**: every root of `terlik/lang/tr/dictionary.json`
+   (sha256 `e83a97b38c553227cd20c2b5688939fda6037fb30b4964e9fd063a125a9a641c`) carries a
+   `category` (`sexual` / `insult` / `slur` / `general`) and a `severity` (`high` / `medium` / `low`).
+2. **The sealed guideline text** (v1.1, sha256 `72e61d19…`), which names specific roots as profane
+   or as not profane. Every root it names as profane was already named in v1.0, committed at
+   `2072497`, before any annotation or evaluation existed.
+
+It was **not** derived from the 500-row AI-assisted, human-adjudicated dev reference, from any
+individual candidate error, or from the test set. The classes below are whole metadata classes;
+no root was moved between classes because of how a dev row was labelled or scored. (Disclosure: the
+session that wrote this rule had seen the candidate's dev false positives. That is exactly why the
+rule is restricted to class-level metadata plus pre-existing guideline text: anyone can re-derive
+it from those two sources without access to the reference.)
+
+### The classes
+
+| class | definition | roots | basis |
+|---|---|---|---|
+| **POSITIVE** | `category == "sexual"` (all 18) | sik, amk, yarrak, göt, am, döl, hassiktir, sktrgt, kerhane, fuhuş, aşifte, kaşar, kancık, sakso, sg, taşak, meme, amcı | guideline §1: "an obscene sexual … term"; terlik's own class of obscene sexual roots |
+| **POSITIVE** | roots the sealed guideline itself names as profane (3) | `bok` (§3 non-human row, §9), `piç` (§3 collision row: "`piç` in `kerpiç`"), `oç` (§2 abbreviations) | guideline text, present since v1.0 |
+| **EXCLUDED** | `category == "insult"`, severity `low` (34) or `medium` (61) | aptal, salak, gerizekalı, mal … / rezil, kalleş, şerefsiz, eşek, maymun … | owner decision v1.1: ordinary insults are `0`; its named examples lie in exactly these classes (`aptal`, `salak` ∈ insult/low; `eşek` ∈ insult/medium); the guideline names no root of these classes as profane |
+| **EXCLUDED** | `category == "general"`, severity `high` (20) | geber, boğazınıkeserim, canınıalırım … (threats); allahbelanıversin (sacred); defol, kaybol, çüş … (dismissals) | guideline §3: threats are B2, sacred-concept content is an A4 candidate and `0`; neither is lexical profanity |
+| **REVIEW** (masked) | `category == "insult"`, severity `high`, minus the guideline-named `piç`, `oç` (7) | orospu, gavat, pezevenk, kahpe, sürtük, kaltak, fahişe | terlik files them as insults, yet the guideline names two members of this very class (`piç`, `oç`) as profane: metadata and guideline diverge here, so neither settles the class |
+| **REVIEW** (masked) | `category == "slur"` (3) | ibne, puşt, oğlancı | sexuality-based slurs: not addressed by the guideline |
+| **REVIEW** (masked) | `category == "general"`, severity `medium`, minus the guideline-named `bok` (1) | tabanvansen | not addressed by the guideline |
+
+### Owner-review table (the decision still required)
+
+For each REVIEW root the owner answers one question — *is this an obscene or profane root under
+guideline v1.1 §1 (→ POSITIVE), or an ordinary insult / another family (→ EXCLUDED)?*
+
+| root | terlik category / severity | owner decision |
+|---|---|---|
+| orospu | insult / high | _pending_ |
+| gavat | insult / high | _pending_ |
+| pezevenk | insult / high | _pending_ |
+| kahpe | insult / high | _pending_ |
+| sürtük | insult / high | _pending_ |
+| kaltak | insult / high | _pending_ |
+| fahişe | insult / high | _pending_ |
+| ibne | slur / high | _pending_ |
+| puşt | slur / high | _pending_ |
+| oğlancı | slur / high | _pending_ |
+| tabanvansen | general / medium | _pending_ |
+
+The owner may also strike members of the POSITIVE `sexual` class that are dual-register in
+ordinary use (`meme`, `kerhane`, `fuhuş`, `aşifte`, `kaşar`, `kancık`, `döl`); until then the class
+stands as terlik defines it. Any such decision is a rule-version bump (v3), never a silent edit.
+
+### Rule v2
+
+Let *valid hit* be rule v1's condition (§5): a raw hit, or a normalized hit that m1 mapped back to
+the original text. Let *R* be m1's `matched_roots` for the post.
+
+```
+a_label = 1     if valid hit AND R ∩ POSITIVE ≠ ∅
+a_label = null  if valid hit AND R ∩ POSITIVE = ∅ AND R ∩ REVIEW ≠ ∅     (masked: no supervision)
+a_label = 0     otherwise  (no hit, or only EXCLUDED roots)
+```
+
+- **Masking, not guessing.** A post whose only matches are REVIEW roots gets no A label at all:
+  the trainer masks the A loss on it (`MISSING`), so the undecided class supervises nothing in
+  either direction. When the owner decides, the rule becomes v3 and the files are regenerated.
+- **Channels:** unchanged from v1 — raw OR normalized-with-valid-span (the label half of Q5).
+- **Guards:** unchanged — recorded, never applied to the label. m1 0.1.1's `amin` whole-word
+  rule turns that match into a collision upstream, so it never reaches `matched_roots`.
+- **Limit (stated):** `matched_roots` is per post, not per span; a root matched only on a channel
+  without a valid span could enter *R*. `counts.norm_hit_unmapped` must be 0 for the file to be
+  used, which makes the two readings coincide.
+- **Row fields added:** `a_label_v1` (the v1 value, for the old/new comparison only) and
+  `root_classes` (`{"positive": […], "excluded": […], "review": […]}`). Header: rule version 2,
+  the dictionary sha256, `counts.a_label_null` and per-class row counts.
+- **Determinism, provenance, train/dev/test separation:** exactly as §2–§3 and §7 (two
+  byte-identical passes, git HEAD and dirty state, input digests, test-set paths refused, ids ⊂
+  training corpus). The generator additionally stops if the installed terlik dictionary's sha256
+  is not the pinned one, or if a matched root belongs to no class.
+- **The 500-row dev reference** (`eval/annotation/private/a_dev_ai_assisted_adjudicated.jsonl`)
+  is an EVALUATION set only: never read by the generator (pinned by a test), never a training
+  label, never a source of rule edits.
+
+### Previous files (preserved)
+
+Rule-v1 files remain in git history at `d7925de` and are the supervision recorded in the first
+candidate's `heads.json`: train sha256 `1f6f6cc21c553f68…`, dev sha256 `03c9895541cc6d86…`.

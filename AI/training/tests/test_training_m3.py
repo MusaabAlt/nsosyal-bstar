@@ -146,6 +146,10 @@ class TrainingSmokeTest(unittest.TestCase):
         derived.write_text(json.dumps({"rows": [{"row_id": "1", "lexicon_hit": True, "a_label": 0},
                                                 {"row_id": "2", "lexicon_hit": False}]}), encoding="utf-8")
         self.assertEqual(D.load_a_labels(derived), {"1": 0, "2": 0})     # a_label wins; pre-2.0 fallback
+        masked = Path(self.tmp.name) / "masked.json"
+        masked.write_text(json.dumps({"rows": [{"row_id": "1", "lexicon_hit": True, "a_label": None},
+                                               {"row_id": "2", "lexicon_hit": True, "a_label": 1}]}), encoding="utf-8")
+        self.assertEqual(D.load_a_labels(masked), {"2": 1})              # rule v2: null = no supervision, not 0
         conflict = Path(self.tmp.name) / "conflict.jsonl"
         conflict.write_text(json.dumps({"row_id": "1", "label": 1}) + "\n", encoding="utf-8")
         with self.assertRaisesRegex(ValueError, "conflicting"):

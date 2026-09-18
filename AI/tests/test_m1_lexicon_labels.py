@@ -70,8 +70,10 @@ def sha256_bytes(data: bytes) -> str:
 class SyntheticData:
     """A corpus TSV, a split file and a decoy test-set file, written to `root`."""
 
-    TRAIN = [("1", "aptal herif", "OFF"), ("2", "sen xaptal", "OFF"), ("3", "psikoloji dersi", "NOT"),
-             ("4", "saat 10 am", "NOT"), ("5", "Bu bir test cumlesi", "NOT"), ("6", "amca geldi", "NOT")]
+    # rule v2 classes (train protocol): siktir / bok / am are POSITIVE, aptal is EXCLUDED, orospu is REVIEW
+    TRAIN = [("1", "siktir git", "OFF"), ("2", "sen xbok", "OFF"), ("3", "psikoloji dersi", "NOT"),
+             ("4", "saat 10 am", "NOT"), ("5", "Bu bir test cumlesi", "NOT"), ("6", "amca geldi", "NOT"),
+             ("11", "aptal herif", "OFF"), ("12", "orospu", "OFF")]
     DEV = [("7", "aptal", "OFF"), ("8", "merhaba", "NOT")]
     TEST = [("9", "salak", "OFF"), ("10", "iyi", "NOT")]
 
@@ -113,10 +115,10 @@ class GeneratorTest(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.tmp = tempfile.TemporaryDirectory()
         cls.data = SyntheticData(Path(cls.tmp.name))
-        # "sen xaptal": the raw channel sees "aptal" inside "xaptal" (a collision); the injected m2
-        # drops the "x" and maps the repaired token back to original indices 5..9 (ADR-008 §5).
-        cls.mapped = ("sen aptal", [0, 1, 2, 3, 5, 6, 7, 8, 9])
-        cls.pipeline = G.build_pipeline([CharSafeModule(), FakeDeobf({"sen xaptal": cls.mapped}), TargetModule(),
+        # "sen xbok": the raw channel sees "bok" inside "xbok" (a collision); the injected m2
+        # drops the "x" and maps the repaired token back to original indices 5..7 (ADR-008 §5).
+        cls.mapped = ("sen bok", [0, 1, 2, 3, 5, 6, 7])
+        cls.pipeline = G.build_pipeline([CharSafeModule(), FakeDeobf({"sen xbok": cls.mapped}), TargetModule(),
                                          LexiconModule()])
 
     @classmethod
@@ -211,8 +213,8 @@ class GeneratorTest(unittest.TestCase):
             self.assertFalse(rows["2"]["lexicon_hit_raw"])
             self.assertTrue(rows["2"]["lexicon_hit_norm"])
             self.assertEqual(rows["2"]["a_label"], 1)
-            self.assertEqual(rows["2"]["matches"], [{"channel": "normalized", "start": 5, "end": 10, "surface": "aptal"}])
-            self.assertTrue(any("aptal in xaptal" in c["evidence"] for c in rows["2"]["collisions"]))
+            self.assertEqual(rows["2"]["matches"], [{"channel": "normalized", "start": 5, "end": 8, "surface": "bok"}])
+            self.assertTrue(any("bok in xbok" in c["evidence"] for c in rows["2"]["collisions"]))
         with self.subTest(case="collision only"):
             self.assertEqual(rows["3"]["channel"], "none")
             self.assertEqual(rows["3"]["a_label"], 0)
@@ -224,22 +226,40 @@ class GeneratorTest(unittest.TestCase):
         with self.subTest(case="clean"):
             self.assertEqual(rows["5"]["a_label"], 0)
             self.assertEqual(rows["5"]["matches"], [])
+        with self.subTest(case="rule v2: ordinary insult is a hit but NOT a positive"):
+            self.assertTrue(rows["11"]["lexicon_hit"])
+            self.assertEqual((rows["11"]["a_label_v1"], rows["11"]["a_label"]), (1, 0))
+            self.assertEqual(rows["11"]["root_classes"], {"positive": [], "excluded": ["aptal"], "review": []})
+        with self.subTest(case="rule v2: REVIEW-class-only post is masked, never guessed"):
+            self.assertTrue(rows["12"]["lexicon_hit"])
+            self.assertEqual(rows["12"]["a_label_v1"], 1)
+            self.assertIsNone(rows["12"]["a_label"])
+            self.assertEqual(rows["12"]["root_classes"]["review"], ["orospu"])
+        with self.subTest(case="rule v2: positive class"):
+            self.assertEqual(rows["1"]["root_classes"]["positive"], ["sik"])
+            self.assertEqual(rows["4"]["root_classes"]["positive"], ["am"])
         for r in data["rows"]:
             self.assertEqual(r["lexicon_hit"], r["lexicon_hit_raw"] or r["lexicon_hit_norm"])
-        self.assertEqual(data["counts"]["a_label"], 3)
+        self.assertEqual(data["counts"]["a_label"], 3)            # rows 1, 2, 4
+        self.assertEqual(data["counts"]["a_label_null"], 1)       # row 12
+        self.assertEqual(data["counts"]["a_label_v1"], 5)         # rows 1, 2, 4, 11, 12
+        self.assertEqual(data["counts"]["v1_positive_now_zero"], 1)
+        self.assertEqual(data["counts"]["v1_positive_now_null"], 1)
+        self.assertEqual(data["counts"]["v1_zero_now_positive"], 0)
         self.assertEqual(data["counts"]["normalized_only"], 1)
-        self.assertEqual(data["counts"]["both"], 2)   # rows 1 and 4
+        self.assertEqual(data["counts"]["both"], 4)   # rows 1, 4, 11, 12
         self.assertEqual(data["counts"]["raw_only"], 0)
         self.assertEqual(data["counts"]["norm_hit_unmapped"], 0)
         self.assertEqual(data["counts"]["rows_all_matches_homonym"], 1)
-        self.assertEqual(data["a_label_rule"].split(" - ")[0],
-                         "lexicon_hit_raw OR (lexicon_hit_norm AND a normalized-channel match with a valid span)")
+        self.assertEqual(data["a_label_rule"]["version"], 2)
+        self.assertEqual(data["a_label_rule"]["terlik_tr_dictionary_sha256"], G.TERLIK_TR_DICTIONARY_SHA256)
+        self.assertEqual(data["a_label_rule"]["class_sizes"], {"positive": 21, "excluded": 115, "review": 11})
 
     def test_raw_only_positive_and_unmapped_normalized_hit(self) -> None:
         # raw-only: the injected m2 loses the profane word; unmapped: it repairs "xaptal" but publishes no
         # offsets and a different length, so m1 can only flag the normalized hit (Q9) -> a_label 0.
-        pipeline = G.build_pipeline([CharSafeModule(), FakeDeobf({"aptal herif": ("hello herif", list(range(11))),
-                                                                  "sen xaptal": ("sen aptal", None)}),
+        pipeline = G.build_pipeline([CharSafeModule(), FakeDeobf({"siktir git": ("hello git", list(range(9))),
+                                                                  "sen xbok": ("sen bok", None)}),
                                      TargetModule(), LexiconModule()])
         _, data = self.rows_for("train", pipeline=pipeline)
         rows = {r["row_id"]: r for r in data["rows"]}
@@ -272,6 +292,35 @@ class GeneratorTest(unittest.TestCase):
         self.assertEqual(rows["1"]["channel"], "both")
         self.assertEqual(rows["3"]["a_label"], 0)
         self.assertEqual(data["engine"]["module_versions"]["m2_deobf"], DeobfModule.version)
+
+    # -- rule v2: the lexical classes and the evaluation-leakage firewall ----------------
+    def test_lexical_classes_follow_the_protocol_table(self) -> None:
+        classes = G.lexical_classes()
+        self.assertEqual(len(classes), 147)
+        for root in ("sik", "amk", "göt", "am", "bok", "piç", "oç"):
+            self.assertEqual(classes[root], G.POSITIVE, root)
+        for root in ("aptal", "salak", "eşek", "rezil", "geber", "allahbelanıversin"):      # owner decision v1.1; B2; A4
+            self.assertEqual(classes[root], G.EXCLUDED, root)
+        self.assertEqual(sorted(r for r, c in classes.items() if c == G.REVIEW),
+                         ["fahişe", "gavat", "ibne", "kahpe", "kaltak", "orospu", "oğlancı", "pezevenk", "puşt",
+                          "sürtük", "tabanvansen"])
+
+    def test_another_terlik_dictionary_stops_the_run(self) -> None:
+        other = Path(self.tmp.name) / "dictionary.json"
+        other.write_text(json.dumps({"entries": [{"root": "x", "category": "sexual", "severity": "high"}]}), encoding="utf-8")
+        with self.assertRaisesRegex(G.ProtocolStop, "pinned"):
+            G.lexical_classes(other)
+
+    def test_generator_cannot_reach_the_dev_evaluation_reference(self) -> None:
+        """The 500-row AI-assisted, human-adjudicated reference is an EVALUATION set. The generator
+        has no path to it: it names no file under eval/annotation/private, imports nothing from the
+        sampler, and its class rule names no corpus row id."""
+        source = (G.AI_ROOT / "eval" / "m1_lexicon_labels.py").read_text(encoding="utf-8")
+        for forbidden in ("annotation/private", "a_dev_ai_assisted", "a_dev_human", ".adjudication", "a_head_dev_sample",
+                          "a_head_eval", "sample_seed42"):
+            self.assertNotIn(forbidden, source, forbidden)
+        rule = source.split("def lexical_classes")[1].split("\ndef ")[0]
+        self.assertIsNone(re.search(r"\d{5}", rule), "a corpus row id inside the class rule")
 
     # -- staleness ---------------------------------------------------------------------
     def test_check_passes_on_a_fresh_file_and_flags_doctored_ones(self) -> None:

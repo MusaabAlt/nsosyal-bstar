@@ -5,7 +5,9 @@ protocols/m1_lexicon_train_labels_protocol.md (--split train).
 Writes, for every row of the chosen split, what m1_lexicon publishes at runtime through the
 current m0 -> m2 -> m6 -> m1 path: the three hit flags, the channel, the matched roots, the span
 of every match, every substring collision, every HOMONYM guard, and the A-head pseudo-label
-`a_label` (train protocol §5: raw hit OR a normalized hit with a valid span).
+`a_label` (train protocol, rule v2: a valid hit on a POSITIVE-class root -> 1, on REVIEW-class roots
+only -> null (masked), otherwise 0; the classes come from terlik's category metadata and the sealed
+annotation guideline, never from any evaluation set).
 
 Deliberately does NOT:
   * define the evaluation slice (m4's slice is eval/frozen/study_slice_dev.json, frozen)
@@ -15,6 +17,8 @@ Deliberately does NOT:
   * open the official test set: only the training corpus and the committed split are read, no
     path containing "testset" or "labela" is accepted, every row id is a corpus id
   * report metrics: recall / precision / FPR are computed from these files elsewhere
+  * read the 500-row AI-assisted, human-adjudicated dev reference (eval/annotation/): it is an
+    EVALUATION set only and no path of this script reaches it
 
     python -m eval.m1_lexicon_labels --split train --out eval/derived/m1_lexicon_train_seed42.json
     python -m eval.m1_lexicon_labels --split dev   --out eval/derived/m1_lexicon_dev_seed42.json
@@ -44,7 +48,7 @@ REPO_ROOT = AI_ROOT.parent
 SOURCE = "m1_lexicon"
 GENERATOR = "AI/eval/m1_lexicon_labels.py"
 # Bump on any change to the row schema, the a_label rule, or what the header records.
-GENERATOR_VERSION = "2.0.0"
+GENERATOR_VERSION = "3.0.0"
 
 PROTOCOLS = {
     "dev": "protocols/m1_lexicon_dev_labels_protocol.md",
@@ -62,9 +66,46 @@ LEXICON_MODULES = ("m0_charsafe", "m2_deobf", "m6_target", "m1_lexicon")
 WATCHED_PATHS = ("modules/m0_charsafe", "modules/m1_lexicon", "modules/m2_deobf", "modules/m6_target",
                  "modules/registry.py", "pipeline", "contracts", "eval/m1_lexicon_labels.py")
 
-ROW_FIELDS = ["row_id", "lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm", "channel", "a_label", "roots",
-              "matches[channel,start,end,surface]", "collisions[start,end,surface,evidence]",
-              "homonyms[start,end,surface,evidence]"]
+ROW_FIELDS = ["row_id", "lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm", "channel", "a_label", "a_label_v1",
+              "roots", "root_classes{positive,excluded,review}", "matches[channel,start,end,surface]",
+              "collisions[start,end,surface,evidence]", "homonyms[start,end,surface,evidence]"]
+
+# -- pseudo-label rule v2 (train protocol, amendment 2026-09-18) ---------------------------------
+# The lexical classes are a function of terlik's OWN per-root metadata and of roots the sealed
+# annotation guideline names in its text - nothing else. Never edit a class because of how a dev
+# row was labelled or scored: that is evaluation leakage. An owner decision on the REVIEW class
+# is a rule-version bump, recorded in the protocol first.
+A_LABEL_RULE_VERSION = 2
+TERLIK_TR_DICTIONARY_SHA256 = "e83a97b38c553227cd20c2b5688939fda6037fb30b4964e9fd063a125a9a641c"
+GUIDELINE_NAMED_PROFANE = frozenset({"bok", "piç", "oç"})     # guideline §3 / §9, §3, §2 (since v1.0)
+POSITIVE, EXCLUDED, REVIEW = "positive", "excluded", "review"
+
+
+def terlik_tr_dictionary() -> Path:
+    import terlik
+    return Path(terlik.__file__).resolve().parent / "lang" / "tr" / "dictionary.json"
+
+
+def lexical_classes(dictionary: Path | None = None) -> dict[str, str]:
+    """root -> POSITIVE / EXCLUDED / REVIEW, from terlik's category and severity (protocol table)."""
+    path = dictionary or terlik_tr_dictionary()
+    require(path.is_file(), f"terlik dictionary missing: {path}")
+    got = sha256_file(path)
+    require(got == TERLIK_TR_DICTIONARY_SHA256, f"terlik dictionary sha256 {got} is not the pinned one: the "
+                                                 "lexical classes were defined on other bytes")
+    classes: dict[str, str] = {}
+    for entry in json.loads(path.read_text(encoding="utf-8"))["entries"]:
+        root, category, severity = entry["root"], entry["category"], entry["severity"]
+        if category == "sexual" or root in GUIDELINE_NAMED_PROFANE:
+            classes[root] = POSITIVE
+        elif (category == "insult" and severity in ("low", "medium")) or (category == "general" and severity == "high"):
+            classes[root] = EXCLUDED
+        elif (category == "insult" and severity == "high") or category == "slur" or \
+                (category == "general" and severity == "medium"):
+            classes[root] = REVIEW
+        else:
+            raise ProtocolStop(f"terlik root {root!r} ({category}/{severity}) belongs to no protocol class")
+    return classes
 
 README = {
     "dev": (
@@ -90,8 +131,9 @@ README = {
 LIMITS = [
     "Gold is binary OFF/NOT: any rate computed from this file measures lexicon hits against OFF, never "
     "'profanity present' against a human judgement (the corpus has no A codes).",
-    "a_label is a keyword pseudo-label (terlik balanced, both channels): an A head trained on it learns "
-    "terlik's coverage; its quality is known only against the human-labelled dev subset.",
+    "a_label is a keyword pseudo-label (rule v2: terlik matches restricted to the POSITIVE lexical class): an "
+    "A head trained on it learns that class's coverage; REVIEW-class-only rows are null (masked) until the "
+    "owner classifies those roots. Its quality is known only against an independent evaluation reference.",
     "The raw channel is m0's charsafe text, not the untouched original; spans are original offsets.",
     "The normalized channel is m2's parallel channel (tier 1 + zeyrek-validated tier 2) mapped through "
     "m2's _offsets (ADR-008); a normalized-only hit without a valid span is labelled 0 and counted.",
@@ -239,13 +281,24 @@ def channel_of(raw: bool, norm: bool) -> str:
     return {(True, True): "both", (True, False): RAW, (False, True): NORMALIZED, (False, False): "none"}[(raw, norm)]
 
 
-def a_label_of(raw: bool, norm: bool, matches: list[dict[str, Any]]) -> int:
-    """Train protocol §5: raw hit, or a normalized hit that m1 mapped back to the original text."""
+def a_label_v1_of(raw: bool, norm: bool, matches: list[dict[str, Any]]) -> int:
+    """Rule v1 ("valid hit"): raw hit, or a normalized hit that m1 mapped back to the original text.
+    Superseded as the label; kept as the first condition of v2 and for the old/new comparison."""
     spanned_norm = any(m["channel"] == NORMALIZED for m in matches)
     return int(raw or (norm and spanned_norm))
 
 
-def label_row(pipeline: Pipeline, row_id: str, text: str) -> dict[str, Any]:
+def a_label_of(valid_hit: int, root_classes: dict[str, list[str]]) -> int | None:
+    """Rule v2: 1 on a POSITIVE-class root; None (masked, no supervision) when only REVIEW-class
+    roots matched - the owner has not classified them; 0 otherwise."""
+    if not valid_hit:
+        return 0
+    if root_classes[POSITIVE]:
+        return 1
+    return None if root_classes[REVIEW] else 0
+
+
+def label_row(pipeline: Pipeline, row_id: str, text: str, classes: dict[str, str]) -> dict[str, Any]:
     result = pipeline.analyze(text)
     degraded = {d["module"]: d for d in result.signals["pipeline"]["degraded"]}
     require(SOURCE not in degraded, f"row {row_id}: m1_lexicon degraded: {degraded.get(SOURCE)}")
@@ -289,12 +342,19 @@ def label_row(pipeline: Pipeline, row_id: str, text: str) -> dict[str, Any]:
                     items.append(item)
         return sorted(items, key=lambda c: (c["start"], c["end"]))
 
+    roots = sorted(signals.get("matched_roots", []))
+    unknown = [r for r in roots if r not in classes]
+    require(not unknown, f"row {row_id}: matched roots outside the terlik dictionary classes: {unknown}")
+    root_classes = {c: [r for r in roots if classes[r] == c] for c in (POSITIVE, EXCLUDED, REVIEW)}
+    v1 = a_label_v1_of(flags["lexicon_hit_raw"], flags["lexicon_hit_norm"], matches)
     return {
         "row_id": row_id,
         **flags,
         "channel": channel_of(flags["lexicon_hit_raw"], flags["lexicon_hit_norm"]),
-        "a_label": a_label_of(flags["lexicon_hit_raw"], flags["lexicon_hit_norm"], matches),
-        "roots": sorted(signals.get("matched_roots", [])),
+        "a_label": a_label_of(v1, root_classes),
+        "a_label_v1": v1,
+        "roots": roots,
+        "root_classes": root_classes,
         "matches": matches,
         "collisions": spanned(GuardCode.SUBSTRING_COLLISION),
         "homonyms": spanned(GuardCode.HOMONYM),
@@ -327,8 +387,10 @@ def engine_record(pipeline: Pipeline) -> dict[str, Any]:
     }
 
 
-def build_rows(ids: list[str], corpus: dict[str, tuple[str, str]], pipeline: Pipeline) -> tuple[str, list[dict[str, Any]]]:
-    rows = [label_row(pipeline, row_id, corpus[row_id][0]) for row_id in ids]
+def build_rows(ids: list[str], corpus: dict[str, tuple[str, str]], pipeline: Pipeline,
+               classes: dict[str, str] | None = None) -> tuple[str, list[dict[str, Any]]]:
+    classes = classes if classes is not None else lexical_classes()
+    rows = [label_row(pipeline, row_id, corpus[row_id][0], classes) for row_id in ids]
     return serialise_rows(rows), rows
 
 
@@ -341,7 +403,16 @@ def counts_of(rows: list[dict[str, Any]]) -> dict[str, int]:
         "raw_only": sum(r["channel"] == RAW for r in rows),
         "normalized_only": sum(r["channel"] == NORMALIZED for r in rows),
         "both": sum(r["channel"] == "both" for r in rows),
-        "a_label": sum(r["a_label"] for r in rows),
+        "a_label": sum(1 for r in rows if r["a_label"] == 1),
+        "a_label_null": sum(1 for r in rows if r["a_label"] is None),
+        "a_label_zero": sum(1 for r in rows if r["a_label"] == 0),
+        "a_label_v1": sum(r["a_label_v1"] for r in rows),
+        "v1_positive_now_zero": sum(1 for r in rows if r["a_label_v1"] == 1 and r["a_label"] == 0),
+        "v1_positive_now_null": sum(1 for r in rows if r["a_label_v1"] == 1 and r["a_label"] is None),
+        "v1_zero_now_positive": sum(1 for r in rows if r["a_label_v1"] == 0 and r["a_label"] == 1),
+        "rows_with_positive_root": sum(bool(r["root_classes"][POSITIVE]) for r in rows),
+        "rows_with_excluded_root": sum(bool(r["root_classes"][EXCLUDED]) for r in rows),
+        "rows_with_review_root": sum(bool(r["root_classes"][REVIEW]) for r in rows),
         "norm_hit_unmapped": sum(1 for r in rows if r["lexicon_hit_norm"]
                                  and not any(m["channel"] == NORMALIZED for m in r["matches"])),
         "rows_with_collision": sum(bool(r["collisions"]) for r in rows),
@@ -371,7 +442,7 @@ def provenance(spec: Spec) -> dict[str, Any]:
 
 
 def build_header(spec: Spec, meta: dict[str, Any], engine: dict[str, Any], hashes: dict[str, Any],
-                 rows: list[dict[str, Any]], block: str) -> dict[str, Any]:
+                 rows: list[dict[str, Any]], block: str, classes: dict[str, str]) -> dict[str, Any]:
     return {
         "_README": README[spec.split],
         **meta,
@@ -387,8 +458,17 @@ def build_header(spec: Spec, meta: dict[str, Any], engine: dict[str, Any], hashe
                          "text": "m2_deobf normalized_text (tier 1 + zeyrek-validated tier 2), spans mapped "
                                  "through m2's _offsets (ADR-008)"},
         },
-        "a_label_rule": "lexicon_hit_raw OR (lexicon_hit_norm AND a normalized-channel match with a valid span) "
-                        "- protocols/m1_lexicon_train_labels_protocol.md §5 (owner decision 2026-09-18)",
+        "a_label_rule": {
+            "version": A_LABEL_RULE_VERSION,
+            "text": "valid hit := lexicon_hit_raw OR (lexicon_hit_norm AND a normalized-channel match with a valid "
+                    "span). a_label = 1 if valid hit and a matched root is POSITIVE; null (masked) if valid hit and "
+                    "only REVIEW roots matched; 0 otherwise - protocols/m1_lexicon_train_labels_protocol.md, "
+                    "amendment 2026-09-18 (rule v2, aligned with annotation guideline v1.1)",
+            "terlik_tr_dictionary_sha256": TERLIK_TR_DICTIONARY_SHA256,
+            "guideline_named_profane_roots": sorted(GUIDELINE_NAMED_PROFANE),
+            "class_sizes": {c: sum(1 for v in classes.values() if v == c) for c in (POSITIVE, EXCLUDED, REVIEW)},
+            "review_roots_pending_owner_decision": sorted(r for r, c in classes.items() if c == REVIEW),
+        },
         "counts": counts_of(rows),
         "rows_sha256": hashlib.sha256(block.encode("utf-8")).hexdigest(),
         "limits": LIMITS,
@@ -451,8 +531,18 @@ def check_file(path: Path, spec: Spec | None = None) -> list[str]:
         ids = [str(i) for i in split[f"{split_name}_ids"]]
         if [r.get("row_id") for r in rows] != ids:
             problems.append(f"row ids are not the split's {split_name}_ids in order")
-    expected_fields = {"row_id", "lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm", "channel", "a_label", "roots",
-                       "matches", "collisions", "homonyms"}
+    expected_fields = {"row_id", "lexicon_hit", "lexicon_hit_raw", "lexicon_hit_norm", "channel", "a_label",
+                       "a_label_v1", "roots", "root_classes", "matches", "collisions", "homonyms"}
+    rule = data.get("a_label_rule") if isinstance(data.get("a_label_rule"), dict) else {}
+    if rule.get("version") != A_LABEL_RULE_VERSION:
+        problems.append(f"a_label rule version {rule.get('version')} != {A_LABEL_RULE_VERSION}")
+    if rule.get("terlik_tr_dictionary_sha256") != TERLIK_TR_DICTIONARY_SHA256:
+        problems.append("a_label rule was applied with another terlik dictionary")
+    try:
+        if sha256_file(terlik_tr_dictionary()) != TERLIK_TR_DICTIONARY_SHA256:
+            problems.append("installed terlik dictionary differs from the pinned sha256")
+    except Exception as exc:                                     # terlik not importable on this machine
+        problems.append(f"terlik dictionary not checkable: {type(exc).__name__}")
     if rows and set(rows[0]) != expected_fields:
         problems.append(f"row fields {sorted(rows[0])} != {sorted(expected_fields)}")
     if data.get("counts") != counts_of(rows):
@@ -469,10 +559,11 @@ def generate(spec: Spec, out: Path, pipeline: Pipeline | None = None, spot_check
         engine = engine_record(pipeline)
         require(engine["m2_tier2_enabled"], "m2 tier 2 (zeyrek) unavailable: the normalized channel would be "
                                             "silently different; install modules/m2_deobf/requirements.txt")
-        block, rows = build_rows(ids, corpus, pipeline)
-        second, _ = build_rows(ids, corpus, pipeline)
+        classes = lexical_classes()
+        block, rows = build_rows(ids, corpus, pipeline, classes)
+        second, _ = build_rows(ids, corpus, pipeline, classes)
         require(block == second, "two generations of the rows differ - not deterministic")
-        header = build_header(spec, meta, engine, hashes, rows, block)
+        header = build_header(spec, meta, engine, hashes, rows, block, classes)
         text = render(header, block)
         require(json.loads(text)["rows"] == rows, "serialised file does not round-trip")
     except ProtocolStop as exc:

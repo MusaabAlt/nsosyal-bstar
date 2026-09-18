@@ -123,8 +123,9 @@ def load_a_labels(path: str | Path) -> dict[str, int]:
     path = Path(path)
     if path.suffix == ".json":
         data = json.loads(path.read_text(encoding="utf-8"))
+        # rule v2: a_label null = REVIEW-class-only post, deliberately unlabelled -> left MISSING (masked)
         return {str(r["row_id"]): int(r["a_label"] if "a_label" in r else bool(r["lexicon_hit"]))
-                for r in data["rows"]}
+                for r in data["rows"] if not ("a_label" in r and r["a_label"] is None)}
     table = {}
     for r in _read_jsonl(path):
         label = int(r["label"])
