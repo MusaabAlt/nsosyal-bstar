@@ -432,6 +432,36 @@ class CommittedFilesTest(unittest.TestCase):
         self.assertFalse(set(ids["train"]) & set(ids["dev"]))
         self.assertEqual(len(ids["train"]) + len(ids["dev"]), split["n_rows"])
 
+    # The label files the rule-v3 candidate m3-berturk-multihead-a-rule-v3-20260918-074806 was trained
+    # on (its heads.json label_sources.a records exactly these digests). The working files have been
+    # regenerated since (m1 0.1.2, m2 0.1.2): their bytes differ, their labels must not.
+    RULE_V3_TRAINING_FILES = {
+        "train": ("7f5e003", "78d845a5fed8dd38441d9ef23f416b85ed8d2ba747d94f5943509550d9fc50c8"),
+        "dev": ("7f5e003", "8f4dcdfeec707bd8cb9b52744ff6b72a675cdb94790b64d167b87c12fd603ee7"),
+    }
+
+    def test_rule_v3_training_files_are_preserved_and_their_labels_unchanged(self) -> None:
+        """History stays truthful: the exact bytes the rule-v3 artifact saw are still retrievable at
+        their commit, and while the working files are rule v3 under the same taxonomy, every row
+        carries the same a_label as those bytes."""
+        import subprocess
+
+        for split, (commit, digest) in self.RULE_V3_TRAINING_FILES.items():
+            with self.subTest(split=split):
+                shown = subprocess.run(["git", "-C", str(G.AI_ROOT), "show",
+                                        f"{commit}:AI/eval/derived/m1_lexicon_{split}_seed42.json"],
+                                       capture_output=True, timeout=120)
+                if shown.returncode != 0:
+                    self.skipTest(f"git history for {commit} not available: {shown.stderr[-300:]!r}")
+                self.assertEqual(hashlib.sha256(shown.stdout).hexdigest(), digest)
+                old = json.loads(shown.stdout)
+                now = json.loads(self.FILES[split].read_text(encoding="utf-8"))
+                if (now["a_label_rule"]["version"], now["a_label_rule"]["taxonomy_sha256"]) != \
+                        (old["a_label_rule"]["version"], old["a_label_rule"]["taxonomy_sha256"]):
+                    self.skipTest("working files are under another rule: the artifact's training labels are history")
+                self.assertEqual([(r["row_id"], r["a_label"]) for r in now["rows"]],
+                                 [(r["row_id"], r["a_label"]) for r in old["rows"]])
+
     def test_generator_and_sampler_never_name_the_test_set_files(self) -> None:
         """The locked files are `offenseval-tr-testset-v1.tsv` and `offenseval-tr-labela-v1.tsv`
         (RESOURCES.md). Neither file name may appear in the generator or the sampler: the only
