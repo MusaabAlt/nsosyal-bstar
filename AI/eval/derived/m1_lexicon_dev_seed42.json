@@ -9,11 +9,11 @@
   "generator": {
     "script": "AI/eval/m1_lexicon_labels.py",
     "version": "5.0.0",
-    "git_head": "2d8e9b0ad308408eee1bf82e250cf43213e50262",
+    "git_head": "5ee2e8a9bdd8f1dd524093a951b37fd31f0be7b5",
     "uncommitted_changes": [],
     "python": "3.14.0"
   },
-  "created_at": "2026-09-18T10:25:38+00:00",
+  "created_at": "2026-09-18T11:12:40+00:00",
   "engine": {
     "m1_engine_signal": "terlik 0.1.0 balanced",
     "terlik": "0.1.0",
@@ -29,7 +29,7 @@
       "m0_charsafe": "0.2.0",
       "m2_deobf": "0.1.2",
       "m6_target": "0.1.0",
-      "m1_lexicon": "0.2.0"
+      "m1_lexicon": "0.2.1"
     }
   },
   "inputs": {
