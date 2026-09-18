@@ -81,10 +81,19 @@ positive, and terlik's dictionary is mostly ordinary insults, which guideline v1
 - **Metadata:** the artifact's false provenance wording is corrected without retraining
   (`training/m3_encoder/correct_metadata.py`); prepared and validated, the Drive artifact is not
   overwritten.
-- **Open architecture gap (owner):** M1's A1 fires on all 147 terlik roots, including the 130
-  rule-v3 EXCLUDED ordinary insults (`aptal`, `salak`, `kahpe`, …), so production still gives them
-  the family-A "küfür" code. No separate generic-insult signal exists: `B1` is untrained, M1 emits no
-  B code, and the m3 binary head scores offensiveness in general.
+- **Architecture gap (owner) — CLOSED in the fifth pass:** M1's A1 fired on all 147 terlik roots,
+  including the 130 rule-v3 EXCLUDED ordinary insults.
+
+## Fifth pass, 2026-09-18 — M1 runtime routing (M1-ROUTE-1)
+
+- **Protocol first:** `protocols/m1_runtime_routing_protocol.md`, committed before the code. m1
+  0.2.0 still detects every root and routes it: 17 rule-v3 POSITIVE roots → family A (the only
+  lexical family-A roots), 100 → `B1`, 7 → `B2`, 9 → `B3`, 14 topic roots → no content code.
+- **Guards (lists only):** `NON_HUMAN_TARGET` + `B1`, `HOMONYM` + `B1`; `mal` / `domuz` compound
+  contexts; EXCLUDED-only fixes (`allık`, split-across-words `Ali Kınık`).
+- **Training untouched:** the generator (5.0.0) reads m1's private `_matches`; every A
+  pseudo-label is identical to the rule-v3 artifact's training bytes (`7f5e003`), pinned by test.
+- **Still open, separate:** POSITIVE-root matching noise (`docs/blockers/m1_positive_root_matching_precision.md`).
 
 Item (b) of the original decision request — which m3 output is compared with the baseline's
 binary numbers — is answered by the handoff §28: the new artifact's **binary head** at the study's

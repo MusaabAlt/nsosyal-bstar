@@ -90,3 +90,13 @@ A new evaluation reference with enough positives to support a derived operating 
 artifact, or an owner decision to adopt a derived policy (for example a minimum-precision or an
 FPR-cap rule) — each as a new, versioned pre-registration (A-OP-2), written before any curve is
 inspected.
+
+## Amendment 2026-09-18 — §4 / §5 after M1-ROUTE-1 (A-OP-1 itself unchanged)
+
+`protocols/m1_runtime_routing_protocol.md` (M1-ROUTE-1, m1 0.2.0) closes the §5 gap: M1 no longer
+emits every terlik match on the `A1` carrier. Only the 17 rule-v3 POSITIVE roots feed family A;
+ordinary insults are `B1` (degradation), threats `B2`, curses / exclusion `B3`, topic vocabulary
+no content code — all still detected. So §4's "M1 emits every terlik match on the `A1` carrier"
+now reads "M1 emits its 17 family-A roots on the `A1` carrier, score 1.0". The complement policy
+holds as written: family A is fed only by M1's 17 roots and by M3's A head, both meeting the
+family-A thresholds (0.50). The A operating threshold stays FIXED at 0.50.
