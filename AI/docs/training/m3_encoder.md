@@ -1,8 +1,13 @@
 # Colab Pro+ handoff — m3_encoder multi-head fine-tune (binary + A; B / C when their data exists)
 
-State (2026-09-18, third pass): **READY_FOR_COLAB for the binary + A-head RETRAINING under
-pseudo-label rule v3**, the frozen explicit A-head taxonomy (rule v2 was an intermediate taxonomy
-experiment, superseded). The first GPU run (`m3-berturk-multihead-2026-09-18`, rule v1) is frozen as
+State (2026-09-18, fourth pass): **the rule-v3 retraining is DONE** —
+`m3-berturk-multihead-a-rule-v3-20260918-074806` (weights `41d98d7f…`, trained at `dba8632`), reviewed,
+not promoted (`docs/training/runs/m3-berturk-multihead-a-rule-v3-20260918-074806.md`). Its A
+operating threshold is FIXED at 0.50 by the owner's pre-registered policy A-OP-1
+(`protocols/m3_a_head_operating_policy.md`), not derived; its `binary_offensive` threshold is the
+next step (§34). No further GPU run is needed for it. The §18 command below is kept as the record
+of how it was trained. (Third pass: READY_FOR_COLAB under pseudo-label rule v3, the frozen
+explicit A-head taxonomy; rule v2 was an intermediate taxonomy experiment, superseded.) The first GPU run (`m3-berturk-multihead-2026-09-18`, rule v1) is frozen as
 history — TECHNICALLY_VALID_BUT_A_SEMANTICALLY_MISALIGNED, `docs/training/runs/m3-berturk-multihead-2026-09-18.md`
 — and is never overwritten: the retraining uses a NEW run directory and a NEW artifact id (§18).
 The Drive folder is `MyDrive/nsosyal-train/` (the repository and the Colab clone are still named
@@ -209,8 +214,9 @@ python -m training.m3_encoder.train \
 - A head: a number is claimed **only** from `dev_eval.json` → `a` with a non-null `oracle` and
   ≥ 20 positives, reported with the reference's kind, n, agreement (guideline §5) and CI. The
   first candidate's reference numbers (precision 0.636, recall 0.897, tp 35 / fp 20 / fn 4 / tn 441)
-  are the comparison point for the retrained head; no A threshold is derived until the owner
-  pre-registers the A operating-point objective.
+  are the comparison point for the retrained head. No A threshold is derived: for the rule-v3
+  candidate the owner pre-registered A-OP-1, a FIXED 0.50 operating point equal to the reporting
+  point (`protocols/m3_a_head_operating_policy.md`).
   Pseudo-label agreement is reported next to it, labelled as agreement.
 - B / C heads: reported only where ≥ 20 positives per code; no acceptance number is claimed
   for a head without a human-labelled slice.
@@ -242,10 +248,11 @@ thresholds column with the derivation file produced in §34; add a change-log li
 
 Every artifact carries its own thresholds (m3 spec §8). Before any verdict uses the new artifact:
 derive `binary_offensive` on the frozen dev split (CAL half) exactly as
-`protocols/threshold_derivation_binary_offensive_stage1.md` did (r = 3), plus the A row
-(`protocols/templates/threshold_derivation.md`) — the A threshold is derived on the **human**
-oracle rows, never on pseudo-labels — and record the decision-flip table between this artifact and
-the baseline. The shared rows are the owner's to edit (CONTRIBUTING step 7).
+`protocols/threshold_derivation_binary_offensive_stage1.md` did (r = 3), and record the
+decision-flip table between this artifact and the baseline. The A operating point is NOT derived:
+it is set by a pre-registered, versioned owner policy (A-OP-1 for the rule-v3 candidate: fixed
+0.50), never fitted on pseudo-labels and never tuned on the 500-row reference. The shared rows are
+the owner's to edit (CONTRIBUTING step 7).
 
 ## 35. Verification after installation
 
@@ -267,7 +274,10 @@ only for trained heads (A1 on both channels); the binary row of `dev_eval.json` 
 ## 36. Failure / recovery
 
 - `LeakageError`: a banned name, a created split, or a wrong fingerprint — stop; fix the inputs.
-- `ValueError: ... human A labels fall on TRAIN rows`: the oracle file is not the dev export.
+- `ValueError: ... evaluation-reference A labels fall on TRAIN rows`: the reference file is not a dev export.
+- Published provenance written by an older exporter (`a_human` keys, "human dev oracle"): correct
+  the metadata WITHOUT retraining with `python -m training.m3_encoder.correct_metadata` (it writes a
+  new directory and asserts the weights digest).
 - `ValueError: conflicting A labels`: two `--labels-a` files disagree on a row — regenerate both.
 - CUDA OOM: `--batch-size 16 --grad-accum 2`.
 - Disconnect: rerun the same command with `--resume`.

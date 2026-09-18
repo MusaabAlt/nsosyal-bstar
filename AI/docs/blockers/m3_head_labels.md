@@ -2,9 +2,11 @@
 
 - **Component:** `m3_encoder` heads A (profanity present), B (`B1`,`B2`,`B3`,`B5` multi-label),
   C (`C1`–`C5`); downstream `m4_implicit` rows `C1`–`C5` and the stage-2 slice
-- **State:** A = **DECIDED 2026-09-18** (below); pseudo-label **rule v3** frozen and generated →
-  WAITING_FOR_GPU_ARTIFACT for the retraining. Evaluation reference: the 500-row AI-assisted,
-  human-adjudicated dev reference (evaluation only, not a human oracle). A threshold NOT DERIVED;
+- **State:** A = **DECIDED 2026-09-18** (below); pseudo-label **rule v3** frozen and generated; the
+  rule-v3 candidate `m3-berturk-multihead-a-rule-v3-20260918-074806` is trained and reviewed, not
+  promoted. Evaluation reference: the 500-row AI-assisted, human-adjudicated dev reference
+  (evaluation only, not a human oracle). A operating threshold FIXED at 0.50 by the owner's
+  pre-registered policy A-OP-1 (`protocols/m3_a_head_operating_policy.md`), not derived;
   B = BLOCKED_BY_DATA; C = BLOCKED_BY_DATA. Training code and the Colab handoff are engineering
   work and are provided (`docs/training/m3_encoder.md`).
 - **Written:** 2026-09-17. Sources: `docs/team/abdullah/RESOURCES.md` open items 5–7, m3 spec §5, §9.
@@ -63,10 +65,26 @@ positive, and terlik's dictionary is mostly ordinary insults, which guideline v1
 - **Unchanged:** the 500-row reference stays AI-assisted, human-adjudicated and evaluation-only; no
   A threshold is derived; the production m3 artifact stays `m3-berturk-pytorch-fp32-epoch1`; m1's
   runtime A1 on ordinary insults remains an open production question.
-- **Open findings (not fixed here):** `amin!` with one `!` attached still reaches A1 through m2's
-  LEET channel, because `!` is read as `i` and gives `amini`; m1's guard is deliberately not
-  broadened, and no train or dev row is affected. m1 joins collision-evidence roots from a set, so
-  their order in the evidence text depends on the Python hash seed; labels are unaffected.
+- **Findings of the third pass, both FIXED in the fourth:** `amin!` reached A1 through m2's LEET
+  channel (fixed in m2 0.1.2, m1's guard not broadened); m1's collision-evidence root order
+  depended on the Python hash seed (fixed in m1 0.1.2). Labels regenerated: no A label changed.
+
+## Fourth pass, 2026-09-18 — the rule-v3 candidate, A-OP-1
+
+- **Candidate:** `m3-berturk-multihead-a-rule-v3-20260918-074806` (weights `41d98d7f…`, trained at
+  `dba8632` on the rule-v3 files at `7f5e003`). Binary macro-F1 0.8247 (baseline 0.8271, inside the
+  allowance). A head vs the reference at 0.5: tp 32 / fp 1 / fn 7 / tn 460 (rule v1: 35 / 20 / 4 /
+  441). Run record: `docs/training/runs/m3-berturk-multihead-a-rule-v3-20260918-074806.md`.
+- **A-OP-1 (owner):** the A operating threshold is FIXED at 0.50, a versioned policy, not a
+  threshold searched on the reference (39 positives). M3 A COMPLEMENTS M1 A1 on the shared carrier;
+  M1 is not removed. No instability fallback: nothing is estimated.
+- **Metadata:** the artifact's false provenance wording is corrected without retraining
+  (`training/m3_encoder/correct_metadata.py`); prepared and validated, the Drive artifact is not
+  overwritten.
+- **Open architecture gap (owner):** M1's A1 fires on all 147 terlik roots, including the 130
+  rule-v3 EXCLUDED ordinary insults (`aptal`, `salak`, `kahpe`, …), so production still gives them
+  the family-A "küfür" code. No separate generic-insult signal exists: `B1` is untrained, M1 emits no
+  B code, and the m3 binary head scores offensiveness in general.
 
 Item (b) of the original decision request — which m3 output is compared with the baseline's
 binary numbers — is answered by the handoff §28: the new artifact's **binary head** at the study's
