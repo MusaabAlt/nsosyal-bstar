@@ -39,7 +39,7 @@ from pathlib import Path
 from typing import Any
 
 from contracts.codes import GuardCode
-from contracts.module_api import NORMALIZED, RAW
+from contracts.module_api import NORMALIZED, RAW, Context, ModuleOutput
 from modules import registry
 from pipeline.run import Pipeline
 
@@ -48,7 +48,7 @@ REPO_ROOT = AI_ROOT.parent
 SOURCE = "m1_lexicon"
 GENERATOR = "AI/eval/m1_lexicon_labels.py"
 # Bump on any change to the row schema, the a_label rule, or what the header records.
-GENERATOR_VERSION = "4.0.0"
+GENERATOR_VERSION = "5.0.0"
 
 PROTOCOLS = {
     "dev": "protocols/m1_lexicon_dev_labels_protocol.md",
@@ -340,7 +340,39 @@ def a_label_of(valid_hit: int, root_classes: dict[str, list[str]]) -> int | None
     return None if root_classes[REVIEW] else 0
 
 
+class M1MatchTap:
+    """m1's private `_matches` for the post being analysed (generator 5.0.0, train protocol
+    amendment (c)). Under M1-ROUTE-1 a dictionary match may emit no content score at all, so the
+    matches can no longer be read from content scores. The pipeline keeps "_" signal keys out of
+    the response (pipeline.run.public_signals), so the generator reads them where m1 returns them:
+    m1's own ModuleOutput, recorded by wrapping that module instance's process(). Only `root`,
+    `channel` and `span` are read - never the runtime route: a_label has no path to it."""
+
+    def __init__(self, module: Any) -> None:
+        self.matches: Any = None
+        original = module.process
+
+        def process(ctx: Context) -> ModuleOutput:
+            out = original(ctx)
+            self.matches = out.signals.get("_matches") if out.ok else None
+            return out
+
+        module.process = process
+
+
+def m1_tap(pipeline: Pipeline) -> M1MatchTap:
+    tap = getattr(pipeline, "_m1_match_tap", None)
+    if tap is None:
+        m1 = next((m for m in pipeline.modules if m.name.value == SOURCE), None)
+        require(m1 is not None, "the lexicon pipeline holds no m1_lexicon module")
+        tap = M1MatchTap(m1)
+        pipeline._m1_match_tap = tap  # type: ignore[attr-defined]
+    return tap
+
+
 def label_row(pipeline: Pipeline, row_id: str, text: str, classes: dict[str, str]) -> dict[str, Any]:
+    tap = m1_tap(pipeline)
+    tap.matches = None
     result = pipeline.analyze(text)
     degraded = {d["module"]: d for d in result.signals["pipeline"]["degraded"]}
     require(SOURCE not in degraded, f"row {row_id}: m1_lexicon degraded: {degraded.get(SOURCE)}")
@@ -350,21 +382,27 @@ def label_row(pipeline: Pipeline, row_id: str, text: str, classes: dict[str, str
     require(flags["lexicon_hit"] == (flags["lexicon_hit_raw"] or flags["lexicon_hit_norm"]),
             f"row {row_id}: lexicon_hit is not raw OR norm {flags}")
 
-    # Per-channel scores are read from the decision layer's PRE-FUSION record: `result.content`
-    # is fused (one entry per code and span, max over channels), so an identical normalized
-    # channel would vanish from it while `channel_scores` keeps every source.
+    # Every match, whatever its runtime route, from m1's private `_matches` (M1MatchTap): one per
+    # channel and original span, as the content scores were before M1-ROUTE-1.
+    require(isinstance(tap.matches, (list, tuple)), f"row {row_id}: m1 published no _matches signal")
     matches = []
+    for item in tap.matches:
+        channel = item.get("channel")
+        require(channel in (RAW, NORMALIZED), f"row {row_id}: unknown channel {channel!r} in _matches")
+        require(item.get("span") is not None, f"row {row_id}: m1 match without span")
+        start, end = (int(v) for v in item["span"])
+        require(0 <= start < end <= len(text), f"row {row_id}: span {item['span']} outside the text")
+        match = {"channel": channel, "start": start, "end": end, "surface": text[start:end]}
+        if match not in matches:
+            matches.append(match)
+    matches.sort(key=lambda m: (m["start"], m["end"], m["channel"]))
+    # Integrity: every m1 content score (decision layer's pre-fusion record) sits on a published match.
     for score in result.signals.get("decision", {}).get("channel_scores", []):
         source = str(score.get("source", ""))
-        if not source.startswith(f"{SOURCE}@"):
-            continue
-        channel = source.split("@", 1)[1]
-        require(channel in (RAW, NORMALIZED), f"row {row_id}: unknown channel in {source}")
-        require(score.get("span") is not None, f"row {row_id}: m1 score without span")
-        start, end = (int(v) for v in score["span"])
-        require(0 <= start < end <= len(text), f"row {row_id}: span {score['span']} outside the text")
-        matches.append({"channel": channel, "start": start, "end": end, "surface": text[start:end]})
-    matches.sort(key=lambda m: (m["start"], m["end"], m["channel"]))
+        if source.startswith(f"{SOURCE}@") and score.get("span") is not None:
+            key = (source.split("@", 1)[1], int(score["span"][0]), int(score["span"][1]))
+            require(any((m["channel"], m["start"], m["end"]) == key for m in matches),
+                    f"row {row_id}: m1 content score {key} has no match in _matches")
 
     m1_notes = [n for n in result.notes if n.startswith(f"[{SOURCE}] ")]
     for channel, key in ((RAW, "lexicon_hit_raw"), (NORMALIZED, "lexicon_hit_norm")):
@@ -380,7 +418,7 @@ def label_row(pipeline: Pipeline, row_id: str, text: str, classes: dict[str, str
                 start, end = guard.span
                 require(0 <= start < end <= len(text), f"row {row_id}: guard span {guard.span} outside the text")
                 item = {"start": start, "end": end, "surface": text[start:end], "evidence": guard.evidence}
-                if item not in items:      # m1 raises one guard per channel score; the same span once
+                if item not in items:      # m1 raises one guard per channel match; the same span once
                     items.append(item)
         return sorted(items, key=lambda c: (c["start"], c["end"]))
 

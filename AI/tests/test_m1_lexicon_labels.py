@@ -335,6 +335,48 @@ class GeneratorTest(unittest.TestCase):
         self.assertEqual(parsed["EXCLUDED"], G.EXCLUDED_ROOTS)
         self.assertEqual(parsed["REVIEW"], G.REVIEW_ROOTS)
 
+    def test_m1_runtime_routing_is_the_protocol_table_and_family_a_is_rule_v3_positive(self) -> None:
+        """M1-ROUTE-1: m1's ROUTE_* data equals the protocol's ROUTE_* lines; the family-A route is
+        exactly the frozen rule-v3 POSITIVE set; the four other routes are exactly its EXCLUDED set.
+        One classification for training and runtime, without the generator reading the runtime."""
+        from modules.m1_lexicon import module as M1
+
+        text = (G.AI_ROOT / "protocols" / "m1_runtime_routing_protocol.md").read_text(encoding="utf-8")
+        parsed = {}
+        for name in ("A", "B1", "B2", "B3", "NONE"):
+            m = re.search(rf"^ROUTE_{name} \((\d+)\):(.*)$", text, re.M)
+            self.assertIsNotNone(m, name)
+            items = [x.strip() for x in m.group(2).split(",") if x.strip()]
+            self.assertEqual(len(items), int(m.group(1)), name)
+            parsed[name] = frozenset(items)
+        self.assertEqual(parsed, {"A": M1.ROUTE_A, "B1": M1.ROUTE_B1, "B2": M1.ROUTE_B2, "B3": M1.ROUTE_B3,
+                                  "NONE": M1.ROUTE_NONE})
+        self.assertEqual(M1.ROUTE_A, G.POSITIVE_ROOTS)
+        self.assertEqual(M1.EXCLUDED_ROOTS, G.EXCLUDED_ROOTS)
+        self.assertEqual(sum(map(len, parsed.values())), 147)
+
+    def test_a_labels_do_not_depend_on_the_runtime_route(self) -> None:
+        """Training / runtime independence: with every root routed to NO content code, m1 emits no
+        content score at all, yet every a_label (and every match) is what it was - the generator
+        reads matches from m1's private `_matches` and never reads the route."""
+        from unittest import mock
+        from modules.m1_lexicon import module as M1
+
+        _, normal = self.rows_for("train")
+        silent = {root: "NONE" for root in M1.ROUTE_OF}
+        with mock.patch.dict(M1.ROUTE_OF, silent):
+            pipeline = G.build_pipeline([CharSafeModule(), FakeDeobf({"sen xbok": self.mapped}), TargetModule(),
+                                         LexiconModule()])
+            probe = pipeline.analyze("orospu")
+            self.assertEqual(probe.content, [])                         # the patch reached m1
+            _, routed_away = self.rows_for("train", pipeline=pipeline)
+        self.assertEqual([(r["row_id"], r["a_label"], r["matches"], r["roots"]) for r in routed_away["rows"]],
+                         [(r["row_id"], r["a_label"], r["matches"], r["roots"]) for r in normal["rows"]])
+        self.assertTrue(any(r["a_label"] == 1 for r in normal["rows"]))
+        # The row builder never names the route (a constant "route" would appear among its literals).
+        self.assertIn("channel", G.label_row.__code__.co_consts)
+        self.assertNotIn("route", G.label_row.__code__.co_consts)
+
     def test_unexpected_dictionary_conditions_stop(self) -> None:
         roots = sorted(G.POSITIVE_ROOTS | G.EXCLUDED_ROOTS)
         self.assertEqual(len(G.classify(roots)), 147)
