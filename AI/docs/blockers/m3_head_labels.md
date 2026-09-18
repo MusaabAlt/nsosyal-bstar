@@ -2,8 +2,9 @@
 
 - **Component:** `m3_encoder` heads A (profanity present), B (`B1`,`B2`,`B3`,`B5` multi-label),
   C (`C1`–`C5`); downstream `m4_implicit` rows `C1`–`C5` and the stage-2 slice
-- **State:** A = **DECIDED 2026-09-18** (below) → WAITING_FOR_GPU_ARTIFACT for the run,
-  BLOCKED_BY_DATA for the *quality claim* (human dev oracle not yet labelled);
+- **State:** A = **DECIDED 2026-09-18** (below); pseudo-label **rule v3** frozen and generated →
+  WAITING_FOR_GPU_ARTIFACT for the retraining. Evaluation reference: the 500-row AI-assisted,
+  human-adjudicated dev reference (evaluation only, not a human oracle). A threshold NOT DERIVED;
   B = BLOCKED_BY_DATA; C = BLOCKED_BY_DATA. Training code and the Colab handoff are engineering
   work and are provided (`docs/training/m3_encoder.md`).
 - **Written:** 2026-09-17. Sources: `docs/team/abdullah/RESOURCES.md` open items 5–7, m3 spec §5, §9.
@@ -45,6 +46,27 @@ positive, and terlik's dictionary is mostly ordinary insults, which guideline v1
   only the training labels and the `amin` defect.
 - The 500-row AI-assisted, human-adjudicated reference is evaluation only — never a training
   label, never a source of rule edits.
+
+## Third pass, 2026-09-18 — rule v3 frozen (resolves the second pass's REVIEW table)
+
+- **Owner decisions:** `kahpe`, `sürtük`, `kaltak`, `kancık` → EXCLUDED; `pezevenk`, `gavat` →
+  POSITIVE (confirmed); `kevaşe` → EXCLUDED (confirmed); the rest of the rule-v3 taxonomy review
+  approved as proposed.
+- **Rule v3** (`protocols/m1_lexicon_train_labels_protocol.md`, amendment (b), committed at
+  `abbd313` before any v3 label existed): A = an explicit obscene / profane lexical root; an explicit
+  list of 17 POSITIVE and 130 EXCLUDED roots over the whole pinned dictionary; the REVIEW class is
+  empty, so no row is masked.
+- **Labels regenerated from rule v3:** train 1,528 positive / 25,464 negative / 0 masked; dev 257 positive / 4,507 negative / 0 masked.
+- **Where each rule stands:** rule v1 — the supervision of the first GPU candidate, historical and
+  semantically misaligned for A; rule v2 — an intermediate taxonomy experiment, superseded; rule v3
+  — the current frozen A pseudo-label definition.
+- **Unchanged:** the 500-row reference stays AI-assisted, human-adjudicated and evaluation-only; no
+  A threshold is derived; the production m3 artifact stays `m3-berturk-pytorch-fp32-epoch1`; m1's
+  runtime A1 on ordinary insults remains an open production question.
+- **Open findings (not fixed here):** `amin!` with one `!` attached still reaches A1 through m2's
+  LEET channel, because `!` is read as `i` and gives `amini`; m1's guard is deliberately not
+  broadened, and no train or dev row is affected. m1 joins collision-evidence roots from a set, so
+  their order in the evidence text depends on the Python hash seed; labels are unaffected.
 
 Item (b) of the original decision request — which m3 output is compared with the baseline's
 binary numbers — is answered by the handoff §28: the new artifact's **binary head** at the study's
