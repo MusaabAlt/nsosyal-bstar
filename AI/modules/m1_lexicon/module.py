@@ -114,6 +114,19 @@ EXCLUDED_ROOTS = ROUTE_B1 | ROUTE_B2 | ROUTE_B3 | ROUTE_NONE
 # the EXCLUDED root "alık". Whole match, Turkish-lowercased, unfolded; scoped to that root.
 EXCLUDED_CLEAN_WORDS: dict[str, dict[str, re.Pattern[str]]] = {"alık": {"allık": re.compile(r"a+l{2,}[ıi]+k+")}}
 
+# M1-ROUTE-1.1 (amendment (a)): EXCLUDED compound roots whose STANDARD spelling has a word boundary,
+# with their components. A whitespace-split match is kept when every token but the last IS its
+# component and the last token begins with the last component ("geri zekalısın"). Root-specific:
+# a split anywhere else, or on any other root, is still rejected ("Ali Kınık" is not "alık").
+# Copied from the protocol's COMPOUND line; tests/test_m1_lexicon_labels.py pins the two together.
+COMPOUND_ROOTS: dict[str, tuple[str, ...]] = {
+    "gerizekalı": ("geri", "zekalı"), "kötüniyetli": ("kötü", "niyetli"), "üçkağıtçı": ("üç", "kağıtçı"),
+    "kalınkafalı": ("kalın", "kafalı"), "yarımakıllı": ("yarım", "akıllı"), "kıtakıllı": ("kıt", "akıllı"),
+    "yüzkarası": ("yüz", "karası"), "ağzıbozuk": ("ağzı", "bozuk"), "baldırıçıplak": ("baldırı", "çıplak"),
+    "beyinamip": ("beyin", "amip"), "eşoğlueşek": ("eş", "oğlu", "eşek")}
+SPLIT_REASON = "split across words, not the bare root"
+TRAILING_PUNCT = re.compile(r"[^\w\s]+$", re.UNICODE)
+
 
 def tr_lower(text: str) -> str:
     """Turkish lowercasing that keeps every index: I -> ı, İ -> i, then per-char
@@ -143,7 +156,8 @@ class ChannelResult:
 
 class LexiconModule(BaseModule):
     name = ModuleName.M1_LEXICON
-    version = "0.2.0"    # 0.2.0: per-root routing A1 / B1 / B2 / B3 / none (M1-ROUTE-1), private `_matches`,
+    version = "0.2.1"    # 0.2.1: M1-ROUTE-1.1 - compound-root word boundaries; punctuation cut (EXCLUDED roots)
+    #                      0.2.0: per-root routing A1 / B1 / B2 / B3 / none (M1-ROUTE-1), private `_matches`,
     #                      HOMONYM on mal / domuz compounds, EXCLUDED-root fixes (allık, split across words)
     #                      0.1.2: collision evidence lists roots in a fixed order, not set order
     #                      0.1.1: "amin" / "âmin" (amen) is a clean whole word, not am + in
@@ -311,8 +325,34 @@ class LexiconModule(BaseModule):
         clean = next((c for c, rx in EXCLUDED_CLEAN_WORDS.get(root, {}).items() if rx.fullmatch(stripped)), None)
         if clean is not None:
             return f"clean word {clean}"
-        if any(ch.isspace() for ch in stripped) and self._letters(stripped) != self._letters(root):
-            return "split across words, not the bare root"
+        if any(ch.isspace() for ch in stripped) and self._letters(stripped) != self._letters(root) \
+                and not self._compound_boundary(root, stripped):
+            return SPLIT_REASON
+        return None
+
+    def _compound_boundary(self, root: str, matched: str) -> bool:
+        """M1-ROUTE-1.1 §1: the split falls exactly on a listed compound root's component boundary,
+        with suffix material on the final component only."""
+        components = COMPOUND_ROOTS.get(root)
+        tokens = matched.split()
+        if components is None or len(tokens) != len(components):
+            return False
+        heads = all(self._letters(t) == self._letters(c) for t, c in zip(tokens[:-1], components[:-1]))
+        return heads and self._letters(tokens[-1]).startswith(self._letters(components[-1]))
+
+    def _punctuation_cut(self, root: str, matched: str) -> int | None:
+        """M1-ROUTE-1.1 §2: length of the leading word(s) of a split EXCLUDED match that terlik matches
+        WHOLE with the same root once trailing punctuation is removed ("eşşek,  at'ı" -> "eşşek"),
+        or None. m1's tightening already tried each prefix WITH its punctuation; this only removes the
+        punctuation, so it can never add a match or lengthen a span."""
+        parts = matched.split(" ")
+        for k in range(1, len(parts)):
+            prefix = " ".join(parts[:k])
+            bare = TRAILING_PUNCT.sub("", prefix)
+            if bare == prefix or not bare.strip():
+                continue
+            if any(m.root == root and m.index == 0 and m.word == bare for m in self._engine.get_matches(bare)):
+                return len(bare)
         return None
 
     def _scan(self, text: str) -> ChannelResult:
@@ -338,11 +378,15 @@ class LexiconModule(BaseModule):
         # so every POSITIVE-root hit (and whether it was nested) is exactly what it was before.
         kept: list[tuple[str, Span]] = []
         for root, span in hits:
-            reason = self._excluded_rejection(root, lowered[span[0]:span[1]])
+            matched = lowered[span[0]:span[1]]
+            reason = self._excluded_rejection(root, matched)
+            cut = self._punctuation_cut(root, matched) if reason == SPLIT_REASON else None
             if reason is None:
                 kept.append((root, span))
+            elif cut is not None:
+                kept.append((root, (span[0], span[0] + cut)))      # M1-ROUTE-1.1 §2: the complete word only
             else:
-                collisions.append((f"{root} in {lowered[span[0]:span[1]].strip()} ({reason})", span))
+                collisions.append((f"{root} in {matched.strip()} ({reason})", span))
         hits = kept
         for token in WORD.finditer(lowered):
             span = token.span()

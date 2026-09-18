@@ -354,6 +354,17 @@ class GeneratorTest(unittest.TestCase):
         self.assertEqual(M1.ROUTE_A, G.POSITIVE_ROOTS)
         self.assertEqual(M1.EXCLUDED_ROOTS, G.EXCLUDED_ROOTS)
         self.assertEqual(sum(map(len, parsed.values())), 147)
+        # M1-ROUTE-1.1: the COMPOUND line (root = component + component ...) is m1's COMPOUND_ROOTS.
+        m = re.search(r"^COMPOUND \((\d+)\):(.*)$", text, re.M)
+        self.assertIsNotNone(m)
+        compounds = {}
+        for entry in (e.strip() for e in m.group(2).split(";") if e.strip()):
+            root, parts = (x.strip() for x in entry.split("="))
+            compounds[root] = tuple(p.strip() for p in parts.split("+"))
+        self.assertEqual(len(compounds), int(m.group(1)))
+        self.assertEqual(compounds, M1.COMPOUND_ROOTS)
+        self.assertTrue(all("".join(parts) == root for root, parts in compounds.items()))
+        self.assertLessEqual(set(compounds), G.EXCLUDED_ROOTS)
 
     def test_a_labels_do_not_depend_on_the_runtime_route(self) -> None:
         """Training / runtime independence: with every root routed to NO content code, m1 emits no

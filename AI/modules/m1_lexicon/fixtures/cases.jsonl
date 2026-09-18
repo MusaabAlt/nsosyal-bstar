@@ -28,3 +28,5 @@
 {"id": "m1-homonym-domuz-01", "text": "domuz eti yemem", "expected": ["HOMONYM"], "note": "M1-ROUTE-1 §4: food compound"}
 {"id": "m1-boundary-alik-01", "text": "Ali Kınık geldi", "expected": ["SUBSTRING_COLLISION"], "note": "M1-ROUTE-1 §5: EXCLUDED root split across words is not the bare root"}
 {"id": "m1-clean-allik-01", "text": "allık sürdü", "expected": ["SUBSTRING_COLLISION"], "note": "M1-ROUTE-1 §5: clean word allık (blush)"}
+{"id": "m1-compound-01", "text": "Sen geri zekalısın", "expected": ["B1"], "note": "M1-ROUTE-1.1: compound root split on its own word boundary, suffix on the last component"}
+{"id": "m1-punct-cut-01", "text": "EŞŞEK, AT'I", "expected": ["B1"], "note": "M1-ROUTE-1.1: punctuation after a complete root word is cut, not matched across"}

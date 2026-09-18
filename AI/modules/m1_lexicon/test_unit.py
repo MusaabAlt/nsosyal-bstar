@@ -13,8 +13,8 @@ from types import MappingProxyType
 from contracts.codes import ContentCode, GuardCode, ModuleName
 from contracts.module_api import PROVIDABLE_FIELDS, Context, ModuleOutput
 from contracts.schema import ContentScore, GuardResult
-from modules.m1_lexicon.module import (EXCLUDED_ROOTS, ROUTE_A, ROUTE_B1, ROUTE_B2, ROUTE_B3, ROUTE_CLASSES,
-                                        ROUTE_NONE, ROUTE_OF, LexiconModule)
+from modules.m1_lexicon.module import (COMPOUND_ROOTS, EXCLUDED_ROOTS, ROUTE_A, ROUTE_B1, ROUTE_B2, ROUTE_B3,
+                                        ROUTE_CLASSES, ROUTE_NONE, ROUTE_OF, LexiconModule)
 
 
 class LexiconModuleContractTest(unittest.TestCase):
@@ -353,12 +353,52 @@ class LexiconModuleBehaviourTest(unittest.TestCase):
                 self.assertFalse(out.signals["lexicon_hit"])
                 self.assertEqual(out.guards, [])
 
+    def test_compound_roots_keep_their_standard_two_word_spelling(self) -> None:
+        # M1-ROUTE-1.1 §1: the split on the compound's own word boundary, suffix on the last component.
+        for text, root in (("geri zekalı", "gerizekalı"), ("geri zekalısın", "gerizekalı"),
+                           ("geri zekalılar", "gerizekalı"), ("Geri zekâlıyım", "gerizekalı"),
+                           ("kötü niyetli", "kötüniyetli"), ("kötü niyetliler", "kötüniyetli"),
+                           ("üç kâğıtçı", "üçkağıtçı"), ("üç kâğıtçılıkları", "üçkağıtçı"),
+                           ("kalın kafalılar", "kalınkafalı"), ("yarım akıllılar", "yarımakıllı"),
+                           ("kıt akıllısın", "kıtakıllı"), ("yüz karasısın", "yüzkarası"),
+                           ("ağzı bozuklar", "ağzıbozuk"), ("baldırı çıplaklar", "baldırıçıplak"),
+                           ("beyin amipler", "beyinamip"), ("eş oğlu eşekler", "eşoğlueşek")):
+            with self.subTest(text=text):
+                out = self.run_m1(text)
+                self.assertEqual(out.signals["matched_roots"], [root])
+                self.assertEqual([(s.code, text[s.span[0]:s.span[1]]) for s in out.content], [(ContentCode.B1, text)])
+        # Root-specific, boundary-specific: a split elsewhere on a compound root is still rejected.
+        out = self.run_m1("gerize kalısın")
+        self.assertFalse(out.signals["lexicon_hit"])
+        self.assertTrue(any("split across words" in g.evidence for g in out.guards))
+        self.assertEqual({r for r, parts in COMPOUND_ROOTS.items() if "".join(parts) != r}, set())
+        self.assertLessEqual(set(COMPOUND_ROOTS), ROUTE_B1)
+
+    def test_false_cross_word_matches_stay_rejected(self) -> None:
+        # The compound rule and the punctuation cut must not re-admit any of these (M1-ROUTE-1.1).
+        for text in ("Ali Kınık", "ali, kimi", "Ali kim", "kan çıkar", "den yolladım", "al ikinci",
+                     "Ali, Kınık", "kan, çıkar"):
+            with self.subTest(text=text):
+                out = self.run_m1(text)
+                self.assertFalse(out.signals["lexicon_hit"])
+                self.assertEqual((out.content, out.signals["_matches"]), ([], []))
+                self.assertTrue(any("split across words" in g.evidence for g in out.guards), [g.evidence for g in out.guards])
+
+    def test_punctuation_after_a_complete_root_word_is_cut_not_matched_across(self) -> None:
+        # M1-ROUTE-1.1 §2: terlik read ", at'ı" as a suffix of "eşşek"; the hit is kept on the word only.
+        for text, word in (("EŞŞEK,  AT'I", "EŞŞEK"), ("eşşek, at'ı", "eşşek")):
+            with self.subTest(text=text):
+                out = self.run_m1(text)
+                self.assertEqual([(s.code, text[s.span[0]:s.span[1]]) for s in out.content], [(ContentCode.B1, word)])
+                self.assertEqual([m["root"] for m in out.signals["_matches"]], ["eşek"])
+
     def test_excluded_root_fixes_never_touch_a_positive_root(self) -> None:
         # M1-ROUTE-1 §5 is scoped to EXCLUDED roots: POSITIVE-root matching is unchanged in this
         # version (its own precision work is a separate task), split matches included.
         self.module.process(Context(text="warmup"))
         for root in sorted(ROUTE_A):
             self.assertIsNone(self.module._excluded_rejection(root, f"{root[0]} {root[1:]}x"), root)
+            self.assertNotIn(root, COMPOUND_ROOTS)
         for text in ("s i k", "o r o s p u"):
             with self.subTest(text=text):
                 self.assertEqual([s.code for s in self.run_m1(text).content], [ContentCode.A1])
