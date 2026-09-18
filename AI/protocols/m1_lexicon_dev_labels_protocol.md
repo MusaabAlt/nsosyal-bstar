@@ -172,3 +172,12 @@ matches from m1's private `_matches` signal instead of the decision layer's `cha
 because under M1-ROUTE-1 (`protocols/m1_runtime_routing_protocol.md`) a dictionary match may emit
 no content code. Rule v3 and every other §4 check are unchanged; every dev `a_label` must equal
 the file at git `7f5e003` (`8f4dcdfe…`).
+
+## Amendment 2026-09-18 (e) — pseudo-label rule v4 (M1-PREC-1)
+
+`a_label` on the dev file follows rule **v4** of the train protocol (its amendment (d) of the same
+date): rule v3's formula and taxonomy, with m1's POSITIVE-root matching made precise by
+`protocols/m1_positive_matching_precision_protocol.md` (M1-PREC-1). The dev file stays diagnostic,
+pseudo-label agreement only, and is never merged with the 500-row AI-assisted, human-adjudicated dev
+reference, which neither the generator nor the protocol reads. The rule-v3 dev bytes stay at git
+`7f5e003` (`8f4dcdfe…`); every dev row whose `a_label` changes is listed in the flip report.

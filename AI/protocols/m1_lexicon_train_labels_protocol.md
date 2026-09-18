@@ -412,3 +412,46 @@ matches.
   `alık` hits (`Ali Kınık`, `allık`, split-across-words), and HOMONYM records on `mal` / `domuz`
   compounds. They may change `a_label_v1`, the counts and the `roots` of rows whose valid hit came
   only from such a match; never `a_label`.
+
+## Amendment 2026-09-18 (d) — pseudo-label rule **v4**: POSITIVE-root matching precision (M1-PREC-1)
+
+**Status:** pre-registered. Committed BEFORE the m1 code that implements it and before any rule-v4
+label is generated or counted. Supersedes rule v3 for every file generated from generator version
+6.0.0 on, on train and dev alike (the dev file stays diagnostic, agreement only).
+
+- **Why.** The read-only audits of 2026-09-18 (frozen TRAIN / DEV text only) found that at least 358
+  of the 1,528 rule-v3 train positives (23.4 %) and 43 of the 257 dev positives (16.7 %) rest only on
+  a spurious m1 match of a POSITIVE root: `AK Parti` read as `amk`, `sıkıldım` / `şık` / `şike`
+  folded into `sik`, `amacı` / `amma` / `I am` read as `am`, digit tokens read as leet, letters
+  harvested across words, clean words behind punctuation. The taxonomy is right; the matching is not.
+- **What changes.** Only m1's acceptance of POSITIVE-root matches, frozen in
+  `protocols/m1_positive_matching_precision_protocol.md` (M1-PREC-1, rules R1–R9), implemented in
+  `m1_lexicon` 0.3.0. The `a_label` formula is unchanged: `a_label = 1` iff a valid hit holds a root of
+  the explicit POSITIVE set. The taxonomy is unchanged: the three `RULE_V3_*` lists above, taxonomy
+  version 3, taxonomy digest `5b8ebe315cd2217c4decc8b0180eb2027a62aa2718405356c2066a29a0375ce5`. No
+  root moves between classes; no EXCLUDED root returns to A; routing (M1-ROUTE-1 / 1.1) and every
+  EXCLUDED-root match are unchanged.
+- **What each file records.** `a_label_rule.version` 4, `taxonomy_version` 3, the same
+  `taxonomy_sha256`, and `matching_protocol` naming M1-PREC-1 and its file digest. `--check` reports a
+  file whose rule version, taxonomy digest or matching-protocol digest differs from the generator's.
+  Row fields are unchanged.
+- **Sources, and what it was NOT derived from.** The rules are deterministic, lexical and form-level
+  and name no corpus row. They come from the audits of the train / dev text, the owner decisions of
+  2026-09-18 (M1-PREC-1 §6) and terlik's own matching mechanics. Not used: the locked test set, the
+  500-row AI-assisted, human-adjudicated evaluation reference, any candidate prediction or error, any
+  threshold curve.
+- **Previous files (preserved; history is not rewritten).** The rule-v3 artifact's training labels stay
+  byte-exact at git `7f5e003` (train `78d845a5fed8dd38441d9ef23f416b85ed8d2ba747d94f5943509550d9fc50c8`,
+  dev `8f4dcdfeec707bd8cb9b52744ff6b72a675cdb94790b64d167b87c12fd603ee7`); the last rule-v3
+  regeneration stays at `dd6a855` (train `ce3ef280f6dd4ebcbfdc0cc2045d61aa8dc59ef2f1c3c222e9192e1ba785f5f5`,
+  dev `79afe7b9e0a5fa999c4fa64b3c844064e0b7b851601d88305cfd94d6ed69a468`). The rule-v4 files are
+  written to the same paths; `tests/test_m1_lexicon_labels.py` keeps pinning the rule-v3 bytes.
+- **Flip report.** `eval/m1_lexicon_rule_v4_flips.py` lists every row whose `a_label` differs between
+  the rule-v3 training bytes and the rule-v4 files (M1-PREC-1 §8). The committed report carries no
+  corpus text and no gold; the full report (text, corpus OFF/NOT as context only) stays in the
+  git-ignored `eval/derived/private/`.
+- **Acceptance.** M1-PREC-1 §9: the acceptance lists pass; every EXCLUDED-root match equals
+  `dd6a855`'s; no genuine positive of the audited legitimate set is lost except the owner-accepted
+  misses; the masked-root rule R9 is withdrawn if it creates an unexpected match. An unexpected
+  genuine loss stops the work before any training handoff. Expected (simulation, not a target): about
+  358 train and 44 dev positive → negative.
