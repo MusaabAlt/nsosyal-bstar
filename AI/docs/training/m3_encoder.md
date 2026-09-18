@@ -1,10 +1,17 @@
 # Colab Pro+ handoff — m3_encoder multi-head fine-tune (binary + A; B / C when their data exists)
 
-State (2026-09-18): **READY_FOR_COLAB for the binary + A-head run.** Owner decisions of
+State (2026-09-18, second pass): **READY_FOR_COLAB for the binary + A-head RETRAINING under
+pseudo-label rule v2.** The first GPU run (`m3-berturk-multihead-2026-09-18`, rule v1) is frozen as
+history — TECHNICALLY_VALID_BUT_A_SEMANTICALLY_MISALIGNED, `docs/training/runs/m3-berturk-multihead-2026-09-18.md`
+— and is never overwritten: the retraining uses a NEW run directory and a NEW artifact id (§18).
+The Drive folder is `MyDrive/nsosyal-train/` (the repository and the Colab clone are still named
+`nsosyal-bstar`). Owner decisions of
 2026-09-18 (`docs/blockers/m3_head_labels.md`): HYBRID A-head strategy — training supervision is
-the committed terlik-derived pseudo-label file on the frozen TRAIN split; the *only* A-head
-quality claim is measured against a human-labelled DEV subset (`docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md`),
-which does **not exist yet** and is not required to run the training. B and C stay
+the committed terlik-derived pseudo-label file on the frozen TRAIN split (rule v2: explicit
+profanity only); A-head quality is measured only against an independent DEV evaluation reference
+labelled under `docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md` v1.1. The reference that exists is
+the 500-row **AI-assisted, human-adjudicated** one — not a human oracle — and it is evaluation
+only; it is not required to run the training. B and C stay
 `BLOCKED_BY_DATA`; a run without their labels exports them as `trained: false` and the module
 never publishes them. Every path below exists in the repository at the commit you clone.
 
@@ -35,11 +42,12 @@ carrier, ADR-005), and — when data exists — a B head (`B1 B2 B3 B5`, multi-l
 
 | input | role | exists? | where |
 |---|---|---|---|
-| Çöltekin OffensEval-TR 2020 training corpus `offenseval-tr-training-v1.tsv` (31,756 rows, OFF/NOT; sha256 `8509c01c…`) | binary head; text of every row for all heads | on the dev machine; **on Drive only once Musaab uploads it** (RESOURCES.md open item 1) | `NSOSYAL_DATA/coltekin/` |
+| Çöltekin OffensEval-TR 2020 training corpus `offenseval-tr-training-v1.tsv` (31,756 rows, OFF/NOT; sha256 `8509c01c…`) | binary head; text of every row for all heads | on the dev machine and **on Drive** (`MyDrive/nsosyal-train/data/coltekin/`, digest verified after upload, 2026-09-18) | `NSOSYAL_DATA/coltekin/` |
 | frozen split `diagnosis/data/splits/split_seed42.json` | train/dev | committed | in the clone (repo root, not `AI/`) |
-| **A pseudo-labels, train:** `AI/eval/derived/m1_lexicon_train_seed42.json` (26,992 rows, field `a_label`) | A-head TRAINING supervision | **committed** (protocol `protocols/m1_lexicon_train_labels_protocol.md`) | in the clone |
+| **A pseudo-labels, train:** `AI/eval/derived/m1_lexicon_train_seed42.json` (26,992 rows, field `a_label`, **rule v2**: 1,463 positive / 25,398 negative / 131 masked `null`; rule v1 had 2,514 positives) | A-head TRAINING supervision: explicit profanity only (POSITIVE lexical class); REVIEW-class-only rows are masked, not guessed | **committed** (protocol `protocols/m1_lexicon_train_labels_protocol.md`) | in the clone |
 | A pseudo-labels, dev: `AI/eval/derived/m1_lexicon_dev_seed42.json` (4,764 rows, `a_label`) | pseudo-label AGREEMENT reporting only — never the metric | committed | in the clone |
 | **A human oracle:** `{"row_id","label"}` jsonl on DEV rows, exported by `python -m eval.a_head_dev_sample export` | the A head's evaluation metric (`dev_eval.json` → `a`) | **not yet** — pending human annotation | `labels/a_dev_human.jsonl` on Drive when it exists |
+| **A evaluation reference (exists):** the 500-row AI-assisted, human-adjudicated dev reference `a_dev_ai_assisted_adjudicated.jsonl` (two AI annotators, 3 disagreements decided by the human owner; 39 positives) | evaluation only, via `--labels-a-reference … --labels-a-reference-kind ai-assisted-human-adjudicated`; **never** a training label, **never** passed as `--labels-a-human` | private, uncommitted (`AI/eval/annotation/private/`); copy it and its `.reference_provenance.json` to Drive `labels/` to evaluate on Colab | `labels/a_dev_ai_assisted_adjudicated.jsonl` |
 | B labels jsonl `{"row_id","codes":[...]}` | B head | no | — |
 | C labels jsonl `{"row_id","code"}` | C head | no (slice being labelled, no date) | — |
 
@@ -48,14 +56,16 @@ may be repeated, and errors on conflicting labels; `--labels-a-human` is refused
 
 ## 5. How to obtain each
 
-- Corpus: from Musaab's Drive (`docs/team/abdullah/RESOURCES.md`; the links are still marked
-  "paste here" — that is the human step before any Colab run). Verify sha256 after download:
+- Corpus: already on Drive under `MyDrive/nsosyal-train/data/coltekin/`. Verify sha256 after mounting:
   `8509c01c4bf387d9e387c4637829585431cc045adaf7d0413c0022bf2bcd4baa`.
 - Pseudo-labels: in the clone. Confirm they are current before training:
   `python -m eval.m1_lexicon_labels --check eval/derived/m1_lexicon_train_seed42.json` (needs terlik
   and zeyrek installed to compare versions; on Colab skip it and rely on the commit's passing suite).
-- Human oracle: `docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md` §6–§7. Until it exists, the run
-  proceeds without `--labels-a-human` and `dev_eval.json` says so under `a`.
+- Evaluation reference: the AI-assisted, human-adjudicated 500-row file lives (private) in
+  `AI/eval/annotation/private/`; copy it to Drive `labels/` to evaluate on Colab. Without any
+  reference the run still trains, and `dev_eval.json` says under `a` that no quality claim exists.
+- The clone is private: Colab needs a valid `GH_TOKEN` secret (fine-grained, Contents: read), used
+  as `https://x-access-token:<token>@github.com/…`; the token-as-username form is rejected.
 
 ## 6. Licences / access
 
@@ -68,10 +78,12 @@ Banned: `Toygar/turkish-offensive-language-detection`, `Overfit-GM/turkish-toxic
 ## 7. Drive layout
 
 ```
-MyDrive/nsosyal-bstar/data/coltekin/offenseval-tr-training-v1.tsv     (required)
-MyDrive/nsosyal-bstar/labels/a_dev_human.jsonl                         (when the human oracle exists)
-MyDrive/nsosyal-bstar/labels/b_*.jsonl  c_*.jsonl                       (when they exist)
-MyDrive/nsosyal-bstar/runs/m3_multihead/<date>/                         (--out; survives disconnects)
+MyDrive/nsosyal-train/data/coltekin/offenseval-tr-training-v1.tsv     (required)
+MyDrive/nsosyal-train/labels/a_dev_ai_assisted_adjudicated.jsonl       (optional: the AI-assisted, human-adjudicated evaluation reference)
+MyDrive/nsosyal-train/labels/a_dev_human.jsonl                         (if a fully human-labelled oracle ever exists)
+MyDrive/nsosyal-train/labels/b_*.jsonl  c_*.jsonl                       (when they exist)
+MyDrive/nsosyal-train/runs/m3_multihead/2026-09-18/                     (FIRST run, rule v1: frozen history, never written to again)
+MyDrive/nsosyal-train/runs/m3_multihead/<new run id>/                   (--out; survives disconnects)
 ```
 
 The pseudo-label files are NOT on Drive: they come with the clone (`AI/eval/derived/`).
@@ -124,7 +136,7 @@ cd /content/nsosyal-bstar/AI
 
 ## 16. Runtime
 
-GPU runtime (A100 or L4). Mount Drive. `NSOSYAL_DATA=/content/drive/MyDrive/nsosyal-bstar/data`
+GPU runtime (A100 or L4). Mount Drive. `NSOSYAL_DATA=/content/drive/MyDrive/nsosyal-train/data`
 (the variable `diagnosis/config.py` honours).
 
 ## 17. Resources
@@ -136,16 +148,24 @@ GPU runtime (A100 or L4). Mount Drive. `NSOSYAL_DATA=/content/drive/MyDrive/nsos
 
 ```bash
 cd /content/nsosyal-bstar/AI
-export NSOSYAL_DATA=/content/drive/MyDrive/nsosyal-bstar/data
+export NSOSYAL_DATA=/content/drive/MyDrive/nsosyal-train/data
+RUN_ID=rule-v2-$(date +%F)                       # a NEW run id: never the first run's 2026-09-18 folder
+test ! -e /content/drive/MyDrive/nsosyal-train/runs/m3_multihead/$RUN_ID || { echo "run dir exists - pick another RUN_ID"; exit 1; }
 python -m training.m3_encoder.train \
-  --out /content/drive/MyDrive/nsosyal-bstar/runs/m3_multihead/$(date +%F) \
+  --out /content/drive/MyDrive/nsosyal-train/runs/m3_multihead/$RUN_ID \
+  --artifact-id m3-berturk-multihead-a-$RUN_ID \
   --labels-a eval/derived/m1_lexicon_train_seed42.json \
   --labels-a eval/derived/m1_lexicon_dev_seed42.json \
   --epochs 3 --batch-size 32 --lr 2e-5 --max-len 128 --warmup-ratio 0.1 --weight-decay 0.01 --seed 42 --fp16
 ```
 
-- Add `--labels-a-human /content/drive/MyDrive/nsosyal-bstar/labels/a_dev_human.jsonl` once the
-  human oracle exists (it can also be applied afterwards with `evaluate`, §35).
+- `--artifact-id` is mandatory for this run: the default id is date-based and would collide with
+  the first artifact (`m3-berturk-multihead-2026-09-18`) on the same date.
+- To evaluate against the 500-row reference in the same run, add
+  `--labels-a-reference /content/drive/MyDrive/nsosyal-train/labels/a_dev_ai_assisted_adjudicated.jsonl
+  --labels-a-reference-kind ai-assisted-human-adjudicated` (it can also be applied afterwards with
+  `evaluate`, §35). `--labels-a-human` is reserved for a fully human-labelled oracle; the trainer
+  refuses both together and refuses a reference without its kind.
 - Add `--labels-b` / `--labels-c` only when those files exist.
 - Resume after a disconnect: rerun the same command with `--resume` (reads `<out>/latest.pt`).
 
@@ -170,9 +190,12 @@ python -m training.m3_encoder.train \
 
 - `binary`: macro-F1, OFF recall / precision / FPR with 95 % percentile-bootstrap CIs (1000
   resamples) and the confusion matrix on the 4,764 dev rows at the study's 0.5 reporting point.
-- `a`: **the A-head metric, against the human oracle only** (`oracle: "human"`, P/R/F1/FPR with
-  CIs over the labelled rows, `insufficient_sample` under 20 positives). Without the oracle:
-  `oracle: null` and a note that no quality claim can be made.
+- `a`: **the A-head metric, against the evaluation reference only**, stamped with the reference's
+  true provenance: `oracle: "human"` for a fully human-labelled oracle, `oracle:
+  "ai-assisted-human-adjudicated"` for the current 500-row reference (P/R/F1/FPR with CIs over the
+  labelled rows, `insufficient_sample` under 20 positives). Without a reference: `oracle: null`
+  and a note that no quality claim can be made. Numbers against the AI-assisted reference are
+  reported as "AI-assisted human-adjudicated reference metrics", never as human-oracle accuracy.
 - `a_pseudo_label_agreement`: the same quantities against the dev pseudo-labels, under its own
   key with the note "NOT accuracy". Never quoted as A-head quality.
 - `b`, `c`: per code over the labelled rows only, when labels exist.
@@ -182,8 +205,11 @@ python -m training.m3_encoder.train \
 - Binary head: dev macro-F1 not below the frozen baseline's 0.8271 [0.8139, 0.8405] by more than
   the CI width (a regression means the extra head hurt the shared encoder: report, do not ship).
   This is the comparison with the baseline's binary numbers (same rows, same reporting point).
-- A head: a number is claimed **only** from `dev_eval.json` → `a` with `oracle: "human"` and
-  ≥ 20 positives, reported with the oracle's n, its agreement (guideline §5) and its CI.
+- A head: a number is claimed **only** from `dev_eval.json` → `a` with a non-null `oracle` and
+  ≥ 20 positives, reported with the reference's kind, n, agreement (guideline §5) and CI. The
+  first candidate's reference numbers (precision 0.636, recall 0.897, tp 35 / fp 20 / fn 4 / tn 441)
+  are the comparison point for the retrained head; no A threshold is derived until the owner
+  pre-registers the A operating-point objective.
   Pseudo-label agreement is reported next to it, labelled as agreement.
 - B / C heads: reported only where ≥ 20 positives per code; no acceptance number is claimed
   for a head without a human-labelled slice.
@@ -228,13 +254,14 @@ export NSOSYAL_M3_ARTIFACT=artifacts/m3_encoder/<artifact_id>            # the m
 python -m unittest modules.m3_encoder.test_unit tests.test_signal_interfaces tests.test_end_to_end training.tests.test_training_m3
 python -m training.m3_encoder.evaluate --artifact artifacts/m3_encoder/<artifact_id> \
     --labels-a eval/derived/m1_lexicon_dev_seed42.json \
-    --labels-a-human eval/annotation/private/a_dev_human.jsonl          # once the oracle exists
+    --labels-a-reference eval/annotation/private/a_dev_ai_assisted_adjudicated.jsonl \
+    --labels-a-reference-kind ai-assisted-human-adjudicated
 python -m modules.m3_encoder.eval
 python -m eval.run_all --results-dir eval/results/<artifact_id>
 ```
 Expected: sha256 verification passes; `signals.artifact` equals the new id; content scores appear
 only for trained heads (A1 on both channels); the binary row of `dev_eval.json` matches what
-`evaluate` prints; `a.oracle` is `"human"` when the oracle was given.
+`evaluate` prints; `a.oracle` states the reference's kind (`"ai-assisted-human-adjudicated"` here).
 
 ## 36. Failure / recovery
 

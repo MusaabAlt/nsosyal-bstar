@@ -82,8 +82,11 @@ POSITIVE, EXCLUDED, REVIEW = "positive", "excluded", "review"
 
 
 def terlik_tr_dictionary() -> Path:
-    import terlik
-    return Path(terlik.__file__).resolve().parent / "lang" / "tr" / "dictionary.json"
+    """Located without importing terlik: eval/ is core (stdlib + pyyaml only); the dictionary is data."""
+    import importlib.util
+    spec = importlib.util.find_spec("terlik")
+    require(spec is not None and spec.origin is not None, "terlik is not installed: its dictionary defines the classes")
+    return Path(spec.origin).resolve().parent / "lang" / "tr" / "dictionary.json"
 
 
 def lexical_classes(dictionary: Path | None = None) -> dict[str, str]:

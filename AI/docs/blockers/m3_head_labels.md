@@ -25,6 +25,27 @@
 4. **No binary-only Colab run first**: the useful path is the binary + A-head run.
 5. **Never used as A-head labels:** karaliste, OFF/NOT gold, baseline-model predictions.
 
+## Second pass, 2026-09-18 — the first candidate was semantically misaligned; rule v2
+
+The first GPU candidate reproduced its supervision: pseudo-label rule v1 labelled any terlik match
+positive, and terlik's dictionary is mostly ordinary insults, which guideline v1.1 scores `0`
+(`docs/training/runs/m3-berturk-multihead-2026-09-18.md`). No A threshold is derived from it.
+
+- **Rule v2** (`protocols/m1_lexicon_train_labels_protocol.md`, amendment): positive only on
+  terlik's `sexual` class plus the roots the sealed guideline names (`bok`, `piç`, `oç`); ordinary
+  insults, threats and sacred-concept entries excluded; 11 undecided roots masked (`null`), not
+  guessed. Train: 1,463 positive / 25,398 negative / 131 masked (rule v1: 2,514). Dev: 239 / 4,489
+  / 36 (rule v1: 449).
+- **Owner decision still required:** the 11-root REVIEW table in that amendment (orospu, gavat,
+  pezevenk, kahpe, sürtük, kaltak, fahişe, ibne, puşt, oğlancı, tabanvansen). Deciding it makes
+  the rule v3 and the files are regenerated.
+- **Consequent question, not decided here:** m1 itself still emits the A1 carrier at runtime on
+  every terlik match, ordinary insults included. Whether the runtime A-family signal should follow
+  the same explicit-profanity class is a production decision for the owner; this pass changed
+  only the training labels and the `amin` defect.
+- The 500-row AI-assisted, human-adjudicated reference is evaluation only — never a training
+  label, never a source of rule edits.
+
 Item (b) of the original decision request — which m3 output is compared with the baseline's
 binary numbers — is answered by the handoff §28: the new artifact's **binary head** at the study's
 0.5 reporting point on the same 4,764 dev rows, against the frozen baseline's 0.8271 [0.8139, 0.8405].
