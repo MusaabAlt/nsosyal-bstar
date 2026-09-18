@@ -28,7 +28,7 @@ negative and 9 negative → positive; dev 44 and 4).
 | input | value |
 |---|---|
 | repository | `MusaabAlt/nsosyal-bstar`, branch `audit/m1-m6` |
-| **commit to check out** | **`c234cc0de4e9b303767548cac2b85e35fe7f2f0e`** (rule-v4 labels; code identical to `525bbff`; any later commit on the branch changes documents only and may be used if the label digests below match) |
+| **commit to check out** | **`c234cc0de4e9b303767548cac2b85e35fe7f2f0e`** (the rule-v4 labels). Later commits on `audit/m1-m6` change no file under `AI/training/`, `AI/eval/derived/` or `diagnosis/`: `2b4d098` (behaviour-identical m1 / eval edits for the architecture rule), `18bacf5` (contract fixture), `5e141cc` and later (documents). A later commit is equivalent for training when the label digests below match |
 | TRAIN A labels | `AI/eval/derived/m1_lexicon_train_seed42.json` — sha256 `0bfbd73118c661bbf41468da2c6ee951eaf9f591e8a2d81bfb221a14054504f2` — 26,992 rows, `a_label` 1 on 1,177, 0 masked, `a_label_rule.version` 4, `taxonomy_version` 3, taxonomy digest `5b8ebe315cd2217c4decc8b0180eb2027a62aa2718405356c2066a29a0375ce5` |
 | DEV A labels (agreement only) | `AI/eval/derived/m1_lexicon_dev_seed42.json` — sha256 `50a94ba513b33e9b09f305af4619aa197a7c4311cca471a3c623978eab41a0dd` — 4,764 rows, `a_label` 1 on 217 |
 | corpus (binary gold + text) | Drive `MyDrive/nsosyal-train/data/coltekin/offenseval-tr-training-v1.tsv`, sha256 `8509c01c4bf387d9e387c4637829585431cc045adaf7d0413c0022bf2bcd4baa`, 31,756 rows |
