@@ -103,3 +103,45 @@ valid hit holds a rule-v3 POSITIVE root.
   rule-v3 artifact was trained on (git `7f5e003`; `tests/test_m1_lexicon_labels.py`).
 - The rule-v3 artifact's weights are untouched (`41d98d7f…`); M3 is not retrained.
 - No threshold is derived and no number in `thresholds.yaml` changes. The test set is not used.
+
+## Amendment (a) 2026-09-18 — **M1-ROUTE-1.1**: compound-root boundaries; punctuation after a complete EXCLUDED root
+
+Owner approval 2026-09-18, committed before the code. Scope: rule-v3 EXCLUDED roots only, applied
+in the same place as §5 (after the nested-hit filter). No route changes; POSITIVE-root matching is
+untouched; no threshold changes.
+
+**Why.** §5.2 rejected every whitespace-split EXCLUDED match that is not the bare root. That also
+rejected the STANDARD two-word spelling of compound roots followed by a suffix (`geri zekalısın`,
+`kötü niyetliler`, `üç kâğıtçılıkları`): 7 genuine train matches lost, measured after M1-ROUTE-1.
+
+**1. Compound roots with a legitimate component boundary.** A whitespace-split match of one of
+these roots is kept when it has exactly one whitespace-separated token per component, every token
+but the last IS its component, and the last token BEGINS with the last component (inflectional
+suffix material allowed on the final component only). Letters are compared as in §5.2 (terlik's
+normalizer, non-letters removed, repeated letters collapsed). The boundaries (machine-checked:
+`tests/test_m1_lexicon_labels.py`; each line's components join to the root):
+
+```text
+COMPOUND (11): gerizekalı = geri + zekalı; kötüniyetli = kötü + niyetli; üçkağıtçı = üç + kağıtçı; kalınkafalı = kalın + kafalı; yarımakıllı = yarım + akıllı; kıtakıllı = kıt + akıllı; yüzkarası = yüz + karası; ağzıbozuk = ağzı + bozuk; baldırıçıplak = baldırı + çıplak; beyinamip = beyin + amip; eşoğlueşek = eş + oğlu + eşek
+```
+
+The first seven are the reviewed set; the last four are the other noun / adjective compounds of the
+EXCLUDED set whose standard spelling has a word boundary. Deliberately NOT listed: the verb-phrase
+roots (`allahbelanıversin`, `belanıbulurum`, `boğazınıkeserim`, `canınıalırım`, `ensenibulurum`,
+`kafanıkırarım`, `mezarınıkazarım`, `hapiyedin`): their standard spaced spelling already passes
+§5.2 uninflected, and a suffix after their finite verb is not standard inflection. There is no
+general "suffix allowed across words" rule: a split anywhere else, or on any other root, is still
+rejected (`Ali Kınık`, `ali, kimi`, `Ali kim`, `kan çıkar`, `den yolladım`, `al ikinci`).
+
+**2. Punctuation right after a complete EXCLUDED root token.** terlik's separator tolerance can
+read punctuation plus the next word as a suffix (`EŞŞEK,  AT'I` → `eşek` + `, at'ı`), and m1's
+tightening cannot cut the match back because its candidate `eşşek,` still carries the comma. When
+§5.2 would reject such a match, m1 tries the same token-boundary prefixes as its tightening step
+with the trailing punctuation removed; if terlik matches such a prefix WHOLE with the same root, the
+hit is kept with its span cut to that prefix (`EŞŞEK`). This never adds a match terlik did not make
+and never lengthens a span: it only cuts a cross-word overreach back to a complete word. Prefixes
+that are not complete matches of the same root (`ali,`, `kan,`, `al,`) change nothing.
+
+**Acceptance.** Every A pseudo-label identical to the rule-v3 artifact's training bytes (`7f5e003`),
+train and dev. Target: the 7 compound misses recovered, `EŞŞEK, AT'I` recovered, and none of the
+false cross-word matches above re-admitted.
