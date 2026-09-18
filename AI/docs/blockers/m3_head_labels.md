@@ -95,6 +95,17 @@ positive, and terlik's dictionary is mostly ordinary insults, which guideline v1
   pseudo-label is identical to the rule-v3 artifact's training bytes (`7f5e003`), pinned by test.
 - **Still open, separate:** POSITIVE-root matching noise (`docs/blockers/m1_positive_root_matching_precision.md`).
 
+## Sixth pass, 2026-09-18 — pseudo-label rule v4 (M1-PREC-1)
+
+- **Why:** the POSITIVE-root matching noise: 358 / 1,528 train and 43 / 257 dev rule-v3 positives
+  rested only on spurious matches (`AK Parti`, `sıkıldım`, `amacı`, `59`, `A mı`, …).
+- **Protocol first:** `protocols/m1_positive_matching_precision_protocol.md`; taxonomy unchanged
+  (17 POSITIVE roots, digest `5b8ebe31…`); only m1's acceptance of a family-A match changed (0.3.0).
+- **Labels:** rule v4 at `c234cc0`, train 1,177 / dev 217 positives; the rule-v3 training bytes stay
+  at `7f5e003`; flips listed in `eval/derived/m1_lexicon_rule_v4_flips.md`.
+- **Next:** the rule-v4 retraining, `docs/training/m3_rule_v4_handoff.md`; the rule-v3 candidate stays
+  the historical control and is not promoted.
+
 Item (b) of the original decision request — which m3 output is compared with the baseline's
 binary numbers — is answered by the handoff §28: the new artifact's **binary head** at the study's
 0.5 reporting point on the same 4,764 dev rows, against the frozen baseline's 0.8271 [0.8139, 0.8405].

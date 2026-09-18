@@ -2,9 +2,10 @@
 
 - **Component:** `m1_lexicon` matching of the 17 rule-v3 POSITIVE (family-A) roots; the A-head
   pseudo-labels derived from it (`eval/derived/m1_lexicon_{train,dev}_seed42.json`)
-- **State:** OPEN — found 2026-09-18 during the runtime-routing review, deliberately NOT addressed
-  by M1-ROUTE-1 (`protocols/m1_runtime_routing_protocol.md` §5 scopes its fixes to EXCLUDED roots
-  so that every A pseudo-label stays identical)
+- **State:** RESOLVED 2026-09-18 (sixth pass) by M1-PREC-1 / pseudo-label rule v4 — see "Resolution"
+  below. Found during the runtime-routing review, deliberately NOT addressed by M1-ROUTE-1
+  (`protocols/m1_runtime_routing_protocol.md` §5 scopes its fixes to EXCLUDED roots so that every A
+  pseudo-label stays identical)
 - **Written:** 2026-09-18
 
 ## What was found (no fix applied)
@@ -40,3 +41,19 @@ token is never a root; the clean-word rules apply after stripping edge punctuati
 split-across-words rule of M1-ROUTE-1 §5, with the compound-boundary and punctuation-cut
 exceptions of M1-ROUTE-1.1, extended to POSITIVE roots), committed before the code,
 then the regeneration and the label-change report.
+
+## Resolution (2026-09-18, sixth pass)
+
+- **Wider audit first (read-only):** at least 358 of 1,528 train positives (23.4 %) and 43 of 257 dev
+  positives (16.7 %) rested only on a spurious match — far more than the ≤ 140 / ≤ 18 above, because
+  Turkish-letter folding (`sıkıldım` → `sik`), `ak` → `amk` and ordinary `am` words were not visible
+  in the non-plain population measured here.
+- **Protocol before code:** `protocols/m1_positive_matching_precision_protocol.md` (M1-PREC-1, rules
+  R1–R9, owner decisions frozen), commit `7ea1e98`; train / dev label protocol amendments (d) / (e).
+- **Code:** m1 0.3.0 (`525bbff`); generator 6.0.0 (rule v4, taxonomy unchanged).
+- **Labels:** rule v4 at `c234cc0`: train 1,528 → 1,177 (360 → 0, 9 → 1 through the masked-root rule),
+  dev 257 → 217 (44 → 0, 4 → 1); every flip attributed to a rule in
+  `eval/derived/m1_lexicon_rule_v4_flips.md`; no row's EXCLUDED roots changed; no audited legitimate
+  row lost; genuine losses only the owner-accepted ones (`sıkımı`, `sıktır`, `amık`, `ak` meant as
+  `amk`); residue `M.K` and lowercase English `got` (owner-accepted).
+- **Next:** the rule-v4 GPU retraining, `docs/training/m3_rule_v4_handoff.md`.

@@ -69,6 +69,12 @@ Pseudo-label agreement (rule v3, 4,764 dev rows; agreement, NOT accuracy): preci
 
 No GPU retraining is scientifically justified for this candidate.
 
+**Later the same day (sixth pass):** the read-only POSITIVE-root audits found that 23.4 % of this
+run's train supervision (358 / 1,528) rested only on spurious m1 matches. Pseudo-label rule v4
+(M1-PREC-1) corrects the matching; its labels (`c234cc0`) supervise a NEW run
+(`docs/training/m3_rule_v4_handoff.md`). This candidate stays unchanged as the historical control;
+its training labels remain the bytes at `7f5e003` above.
+
 ## Metadata correction (prepared and validated; the Drive artifact is NOT overwritten)
 
 The exported `heads.json` said "quality claims only against the human dev oracle" and published

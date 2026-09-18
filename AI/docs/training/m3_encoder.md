@@ -1,5 +1,13 @@
 # Colab Pro+ handoff — m3_encoder multi-head fine-tune (binary + A; B / C when their data exists)
 
+**State (2026-09-18, sixth pass): READY_FOR_COLAB — the rule-v4 retraining.** Pseudo-label rule v4
+(`protocols/m1_positive_matching_precision_protocol.md`, M1-PREC-1: the rule-v3 taxonomy, with m1
+accepting a family-A match only as a real word of its root) is implemented (m1 0.3.0) and the label
+files are regenerated at `c234cc0` (train 1,177 / dev 217 positives; row-by-row changes in
+`eval/derived/m1_lexicon_rule_v4_flips.md`). The exact, self-contained Colab handoff — commit, label
+digests, pre-flight checks, cells, run id — is **`docs/training/m3_rule_v4_handoff.md`**; everything
+below still describes the shared pipeline, and §18 is the record of the rule-v3 run.
+
 State (2026-09-18, fourth pass): **the rule-v3 retraining is DONE** —
 `m3-berturk-multihead-a-rule-v3-20260918-074806` (weights `41d98d7f…`, trained at `dba8632`), reviewed,
 not promoted (`docs/training/runs/m3-berturk-multihead-a-rule-v3-20260918-074806.md`). Its A
@@ -50,8 +58,8 @@ carrier, ADR-005), and — when data exists — a B head (`B1 B2 B3 B5`, multi-l
 |---|---|---|---|
 | Çöltekin OffensEval-TR 2020 training corpus `offenseval-tr-training-v1.tsv` (31,756 rows, OFF/NOT; sha256 `8509c01c…`) | binary head; text of every row for all heads | on the dev machine and **on Drive** (`MyDrive/nsosyal-train/data/coltekin/`, digest verified after upload, 2026-09-18) | `NSOSYAL_DATA/coltekin/` |
 | frozen split `diagnosis/data/splits/split_seed42.json` | train/dev | committed | in the clone (repo root, not `AI/`) |
-| **A pseudo-labels, train:** `AI/eval/derived/m1_lexicon_train_seed42.json` (26,992 rows, field `a_label`, **rule v3**: 1,528 positive / 25,464 negative / 0 masked; rule v2 had 1,463 / 25,398 / 131 masked, rule v1 2,514 positives) | A-head TRAINING supervision: explicit obscene / profane roots only (the 17 POSITIVE roots of the protocol's rule-v3 amendment); no row is masked | **committed** (protocol `protocols/m1_lexicon_train_labels_protocol.md`) | in the clone |
-| A pseudo-labels, dev: `AI/eval/derived/m1_lexicon_dev_seed42.json` (4,764 rows, `a_label`) | pseudo-label AGREEMENT reporting only — never the metric | committed | in the clone |
+| **A pseudo-labels, train:** `AI/eval/derived/m1_lexicon_train_seed42.json` (26,992 rows, field `a_label`, **rule v4** since `c234cc0`: 1,177 positive / 25,815 negative / 0 masked; rule v3 had 1,528 (bytes at `7f5e003`, the rule-v3 run's supervision), rule v2 1,463 / 131 masked, rule v1 2,514 positives) | A-head TRAINING supervision: explicit obscene / profane roots only (the 17 POSITIVE roots of the rule-v3 taxonomy), each accepted by m1 only as a real word of its root (M1-PREC-1); no row is masked | **committed** (protocol `protocols/m1_lexicon_train_labels_protocol.md`) | in the clone |
+| A pseudo-labels, dev: `AI/eval/derived/m1_lexicon_dev_seed42.json` (4,764 rows, `a_label`; rule v4: 217 positives, rule v3 had 257) | pseudo-label AGREEMENT reporting only — never the metric | committed | in the clone |
 | **A human oracle:** `{"row_id","label"}` jsonl on DEV rows, exported by `python -m eval.a_head_dev_sample export` | the A head's evaluation metric (`dev_eval.json` → `a`) | **not yet** — pending human annotation | `labels/a_dev_human.jsonl` on Drive when it exists |
 | **A evaluation reference (exists):** the 500-row AI-assisted, human-adjudicated dev reference `a_dev_ai_assisted_adjudicated.jsonl` (two AI annotators, 3 disagreements decided by the human owner; 39 positives) | evaluation only, via `--labels-a-reference … --labels-a-reference-kind ai-assisted-human-adjudicated`; **never** a training label, **never** passed as `--labels-a-human` | private, uncommitted (`AI/eval/annotation/private/`); copy it and its `.reference_provenance.json` to Drive `labels/` to evaluate on Colab | `labels/a_dev_ai_assisted_adjudicated.jsonl` |
 | B labels jsonl `{"row_id","codes":[...]}` | B head | no | — |
