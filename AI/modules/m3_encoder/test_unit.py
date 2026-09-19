@@ -7,8 +7,11 @@ from __future__ import annotations
 
 import copy
 import os
+import shutil
 import socket
+import tempfile
 import unittest
+from pathlib import Path
 from types import MappingProxyType
 from unittest import mock
 
@@ -130,6 +133,55 @@ class EncoderModuleBehaviourTest(unittest.TestCase):
         self.assertFalse(out.ok)
         self.assertIn("missing", out.notes[0])
         self.assertEqual(out.signals, {})
+
+    def fail_closed(self, **env: str) -> ModuleOutput:
+        """Load m3 with the given artifact env and assert it degraded instead of raising."""
+        with mock.patch.dict(os.environ, env):
+            out = EncoderModule().process(Context(text="Bu bir test cumlesi"))
+        self.assertIsInstance(out, ModuleOutput)
+        self.assertFalse(out.ok)
+        self.assertEqual(out.signals, {})
+        self.assertTrue(out.notes)
+        return out
+
+    # Each artifact file is checked separately: a wrong checkpoint with a valid tokenizer
+    # is the realistic failure (one file copied, the other stale), and the combined test
+    # above would pass even if only one of the two paths were ever verified.
+    @NEEDS_ARTIFACT
+    def test_missing_checkpoint_alone_fails_closed(self) -> None:
+        _, tokenizer_dir = artifact_paths()
+        out = self.fail_closed(**{CHECKPOINT_ENV: "does-not-exist.pt", TOKENIZER_ENV: str(tokenizer_dir)})
+        self.assertIn("missing", out.notes[0])
+        self.assertIn("does-not-exist.pt", out.notes[0])
+
+    @NEEDS_ARTIFACT
+    def test_missing_tokenizer_alone_fails_closed(self) -> None:
+        checkpoint, _ = artifact_paths()
+        out = self.fail_closed(**{CHECKPOINT_ENV: str(checkpoint), TOKENIZER_ENV: "does-not-exist"})
+        self.assertIn("missing", out.notes[0])
+        self.assertIn("does-not-exist", out.notes[0])
+
+    @NEEDS_ARTIFACT
+    def test_wrong_checkpoint_sha256_fails_closed(self) -> None:
+        """A different file at the checkpoint path is refused before torch.load reads it."""
+        _, tokenizer_dir = artifact_paths()
+        with tempfile.TemporaryDirectory() as tmp:
+            impostor = Path(tmp) / "berturk_epoch1.pt"
+            impostor.write_bytes(b"not the frozen checkpoint")
+            out = self.fail_closed(**{CHECKPOINT_ENV: str(impostor), TOKENIZER_ENV: str(tokenizer_dir)})
+        self.assertIn("sha256", out.notes[0])
+
+    @NEEDS_ARTIFACT
+    def test_wrong_tokenizer_sha256_fails_closed(self) -> None:
+        """A tokenizer whose files are all present but not the frozen ones is refused too."""
+        checkpoint, tokenizer_dir = artifact_paths()
+        with tempfile.TemporaryDirectory() as tmp:
+            impostor_dir = Path(tmp) / "tokenizer"
+            shutil.copytree(tokenizer_dir, impostor_dir)
+            edited = impostor_dir / "tokenizer_config.json"
+            edited.write_bytes(edited.read_bytes() + b" ")
+            out = self.fail_closed(**{CHECKPOINT_ENV: str(checkpoint), TOKENIZER_ENV: str(impostor_dir)})
+        self.assertIn("sha256", out.notes[0])
 
     @NEEDS_ARTIFACT
     def test_no_network_at_load(self) -> None:

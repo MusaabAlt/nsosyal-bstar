@@ -1,0 +1,85 @@
+# NSosyal backend configuration.
+#
+# Every value can be overridden by an environment variable named after its
+# path: queue.batch_max_wait -> NSOSYAL_QUEUE_BATCH_MAX_WAIT. Put local values
+# and secrets in backend/.env (git-ignored); a real environment variable wins
+# over .env.
+# Durations use Go syntax: 20ms, 5s, 10m.
+#
+# The queue, batch and rate-limit numbers below are STARTING values. Measure
+# them on the demo laptop with the real model (make loadtest) and tune.
+
+server:
+  addr: "0.0.0.0:8080"          # reachable from the LAN
+  read_header_timeout: 5s
+  read_timeout: 10s
+  write_timeout: 30s            # must be greater than request_timeout
+  idle_timeout: 60s
+  request_timeout: 15s          # one API request end to end, queue wait included
+  shutdown_timeout: 20s
+  max_body_bytes: 65536         # 64 KiB, same as the Python API
+  max_text_chars: 5000
+  cors_origins: []              # dev only, e.g. ["http://localhost:5173"]
+
+queue:
+  size: 256                     # texts waiting for the model; full -> 503
+  workers: 2                    # parallel batches sent to Python
+  batch_max_size: 16
+  batch_max_wait: 20ms
+
+inference:
+  url: "http://127.0.0.1:8001"
+  batch_timeout: 10s            # must be less than server.request_timeout
+  health_timeout: 2s
+  breaker_failures: 5           # consecutive failures before failing fast
+  breaker_open_for: 5s
+
+python:
+  # Go starts the FastAPI service (AI/serving) and restarts it if it dies. If
+  # something already answers on 127.0.0.1:8001 (e.g. `make mock`), Go uses it
+  # instead of starting a second one. Paths are relative to this file's folder.
+  enabled: true
+  command: "../.venv/Scripts/python.exe"   # the project venv (Windows); set NSOSYAL_PYTHON_COMMAND elsewhere
+  args: ["-m", "uvicorn", "serving.app:create_app", "--factory", "--host", "127.0.0.1", "--port", "8001", "--no-access-log"]
+  workdir: "../AI"
+  health_interval: 2s
+  startup_grace: 120s           # BERTurk load time; not treated as a crash
+  restart_backoff_min: 1s
+  restart_backoff_max: 30s
+
+rate_limit:                     # per client IP
+  analyze_per_second: 1
+  analyze_burst: 5
+  read_per_second: 10
+  read_burst: 30
+  idle_eviction: 10m
+
+cache:
+  size: 10000
+  ttl: 10m
+
+database:
+  # No real passwords here: this file is committed. Put the real one in
+  # backend/.env as NSOSYAL_DATABASE_URL (template: .env.example).
+  url: "postgres://nsosyal:nsosyal_dev@127.0.0.1:5432/nsosyal?sslmode=disable"
+  max_conns: 15
+  min_conns: 2
+  connect_timeout: 5s
+  query_timeout: 3s
+  migrate_on_start: true
+
+writer:
+  comment_buffer: 4096          # comments + decisions; never dropped while there is room
+  metrics_buffer: 8192          # request metrics; dropped first under pressure
+  batch_size: 200
+  flush_interval: 250ms
+  write_timeout: 5s
+
+decision:
+  # The decision layer's thresholds and actions, shown on the Kategoriler page.
+  # Relative to this file's folder.
+  thresholds_file: "../AI/decision/thresholds.yaml"
+
+log:
+  level: info                   # debug | info | warn | error
+  format: json                  # json | text

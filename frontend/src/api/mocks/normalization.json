@@ -1,0 +1,9 @@
+{
+  "_comment": "Optional m2 normalization beside a result, keyed by input text. Only the flagged sample has m2 in its run (per_module_ms); the other samples ran without m2 and get none. Spans are code points: from_span in the original text, to_span in the normalized text (null when removed).",
+  "Seni b1tireceğim": {
+    "text": "Seni bitireceğim",
+    "changes": [
+      { "code": "LEET", "from_span": [6, 7], "to_span": [6, 7], "from": "1", "to": "i" }
+    ]
+  }
+}

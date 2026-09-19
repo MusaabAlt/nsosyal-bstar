@@ -1,0 +1,46 @@
+{
+  "clean": {
+    "categories_total": 2,
+    "categories_evaluated": 0,
+    "categories_hidden": 0,
+    "patterns_checked_other": null,
+    "content_margins": [],
+    "binary_offensive_margin": null,
+    "normalization": null
+  },
+  "degraded": {
+    "categories_total": 2,
+    "categories_evaluated": 0,
+    "categories_hidden": 0,
+    "patterns_checked_other": null,
+    "content_margins": [],
+    "binary_offensive_margin": null,
+    "normalization": null
+  },
+  "flagged": {
+    "categories_total": 2,
+    "categories_evaluated": 1,
+    "categories_hidden": 0,
+    "patterns_checked_other": 11,
+    "content_margins": [
+      0.37,
+      -0.38
+    ],
+    "binary_offensive_margin": -0.06,
+    "normalization": {
+      "removed": 0,
+      "replaced": 1
+    }
+  },
+  "guard": {
+    "categories_total": 2,
+    "categories_evaluated": 1,
+    "categories_hidden": 0,
+    "patterns_checked_other": null,
+    "content_margins": [
+      0.21999999999999997
+    ],
+    "binary_offensive_margin": null,
+    "normalization": null
+  }
+}

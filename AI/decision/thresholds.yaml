@@ -53,20 +53,37 @@ categories:
   #
   # The branch taken (true / false / fallback) is recorded per score in
   # signals.decision.threshold_branches so every decision is auditable.
+  #
+  # ACTION POLICY REVISED 2026-09-18 (project owner request). NOT derived and
+  # NOT signed off. Only `action` values changed below; every `threshold` is
+  # exactly as it was.
+  #
+  # The principle: a person is spent on what a person is needed for. A soft
+  # automatic action (nudge) is cheap to get wrong and easy to appeal, so the
+  # common, unambiguous cases take one. A human keeps the cases where an
+  # automatic action is expensive to get wrong (threat, doxing, incitement,
+  # sacred values), where the signal is ambiguous by construction (coded
+  # language), and where no category fired at all (see binary_offensive).
+  #
+  # THIS CHANGES WHAT THE LIVE SYSTEM DOES, not only the demo panel. It needs
+  # owner sign-off, and derivation on dev before it is anything but policy.
   A1: {threshold: 0.50, action: nudge}     # PLACEHOLDER - derive on dev
-  A2: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
+  A2: {threshold: 0.50, action: block}     # PLACEHOLDER threshold; action revised 2026-09-18 (was review):
+                                           # targeted profanity at an individual is not ambiguous
   A3: {threshold: 0.50, action: block}     # PLACEHOLDER - derive on dev
-  A4: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
-  B1: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
-  B2: {threshold: 0.50, action: escalate}  # PLACEHOLDER - derive on dev
-  B3: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
-  B4: {threshold: 0.50, action: escalate}  # PLACEHOLDER - derive on dev
+  A4: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev; STAYS HUMAN (sacred values)
+  B1: {threshold: 0.50, action: nudge}     # PLACEHOLDER threshold; action revised 2026-09-18 (was review):
+                                           # degradation - warn the author, leave the post up
+  B2: {threshold: 0.50, action: escalate}  # PLACEHOLDER - derive on dev; STAYS HUMAN (threat)
+  B3: {threshold: 0.50, action: nudge}     # PLACEHOLDER threshold; action revised 2026-09-18 (was review)
+  B4: {threshold: 0.50, action: escalate}  # PLACEHOLDER - derive on dev; STAYS HUMAN (doxing)
   B5: {threshold: 0.50, action: block}     # PLACEHOLDER - derive on dev
-  C1: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
-  C2: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
-  C3: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
-  C4: {threshold: 0.50, action: escalate}  # PLACEHOLDER - derive on dev
-  C5: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev
+  C1: {threshold: 0.50, action: nudge}     # PLACEHOLDER threshold; action revised 2026-09-18 (was review):
+                                           # implicit, so a soft action rather than removal
+  C2: {threshold: 0.50, action: nudge}     # PLACEHOLDER threshold; action revised 2026-09-18 (was review)
+  C3: {threshold: 0.50, action: review}    # PLACEHOLDER - derive on dev; STAYS HUMAN (coded language)
+  C4: {threshold: 0.50, action: escalate}  # PLACEHOLDER - derive on dev; STAYS HUMAN (incitement)
+  C5: {threshold: 0.50, action: nudge}     # PLACEHOLDER threshold; action revised 2026-09-18 (was review)
   D1: {threshold: 0.50, action: nudge}     # PLACEHOLDER - derive on dev
 
 binary_offensive:

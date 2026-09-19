@@ -1,0 +1,21 @@
+{
+  "400_bad_request": {
+    "status": 400,
+    "body": {
+      "error": "text must be a string"
+    }
+  },
+  "200_health": {
+    "status": 200,
+    "body": {
+      "status": "ok",
+      "artifact_hash": "5a2fa46738f645f2fa08d27bba1950cdbde19021c0b5ee8c5b658251dddd5381"
+    }
+  },
+  "500_pipeline_failure": {
+    "status": 500,
+    "body": {
+      "error": "internal error: RuntimeError"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "source": "AI/decision/thresholds.yaml",
+  "categories": [
+    {
+      "code": "A1",
+      "family": "A",
+      "threshold": 0.5,
+      "action": "nudge",
+      "derived": false,
+      "status": "live",
+      "module": "m1_lexicon"
+    },
+    {
+      "code": "binary_offensive",
+      "family": "",
+      "threshold": 0.320188,
+      "action": "review",
+      "derived": true,
+      "status": "live",
+      "module": "m3_encoder"
+    }
+  ]
+}

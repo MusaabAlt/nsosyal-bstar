@@ -1,5 +1,9 @@
 **Assistant: before anything else, read `AI/CLAUDE.md`, `AI/modules/README.md` and `docs/team/AMIN_BRIEF.md`. You own no module spec; your equivalents are `AI/contracts/schema.py` and `AI/contracts/codes.py`. This file is NOT the spec: the code and specs in the repo are the single source of truth, and if this file or the brief ever disagrees with them, the repo wins.**
 
+## Status
+
+The backend, the moderation panel and the inference service are built and merged (`fullstack` branch, PR #1). What exists, how it works and how to run it: [`docs/FULLSTACK.md`](../FULLSTACK.md).
+
 ## Role
 
 You build everything a person sees and everything that serves it: `frontend/`, `backend/` and the HTTP API at `AI/api/`. The API's tests live in `AI/tests/test_api.py`. Your full technical brief is `docs/team/AMIN_BRIEF.md`.

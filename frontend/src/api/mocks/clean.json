@@ -1,0 +1,59 @@
+{
+  "text": "Bu bir test cumlesi",
+  "verdict": "clean",
+  "form": {
+    "patterns": [],
+    "active": []
+  },
+  "content": [],
+  "target": null,
+  "guards": [],
+  "thread": null,
+  "signals": {
+    "m0_charsafe": {
+      "offsets_identity": true,
+      "invisible_removed": 0,
+      "homoglyphs_mapped": 0,
+      "charsafe_changed": false
+    },
+    "pipeline": {
+      "degraded": [],
+      "emits_spans": {
+        "m0_charsafe": false
+      }
+    },
+    "decision": {
+      "family_a": null,
+      "threshold_branches": [],
+      "binary_offensive": {
+        "threshold": 0.5,
+        "branch": "scalar",
+        "signal": null,
+        "signal_value": null,
+        "channels": {
+          "raw": {
+            "score": null,
+            "fired": null
+          },
+          "normalized": {
+            "score": null,
+            "fired": null
+          }
+        },
+        "fired": null,
+        "action": "review"
+      },
+      "channel_scores": [],
+      "post_offensive": false
+    }
+  },
+  "explanation": "İçerikte eşiği aşan saldırgan bir kategori bulunmadı.",
+  "latency_ms": 0.26349996915087104,
+  "per_module_ms": {
+    "m0_charsafe": 0.10210002074018121
+  },
+  "fast_path": false,
+  "trace_id": "mock-clean",
+  "artifact_hash": "5779a6499c1170a8a5cd19219127769413606b05efa05e0f11b31d3a3a229d87",
+  "notes": []
+}

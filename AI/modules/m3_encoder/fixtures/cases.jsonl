@@ -1,2 +1,98 @@
-{"id": "m3-dev-0001", "text": "Bugün hava çok güzel", "context": {"charsafe_text": "bugün hava çok güzel"}, "expected": []}
+{"id": "m3-dev-0001", "text": "Bugün hava çok güzel", "context": {"charsafe_text": "bugün hava çok güzel"}, "expected": [], "expect_clean": true}
 {"id": "m3-dev-0002", "text": "<DEV-SET ITEM: B2 threat without profanity>", "expected": ["B2"], "placeholder": true}
+{"id": "m3-a1-pos-001", "text": "Sen çok aptal birisin.", "expected": ["A1"]}
+{"id": "m3-a1-pos-002", "text": "Bu ne salak bir yorum böyle.", "expected": ["A1"]}
+{"id": "m3-a1-pos-003", "text": "Gerizekalı gibi konuşuyorsun.", "expected": ["A1"]}
+{"id": "m3-a1-pos-004", "text": "Şerefsiz herif yine yalan söylemiş.", "expected": ["A1"]}
+{"id": "m3-a1-pos-005", "text": "Aptal aptal konuşma benimle.", "expected": ["A1"]}
+{"id": "m3-a1-pos-006", "text": "Ne kadar salakça bir karar vermişler.", "expected": ["A1"]}
+{"id": "m3-a1-pos-007", "text": "Bu yavşak yüzünden her şey mahvoldu.", "expected": ["A1"]}
+{"id": "m3-a1-pos-008", "text": "Pislik herif, hiç utanması yok.", "expected": ["A1"]}
+{"id": "m3-a1-pos-009", "text": "O adam tam bir şerefsiz çıktı.", "expected": ["A1"]}
+{"id": "m3-a1-pos-010", "text": "Salak mısın nesin, anlamıyorum.", "expected": ["A1"]}
+{"id": "m3-a1-pos-011", "text": "Aptalca sorular sorup duruyorsun.", "expected": ["A1"]}
+{"id": "m3-a1-pos-012", "text": "Gerizekalılar kulübüne hoş geldin.", "expected": ["A1"]}
+{"id": "m3-a1-pos-013", "text": "Bu ne biçim aptallık yahu.", "expected": ["A1"]}
+{"id": "m3-a1-pos-014", "text": "Hayvan herif yine kavga çıkarmış.", "expected": ["A1"]}
+{"id": "m3-a1-pos-015", "text": "Beyinsiz, iki kelimeyi bir araya getiremiyor.", "expected": ["A1"]}
+{"id": "m3-a1-pos-016", "text": "Ahmak olduğun her cümlenden belli.", "expected": ["A1"]}
+{"id": "m3-a1-pos-017", "text": "Serseri güruhu yine ortalığı karıştırdı.", "expected": ["A1"]}
+{"id": "m3-a1-pos-018", "text": "Bu aptal projeye bir kuruş vermem.", "expected": ["A1"]}
+{"id": "m3-a1-pos-019", "text": "Ne kadar ahmakça bir savunma bu.", "expected": ["A1"]}
+{"id": "m3-a1-pos-020", "text": "Salaklığın bu kadarı da fazla artık.", "expected": ["A1"]}
+{"id": "m3-a1-pos-021", "text": "Şerefsizlik yapmayı bırak artık.", "expected": ["A1"]}
+{"id": "m3-a1-pos-022", "text": "Yavşaklık yapıp duruyorsun burada.", "expected": ["A1"]}
+{"id": "m3-a1-pos-023", "text": "Aptal olduğunu kabul etsen bari.", "expected": ["A1"]}
+{"id": "m3-a1-pos-024", "text": "Gerizekalı yorumlarını kendine sakla.", "expected": ["A1"]}
+{"id": "m3-a1-neg-001", "text": "Bu yorum bence çok yerinde olmuş.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-002", "text": "Sen çok çalışkan birisin.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-003", "text": "Ne kadar güzel bir karar vermişler.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-004", "text": "O adam gerçekten dürüst çıktı.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-005", "text": "Yarın toplantı saat onda başlıyor.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-006", "text": "Kararına saygı duyuyorum.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-007", "text": "Bu proje gerçekten çok işe yarayacak.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-008", "text": "Maçı izlediniz mi dün akşam?", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-009", "text": "Kitabı bitirdim, çok beğendim.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-010", "text": "Trafik bu sabah yine çok sıkışıktı.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-011", "text": "Yemek gerçekten çok lezzetliydi.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-012", "text": "Bu kadar erken kalkmak zor geliyor.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-013", "text": "Telefonum yine şarj tutmuyor.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-014", "text": "Sınav sonuçları bugün açıklandı.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-015", "text": "Otobüs on dakika gecikmeli geldi.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-016", "text": "Yeni evimize geçen hafta taşındık.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-017", "text": "Kahve içmeye çıkalım mı?", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-018", "text": "Bu yazıyı gerçekten faydalı buldum.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-019", "text": "Ellerinize sağlık, harika olmuş.", "expected": [], "expect_clean": true}
+{"id": "m3-a1-neg-020", "text": "Bence bu konuda haklısın.", "expected": [], "expect_clean": true}
+{"id": "m3-collision-001", "text": "Sıkıntı yok, her şey yolunda.", "expected": [], "expect_clean": true}
+{"id": "m3-collision-002", "text": "Çocuğu okula kendisi götürdü.", "expected": [], "expect_clean": true}
+{"id": "m3-collision-003", "text": "Amcam yarın bize geliyor.", "expected": [], "expect_clean": true}
+{"id": "m3-collision-004", "text": "Amasya'ya tatile gittik.", "expected": [], "expect_clean": true}
+{"id": "m3-collision-005", "text": "Müzede eski sikkeleri inceledik.", "expected": [], "expect_clean": true}
+{"id": "m3-collision-006", "text": "Yavaşça kapıyı kapattı.", "expected": [], "expect_clean": true}
+{"id": "m3-collision-007", "text": "Kerpiç evler yazın serin olur.", "expected": [], "expect_clean": true}
+{"id": "m3-collision-008", "text": "Salı günü buluşalım.", "expected": [], "expect_clean": true}
+{"id": "m3-channel-001", "text": "Sen çok apt@l birisin.", "context": {"normalized_text": "Sen çok aptal birisin."}, "expected": ["A1"]}
+{"id": "m3-channel-002", "text": "Bu ne s.a.l.a.k bir yorum.", "context": {"normalized_text": "Bu ne salak bir yorum."}, "expected": ["A1"]}
+{"id": "m3-channel-003", "text": "Şerefs1z herif yine yalan söylemiş.", "context": {"normalized_text": "Şerefsiz herif yine yalan söylemiş."}, "expected": ["A1"]}
+{"id": "m3-channel-004", "text": "s a l a k mısın nesin.", "context": {"normalized_text": "salak mısın nesin."}, "expected": ["A1"]}
+{"id": "m3-channel-005", "text": "Sen çok ap​tal birisin.", "context": {"charsafe_text": "Sen çok aptal birisin.", "normalized_text": "Sen çok aptal birisin."}, "expected": ["A1"]}
+{"id": "m3-channel-006", "text": "Sen çok аptal birisin.", "context": {"charsafe_text": "Sen çok aptal birisin.", "normalized_text": "Sen çok aptal birisin."}, "expected": ["A1"]}
+{"id": "m3-channel-007", "text": "Sıkıntı yok, her şey yolunda.", "context": {"normalized_text": "sikinti yok, her sey yolunda."}, "expected": [], "expect_clean": true}
+{"id": "m3-channel-008", "text": "Amcam yarın bize geliyor.", "context": {"normalized_text": "amcam yarin bize geliyor."}, "expected": [], "expect_clean": true}
+{"id": "m3-edge-001", "text": "", "expected": [], "expect_clean": true}
+{"id": "m3-edge-002", "text": " ", "expected": [], "expect_clean": true}
+{"id": "m3-edge-003", "text": "\t\n ", "expected": [], "expect_clean": true}
+{"id": "m3-edge-004", "text": "😀", "expected": [], "expect_clean": true}
+{"id": "m3-edge-005", "text": "Bu yorum çok aptalca, what a stupid take, 完全に馬鹿げている.", "expected": ["A1"]}
+{"id": "m3-edge-006", "text": "Привет, bugün hava çok güzel.", "expected": [], "expect_clean": true}
+{"id": "m3-edge-007", "text": "Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık. Bugün hava çok g", "expected": [], "expect_clean": true}
+{"id": "m3-trunc-001", "text": "Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik.", "expected": [], "expect_clean": true}
+{"id": "m3-trunc-002", "text": "Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Bugün hava çok güzel ve parkta uzun bir yürüyüş yaptık, sonra kahve içtik. Sen çok aptal birisin.", "expected": ["A1"]}
+{"id": "m3-b1-001", "text": "Hiçbir işe yaramıyorsun, varlığın bile fazla.", "expected": ["B1"], "placeholder": true}
+{"id": "m3-b1-002", "text": "Senin gibi biri asla adam olmaz.", "expected": ["B1"], "placeholder": true}
+{"id": "m3-b1-003", "text": "Sen kimsin ki konuşuyorsun, hiç kimsesin.", "expected": ["B1"], "placeholder": true}
+{"id": "m3-b1-004", "text": "Bu kadar beceriksiz birini görmedim.", "expected": ["B1"], "placeholder": true}
+{"id": "m3-b1-005", "text": "Ailen bile senden utanıyordur.", "expected": ["B1"], "placeholder": true}
+{"id": "m3-b1-006", "text": "Hayatında doğru düzgün bir şey başaramadın.", "expected": ["B1"], "placeholder": true}
+{"id": "m3-b2-001", "text": "Seni bulacağım, merak etme.", "expected": ["B2"], "placeholder": true}
+{"id": "m3-b2-002", "text": "Bir daha yazarsan pişman edeceğim seni.", "expected": ["B2"], "placeholder": true}
+{"id": "m3-b2-003", "text": "Adresini biliyorum, kapına gelirim.", "expected": ["B2"], "placeholder": true}
+{"id": "m3-b2-004", "text": "Karşıma çıkarsan yaşayacaklarını göreceksin.", "expected": ["B2"], "placeholder": true}
+{"id": "m3-b2-005", "text": "Hepinizi teker teker hallederiz.", "expected": ["B2"], "placeholder": true}
+{"id": "m3-b2-006", "text": "Bu yaptığının hesabını ödeteceğim sana.", "expected": ["B2"], "placeholder": true}
+{"id": "m3-b3-001", "text": "Allah belanızı versin hepinizin.", "expected": ["B3"], "placeholder": true}
+{"id": "m3-b3-002", "text": "Defolun gidin bu ülkeden.", "expected": ["B3"], "placeholder": true}
+{"id": "m3-b3-003", "text": "Sizin gibilere burada yer yok, gitsinler.", "expected": ["B3"], "placeholder": true}
+{"id": "m3-b3-004", "text": "İnşallah hak ettiğinizi bulursunuz.", "expected": ["B3"], "placeholder": true}
+{"id": "m3-b3-005", "text": "Cehennemin dibine kadar yolunuz var.", "expected": ["B3"], "placeholder": true}
+{"id": "m3-b3-006", "text": "Buralarda sizi kimse istemiyor, toplanın gidin.", "expected": ["B3"], "placeholder": true}
+{"id": "m3-b5-001", "text": "Gece yalnız yürürken dikkat et kendine.", "expected": ["B5"], "placeholder": true}
+{"id": "m3-b5-002", "text": "Bu fotoğrafları görünce aklıma başka şeyler geliyor, yazarım sana.", "expected": ["B5"], "placeholder": true}
+{"id": "m3-b5-003", "text": "Kadın milleti böyle konuşmaz, senin derdin başka.", "expected": ["B5"], "placeholder": true}
+{"id": "m3-b5-004", "text": "Seninle yalnız kalsam neler yapardım bir bilsen.", "expected": ["B5"], "placeholder": true}
+{"id": "m3-multi-001", "text": "Defolun gidin buradan, yoksa hepinizi bulurum.", "expected": ["B2", "B3"], "placeholder": true}
+{"id": "m3-multi-002", "text": "Sen hiçbir işe yaramaz birisin, karşıma çıkma sakın.", "expected": ["B1", "B2"], "placeholder": true}
+{"id": "m3-multi-003", "text": "Sizin gibi beceriksizler bu ülkeden defolup gitsin.", "expected": ["B1", "B3"], "placeholder": true}
+{"id": "m3-multi-004", "text": "Allah belanı versin, bir daha karşıma çıkarsan görürsün.", "expected": ["B2", "B3"], "placeholder": true}
+{"id": "m3-multi-005", "text": "Hiçbir değerin yok, gece dışarı çıkarken dikkat et.", "expected": ["B1", "B5"], "placeholder": true}
