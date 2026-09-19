@@ -1,6 +1,6 @@
 {
   "clean": {
-    "categories_total": 2,
+    "categories_total": 8,
     "categories_evaluated": 0,
     "categories_hidden": 0,
     "patterns_checked_other": null,
@@ -9,19 +9,19 @@
     "normalization": null
   },
   "degraded": {
-    "categories_total": 2,
-    "categories_evaluated": 0,
-    "categories_hidden": 0,
-    "patterns_checked_other": null,
+    "categories_total": 8,
+    "categories_evaluated": 8,
+    "categories_hidden": 7,
+    "patterns_checked_other": 6,
     "content_margins": [],
-    "binary_offensive_margin": null,
+    "binary_offensive_margin": -0.2987765196179151,
     "normalization": null
   },
   "flagged": {
-    "categories_total": 2,
-    "categories_evaluated": 1,
-    "categories_hidden": 0,
-    "patterns_checked_other": 11,
+    "categories_total": 8,
+    "categories_evaluated": 2,
+    "categories_hidden": 1,
+    "patterns_checked_other": 5,
     "content_margins": [
       0.37,
       -0.38
@@ -33,9 +33,9 @@
     }
   },
   "guard": {
-    "categories_total": 2,
-    "categories_evaluated": 1,
-    "categories_hidden": 0,
+    "categories_total": 8,
+    "categories_evaluated": 6,
+    "categories_hidden": 5,
     "patterns_checked_other": null,
     "content_margins": [
       0.21999999999999997
