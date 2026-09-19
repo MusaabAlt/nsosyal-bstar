@@ -104,7 +104,7 @@ A dedicated Postgres, matching the per-project isolation the host already uses. 
 
 **Interfaces:**
 - Consumes: nothing.
-- Produces: reachable Postgres at host `nsosyal-data_postgres`, port `5432`, database `nsosyal`, user `nsosyal`, on network `nsosyal_internal`. Task 7 consumes this as `NSOSYAL_DATABASE_URL`.
+- Produces: reachable Postgres at Swarm DNS name `nsosyal-data_postgres` (the canonical `<stack>_<service>` name — use this, not the short `postgres` alias), port `5432`, database `nsosyal`, user `nsosyal`, on the network Swarm names `nsosyal-data_nsosyal_internal`. Task 7 consumes this as `NSOSYAL_DATABASE_URL`.
 
 - [ ] **Step 1: Write the stack file**
 
@@ -487,7 +487,7 @@ services:
     networks: [traefik_proxy, nsosyal_internal]
     environment:
       NSOSYAL_SERVER_ADDR: "0.0.0.0:8080"
-      NSOSYAL_DATABASE_URL: "postgres://nsosyal:${POSTGRES_PASSWORD}@postgres:5432/nsosyal?sslmode=disable"
+      NSOSYAL_DATABASE_URL: "postgres://nsosyal:${POSTGRES_PASSWORD}@nsosyal-data_postgres:5432/nsosyal?sslmode=disable"
       # Monitor-only: Go calls python.url but never spawns it
       # (backend/internal/supervisor/python.go:16, Manage=false).
       NSOSYAL_PYTHON_ENABLED: "false"
