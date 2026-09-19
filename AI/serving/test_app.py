@@ -24,11 +24,28 @@ class FakeResult:
         }
 
 
+class FakeInternals:
+    """What Pipeline.analyze_with_internals returns: m2's channel, raw signals."""
+
+    def __init__(self, text: str) -> None:
+        # "s4l4k" stands in for one LEET repair; any other text ran without m2.
+        self.charsafe_text = text
+        self.normalized_text = "salak" if text == "s4l4k" else None
+        self.signals = {"m2_deobf": {
+            "_repairs": [{"code": "LEET", "span": [1, 2], "before": "4", "after": "a"},
+                         {"code": "LEET", "span": [3, 4], "before": "4", "after": "a"}],
+            "_offsets": [0, 1, 2, 3, 4],
+        }} if self.normalized_text else {}
+
+
 class FakePipeline:
     artifact_hash = "fake-hash"
 
     def analyze(self, text: str, trace_id: str | None = None) -> FakeResult:
         return FakeResult(text, trace_id or "")
+
+    def analyze_with_internals(self, text: str, trace_id: str | None = None):
+        return FakeResult(text, trace_id or ""), FakeInternals(text)
 
 
 @unittest.skipIf(TestClient is None, "fastapi not installed (pip install -r serving/requirements.txt)")
@@ -73,6 +90,22 @@ class ServingTest(unittest.TestCase):
         self.assertTrue(by_id["a"]["ok"])
         self.assertEqual(by_id["a"]["result"]["text"], "  S4l4K  ")  # never trimmed or normalized
         self.assertEqual(by_id["a"]["result"]["trace_id"], "a")
+
+    def test_normalization_travels_beside_the_result(self) -> None:
+        _, client = self.make()
+        body = client.post("/predict_batch", json={"items": [
+            {"id": "a", "text": "s4l4k"},
+            {"id": "b", "text": "amcam geldi"},
+        ]}).json()
+        by_id = {r["id"]: r for r in body["results"]}
+        self.assertEqual(by_id["a"]["normalization"], {"text": "salak", "changes": [
+            {"code": "LEET", "from_span": [1, 2], "to_span": [1, 2], "from": "4", "to": "a"},
+            {"code": "LEET", "from_span": [3, 4], "to_span": [3, 4], "from": "4", "to": "a"},
+        ]})
+        # m2 did not produce a channel for this one: the field is absent, never null-ish noise.
+        self.assertNotIn("normalization", by_id["b"])
+        # It never leaks into the frozen contract.
+        self.assertNotIn("normalized_text", by_id["a"]["result"])
 
     def test_one_failing_item_does_not_fail_the_batch(self) -> None:
         _, client = self.make()

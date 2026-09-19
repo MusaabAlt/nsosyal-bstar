@@ -9,10 +9,13 @@ Listens on localhost only; the Go backend is its only client and starts it
     GET  /health         {"status": "loading" | "ok" | "error", "artifact_hash",
                           "degraded_modules", "capabilities", "representative": false}
     POST /predict_batch  {"items": [{"id", "text"}]}
-                         -> {"artifact_hash", "results": [{"id", "ok", "result" | "error"}]}
+                         -> {"artifact_hash", "results": [{"id", "ok",
+                             "result" (+ optional "normalization") | "error"}]}
 
 What it does NOT do: decide anything, change the text, or touch the frozen
-AnalysisResult. It runs `Pipeline.analyze` and returns `to_dict()` unchanged.
+AnalysisResult. It runs the pipeline and returns `to_dict()` unchanged. m2's
+de-obfuscated text is NOT part of that contract (decision 17), so it travels
+beside the result as the optional `normalization` object (serving/normalization.py).
 
 Model loading (BERTurk) takes a while, so the pipeline is built in a
 background thread; until then /health says "loading" and /predict_batch
@@ -37,6 +40,7 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
+from serving import normalization
 from serving.capabilities import CAPABILITIES
 
 log = logging.getLogger("serving")
@@ -118,9 +122,15 @@ def create_app(state: State | None = None, load_in_background: bool = True) -> F
         for item in request.items:
             try:
                 with state.lock:
-                    result = pipeline.analyze(item.text, trace_id=item.id).to_dict()
-                # normalization: m2 is a stub; when it lands, add its text and changes here.
-                results.append({"id": item.id, "ok": True, "result": result})
+                    analysis, internals = pipeline.analyze_with_internals(item.text, trace_id=item.id)
+                    result = analysis.to_dict()
+                    # Read inside the lock: internals borrow the pipeline's own
+                    # per-request state and the next analysis replaces them.
+                    recovered = normalization.build(internals.normalized_text, internals.signals)
+                entry: dict[str, Any] = {"id": item.id, "ok": True, "result": result}
+                if recovered is not None:
+                    entry["normalization"] = recovered
+                results.append(entry)
             except Exception as exc:  # one text failing never fails the batch
                 log.exception("analysis failed for %s", item.id)
                 results.append({"id": item.id, "ok": False, "error": f"internal error: {type(exc).__name__}"})
