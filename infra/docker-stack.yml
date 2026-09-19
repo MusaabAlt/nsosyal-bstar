@@ -1,0 +1,67 @@
+# infra/docker-stack.yml — nsosyal stack
+version: "3.8"
+
+networks:
+  traefik_proxy:
+    external: true
+    name: traefik_proxy
+  nsosyal_internal:
+    external: true
+    name: nsosyal-data_nsosyal_internal
+
+volumes:
+  models:
+    external: true
+    name: nsosyal_models
+
+services:
+  app:
+    image: nsosyal-app:${APP_TAG}
+    networks: [traefik_proxy, nsosyal_internal]
+    environment:
+      NSOSYAL_SERVER_ADDR: "0.0.0.0:8080"
+      NSOSYAL_DATABASE_URL: "postgres://nsosyal:${POSTGRES_PASSWORD}@nsosyal-data_postgres:5432/nsosyal?sslmode=disable"
+      # Monitor-only: Go calls python.url but never spawns it
+      # (backend/internal/supervisor/python.go:16, Manage=false).
+      NSOSYAL_PYTHON_ENABLED: "false"
+      NSOSYAL_INFERENCE_URL: "http://infer:8001"
+      # Tightened from the repo's LAN-demo defaults for public exposure.
+      NSOSYAL_RATE_LIMIT_ANALYZE_PER_SECOND: "5"
+      NSOSYAL_LOG_LEVEL: "info"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/api/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    deploy:
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.nsosyal.rule=Host(`nsosyal.daqqiq.com`)"
+        - "traefik.http.services.nsosyal.loadbalancer.server.port=8080"
+      replicas: 1
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: "256M"
+        reservations:
+          memory: "64M"
+
+  infer:
+    image: nsosyal-infer:${INFER_TAG}
+    networks: [nsosyal_internal]
+    environment:
+      NSOSYAL_M3_CHECKPOINT: "/models/berturk_epoch1.pt"
+      NSOSYAL_M3_TOKENIZER: "/models/tokenizer"
+    volumes:
+      - models:/models:ro
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: "2048M"
+        reservations:
+          memory: "1024M"
