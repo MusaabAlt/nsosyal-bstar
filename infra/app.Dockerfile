@@ -2,6 +2,10 @@
 # Stage 1 — Vue SPA. Emits into backend/web/dist for go:embed.
 FROM node:22-alpine AS frontend
 WORKDIR /src
+# vue-tsc needs more heap than Node's default, which is derived from the cgroup
+# limit — under `docker build --memory=1g` that default lands near 512MB and the
+# TypeScript build aborts with exit 134.
+ENV NODE_OPTIONS=--max-old-space-size=1536
 COPY frontend/package.json frontend/package-lock.json ./frontend/
 RUN cd frontend && npm ci
 COPY frontend/ ./frontend/
