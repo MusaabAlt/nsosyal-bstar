@@ -9,6 +9,7 @@ import { analysisSource } from '@/api'
 import { fetchCategories, type Category } from '@/api/panel'
 import { useAnalysis } from '@/report/useAnalysis'
 import { buildStages, degradedModules, moduleState, verdictView, type ContentRow, type ContentStage } from '@/report/model'
+import DetectionEvidence from '@/components/panel/DetectionEvidence.vue'
 import { categoryMeta } from '@/lib/categories'
 import { barPosition, formatMs, formatScore } from '@/lib/format'
 import { actionLabel, formLabel } from '@/contract/labels'
@@ -207,6 +208,8 @@ const TONE_COLOR: Record<string, string> = {
           </div>
         </div>
       </div>
+
+      <DetectionEvidence :result="report.result" :extras="extras" />
 
       <div class="card explain">
         <div class="explain__body">
