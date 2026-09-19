@@ -21,8 +21,12 @@ RUN pip install --no-cache-dir \
       -r /tmp/req-core.txt -r /tmp/req-serving.txt \
       -r /tmp/req-m1.txt -r /tmp/req-m2.txt -r /tmp/req-m3.txt
 
+# Fail loudly if anything re-resolved torch away from the CPU index. Without this,
+# a drifted pin in m3_encoder/requirements.txt silently pulls the CUDA build.
+RUN python -c "import torch,sys; v=torch.__version__; sys.exit(0) if v.endswith('+cpu') else sys.exit('expected a +cpu torch build, got '+v)"
+
 COPY AI/ /app/
-RUN adduser --disabled-password --uid 10001 app && mkdir -p /models && chown app /models
+RUN adduser --disabled-password --gecos "" --uid 10001 app && mkdir -p /models && chown app /models
 USER app
 EXPOSE 8001
 

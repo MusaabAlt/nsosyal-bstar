@@ -2,6 +2,7 @@
 docs
 diagnosis
 AI/eval
+AI/training
 **/node_modules
 **/__pycache__
 **/dist
