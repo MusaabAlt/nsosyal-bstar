@@ -1,0 +1,38 @@
+# infra/data-stack.yml — nsosyal-data stack
+# Demo data. Deliberately NOT wired into /srv/backup-db.sh (see spec §7).
+version: "3.8"
+
+networks:
+  nsosyal_internal:
+    driver: overlay
+    attachable: false
+
+volumes:
+  pgdata:
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    networks:
+      - nsosyal_internal
+    environment:
+      POSTGRES_DB: nsosyal
+      POSTGRES_USER: nsosyal
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nsosyal -d nsosyal"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: any
+      resources:
+        limits:
+          memory: "384M"
+        reservations:
+          memory: "128M"
