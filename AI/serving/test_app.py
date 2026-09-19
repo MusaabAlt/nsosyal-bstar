@@ -48,7 +48,11 @@ class ServingTest(unittest.TestCase):
         self.assertEqual(body["artifact_hash"], "fake-hash")
         self.assertEqual(body["degraded_modules"], ["m2_deobf"])
         self.assertFalse(body["representative"])
-        self.assertEqual([c["code"] for c in body["capabilities"]], ["A1", "binary_offensive"])
+        codes = [c["code"] for c in body["capabilities"]]
+        self.assertEqual(codes, ["A1", "A2", "A3", "B1", "B2", "B3", "B4", "binary_offensive"])
+        # Every capability names the module that produces it, so the panel can
+        # mark it "Modül hazır değil" from /health's degraded_modules.
+        self.assertTrue(all(c["module"] for c in body["capabilities"]))
 
     def test_loading_answers_503(self) -> None:
         _, client = self.make(loaded=False)
