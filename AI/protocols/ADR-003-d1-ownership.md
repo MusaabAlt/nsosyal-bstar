@@ -175,3 +175,39 @@ is unchanged: no module version and no decision config changed.
 **Gate.** The `contracts/ untouched` gate in `scripts/check.sh` fails for this commit
 only, on the owner's explicit acceptance. Every other gate must pass. The contract is
 re-frozen immediately after.
+
+## Amendment — m5 Stage 1: a deterministic detector ahead of the gate (2026-09-19)
+
+- **Decided by:** project owner (explicit approval for the TEKNOFEST prototype)
+
+**Decision.** m5 ships a Stage-1 deterministic, high-precision detector for D1
+(`protocols/m5_stage1_deterministic_protocol.md`, M5-S1; `modules/m5_sarcasm/module.py` 1.0.0):
+four conjunctive rule families (scare-quoted praise, clause-final ironic `tabii`, congratulated
+failure, the `(!)` irony mark), each requiring a second-person anchor, with exclusions for reported
+speech, mentions, negation, questions, missing person anchor and explicit content (spec §3
+precedence, read from m1's published `lexicon_hit`). `stub` is removed because detection logic
+exists. D1 scores are `1.0` = "a rule is satisfied", not a probability.
+
+**What does not change.** This ADR's decision stands: the neural D1 model is m5's own model with its
+own artifact and thresholds, never a head on m3. It is Stage 2, gated by m5 spec §2, not trained and
+not benchmarked; `training/m5_sarcasm/` and `docs/training/m5_sarcasm.md` are untouched.
+`decision/thresholds.yaml` is untouched: `D1` stays threshold `0.50` / action `nudge`, both
+PLACEHOLDER policy.
+
+**Consequence.** m5 no longer degrades every result, so a clean verdict is reachable from the default
+pipeline for the first time. The contract example is regenerated on the owner's instruction of the
+same day.
+
+## Amendment — contract example regenerated for rule-v4, m4 0.3.0 and m5 Stage 1 (2026-09-19)
+
+- **Decided by:** project owner (explicit authorization of 2026-09-19 to run `--write` once the
+  runtime changes were final)
+
+`contracts/fixtures/analysis_result.example.json` regenerated with
+`python -m pipeline.contract_example --write`, never by hand; `--check` exits 0 afterwards. Every
+difference follows from the runtime: m3 is the deployed rule-v4 artifact (new scores, and its A head's
+A1-carrier score on both channels, not fired), m4 0.3.0 and m5 1.0.0 publish their signals,
+`signals.pipeline.degraded` is empty so the verdict is `clean` with its explanation,
+`binary_offensive.threshold` is 0.445857971906662, and `artifact_hash` changed with the versions and
+the config. `module_output.example.json` is unchanged. No contract code, type or field changed; the
+contract is re-frozen.

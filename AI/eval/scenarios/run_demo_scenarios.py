@@ -408,8 +408,8 @@ def m4_checks(want: dict[str, Any], facts: Facts, cfg: dict[str, Any]) -> list[t
             problems.append(f"channels {sorted(b.get('channels') or {})} (stage 1 is raw-only)")
         if raw.get("score") != score:
             problems.append(f"raw score {raw.get('score')} != m3 raw_score {score}")
-        if score is not None and configured is not None and raw.get("fired") != (score >= configured):
-            problems.append("fired != (score >= threshold)")
+        if score is not None and configured is not None and raw.get("fired") != (score > configured):
+            problems.append("fired != (score > threshold)")
         if b.get("fired") != raw.get("fired"):
             problems.append("post-level fired != raw channel fired")
         if b.get("action") != entry.get("action"):
@@ -908,7 +908,8 @@ def render_md(report: dict[str, Any], rows: list[dict[str, Any]], fails: list[di
     ni = [r for r in rows if r["evaluation"]["result"] == "NOT_IMPLEMENTED"]
     add("\n".join(f"- {r['case_id']} `{md_cell(r['text'], 80)}` (rule fired {r['trace']['DECISION']['rule_fired'] if r['trace'] else None})" for r in ni))
     add("\n## 20. M4 - stage 1 only\n")
-    add("`m4_implicit` emits only the note 'C1–C5 not implemented yet'. Stage 1 is the single global `binary_offensive` "
+    add("`m4_implicit` emits no content score: it publishes its stage-1 signals (read from m3's scores) and the note "
+        "'C1–C5 not implemented yet'. Stage 1 is the single global `binary_offensive` "
         f"threshold ({report['decision_config']['binary_offensive']['threshold']}) applied by the decision layer to m3's raw-channel "
         "score. Stage 2 (C1-C5, slice repair, influence hardening) is not built: C1-C5 scenarios are KNOWN_LIMITATION. "
         "The binary threshold was derived for `m3-berturk-pytorch-fp32-epoch1` only.\n")

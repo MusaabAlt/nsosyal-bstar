@@ -1,35 +1,52 @@
-"""Unit tests for m3_encoder: contract tests and behaviour tests of the baseline wrapper.
+"""Unit tests for m3_encoder: contract tests, behaviour tests of the DEPLOYED artifact (rule-v4
+multi-head: binary + A heads; B and C not trained) and of the explicitly selected binary baseline.
 
-Tests that run the model need the git-ignored artifact files (artifacts/MANIFEST.md)
-and torch/transformers; without them they are skipped with the reason, and the
-fail-closed test still runs."""
+Tests that run a model need its git-ignored files (artifacts/MANIFEST.md) and torch/transformers;
+without them they are skipped with the reason here, and tests/test_implementation_status.py FAILS
+the suite with a named precondition, so a skip can never pass for green. The fail-closed tests
+always run."""
 from __future__ import annotations
 
 import copy
+import json
 import os
 import socket
+import tempfile
 import unittest
+from pathlib import Path
 from types import MappingProxyType
 from unittest import mock
 
-from contracts.codes import ModuleName
+from contracts.codes import ContentCode, ModuleName
 from contracts.module_api import PROVIDABLE_FIELDS, Context, ModuleOutput
 from contracts.schema import ContentScore, GuardResult
-from modules.m3_encoder.module import (ARTIFACT_ID, CHECKPOINT_ENV, MAX_LEN, TOKENIZER_ENV, EncoderModule,
-                                       artifact_paths)
+from modules.m3_encoder import module as m3
+from modules.m3_encoder.module import (ARTIFACT_ID, BASELINE_ID, CHECKPOINT_ENV, DEPLOYED_DIR, DEPLOYED_ID,
+                                       DEPLOYED_WEIGHTS_SHA256, MAX_LEN, MULTIHEAD_ENV, TOKENIZER_ENV,
+                                       EncoderModule, artifact_paths)
 
 
-def artifact_available() -> bool:
+def _torch() -> bool:
     try:
         import torch  # noqa: F401
         import transformers  # noqa: F401
     except ImportError:
         return False
+    return True
+
+
+def artifact_available() -> bool:
+    """The DEPLOYED artifact (what the runtime loads by default) and torch/transformers are present."""
+    return _torch() and all((DEPLOYED_DIR / n).is_file() for n in ("sha256.txt", "weights.pt", "heads.json"))
+
+
+def baseline_available() -> bool:
     checkpoint, tokenizer_dir = artifact_paths()
-    return checkpoint.is_file() and tokenizer_dir.is_dir()
+    return _torch() and checkpoint.is_file() and tokenizer_dir.is_dir()
 
 
-NEEDS_ARTIFACT = unittest.skipUnless(artifact_available(), "m3 artifact files or torch/transformers not installed")
+NEEDS_ARTIFACT = unittest.skipUnless(artifact_available(), f"deployed m3 artifact {DEPLOYED_ID} or torch missing")
+NEEDS_BASELINE = unittest.skipUnless(baseline_available(), f"m3 baseline {BASELINE_ID} files or torch missing")
 SHARED: dict[str, EncoderModule] = {}
 
 
@@ -38,6 +55,16 @@ def shared_module() -> EncoderModule:
     if "module" not in SHARED:
         SHARED["module"] = EncoderModule()
     return SHARED["module"]
+
+
+def baseline_module() -> EncoderModule:
+    """The frozen binary checkpoint, selected explicitly (it is never a fallback)."""
+    if "baseline" not in SHARED:
+        module = EncoderModule()
+        with mock.patch.dict(os.environ, {MULTIHEAD_ENV: BASELINE_ID}):
+            module.load()
+        SHARED["baseline"] = module
+    return SHARED["baseline"]
 
 
 class EncoderModuleContractTest(unittest.TestCase):
@@ -125,10 +152,21 @@ class EncoderModuleBehaviourTest(unittest.TestCase):
         return out
 
     def test_missing_artifact_fails_closed(self) -> None:
-        with mock.patch.dict(os.environ, {CHECKPOINT_ENV: "does-not-exist.pt", TOKENIZER_ENV: "does-not-exist"}):
+        with mock.patch.dict(os.environ, {MULTIHEAD_ENV: BASELINE_ID, CHECKPOINT_ENV: "does-not-exist.pt",
+                                          TOKENIZER_ENV: "does-not-exist"}):
             out = EncoderModule().process(Context(text="Bu bir test cumlesi"))
         self.assertFalse(out.ok)
         self.assertIn("missing", out.notes[0])
+        self.assertEqual(out.signals, {})
+
+    def test_missing_deployed_artifact_fails_closed_without_fallback(self) -> None:
+        # The runtime never substitutes another artifact for the deployed one (owner decision 2026-09-19).
+        with tempfile.TemporaryDirectory() as empty, mock.patch.object(m3, "DEPLOYED_DIR", Path(empty)), \
+                mock.patch.dict(os.environ, {MULTIHEAD_ENV: ""}):
+            out = EncoderModule().process(Context(text="Bu bir test cumlesi"))
+        self.assertFalse(out.ok)
+        self.assertIn(f"deployed artifact {DEPLOYED_ID} not installed", out.notes[0])
+        self.assertIn("no fallback to another artifact", out.notes[0])
         self.assertEqual(out.signals, {})
 
     @NEEDS_ARTIFACT
@@ -140,18 +178,32 @@ class EncoderModuleBehaviourTest(unittest.TestCase):
         self.assertTrue(out.ok, out.notes)
 
     @NEEDS_ARTIFACT
-    def test_publishes_a_score_per_channel_and_the_artifact_no_content(self) -> None:
-        # spec §4: raw_score on ctx.text, norm_score on ctx.normalized_text, both reported, never fused;
-        # the frozen binary checkpoint publishes no content (OFF is not "profanity present").
+    def test_publishes_a_score_per_channel_the_artifact_and_the_trained_a_head(self) -> None:
+        # spec §4: raw_score on ctx.text, norm_score on ctx.normalized_text, both reported, never fused.
+        # The deployed rule-v4 artifact trained its binary and A heads only: A1 (the family-A carrier,
+        # ADR-005) per channel, and no B or C code - those heads are not trained and never published.
         out = self.score(text="Sen çok aptal birisin.", normalized_text="sen cok aptal birisin.")
         self.assertEqual(set(out.signals), {"raw_score", "norm_score", "artifact", "truncated_differently", "_truncation"})
-        self.assertEqual(out.signals["artifact"], ARTIFACT_ID)
+        self.assertEqual(out.signals["artifact"], DEPLOYED_ID)
+        self.assertEqual(ARTIFACT_ID, DEPLOYED_ID)
         for key in ("raw_score", "norm_score"):
             self.assertIsInstance(out.signals[key], float)
             self.assertTrue(0 <= out.signals[key] <= 1)
         self.assertNotEqual(out.signals["raw_score"], out.signals["norm_score"])   # different text, own pass
-        self.assertEqual(out.content, [])
+        self.assertEqual(sorted((s.code, s.source) for s in out.content),
+                         [(ContentCode.A1, "m3_encoder@normalized"), (ContentCode.A1, "m3_encoder@raw")])
+        for score in out.content:
+            self.assertTrue(0 <= score.score <= 1)
+            self.assertIsNone(score.span)
         self.assertFalse(out.signals["truncated_differently"])
+
+    @NEEDS_BASELINE
+    def test_explicit_baseline_publishes_scores_and_no_content(self) -> None:
+        # The frozen binary checkpoint publishes no content (OFF is not "profanity present").
+        out = baseline_module().process(Context(text="Sen çok aptal birisin.", normalized_text="sen cok aptal birisin."))
+        self.assertTrue(out.ok, out.notes)
+        self.assertEqual(out.signals["artifact"], BASELINE_ID)
+        self.assertEqual(out.content, [])
 
     @NEEDS_ARTIFACT
     def test_no_normalized_channel_means_no_norm_score(self) -> None:
@@ -203,3 +255,36 @@ class EncoderModuleBehaviourTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DeployedArtifactTest(unittest.TestCase):
+    """The deployed artifact is exactly rule-v4 (owner decision 2026-09-19): pinned weights, trained
+    binary and A heads, untrained B and C heads that are never published."""
+
+    @NEEDS_ARTIFACT
+    def test_the_installed_files_are_the_pinned_rule_v4_artifact(self) -> None:
+        digests = dict(reversed(line.split(None, 1)) for line in
+                       (DEPLOYED_DIR / "sha256.txt").read_text(encoding="utf-8").splitlines() if line.strip())
+        self.assertEqual(digests["weights.pt"], DEPLOYED_WEIGHTS_SHA256)
+        self.assertEqual(m3.sha256(DEPLOYED_DIR / "weights.pt"), DEPLOYED_WEIGHTS_SHA256)
+        heads = json.loads((DEPLOYED_DIR / "heads.json").read_text(encoding="utf-8"))
+        self.assertEqual(heads["artifact_id"], DEPLOYED_ID)
+        self.assertEqual({name: layout["trained"] for name, layout in heads["heads"].items()},
+                         {"binary": True, "a": True, "b": False, "c": False})
+
+    @NEEDS_ARTIFACT
+    def test_the_runtime_loads_it_by_default(self) -> None:
+        with mock.patch.dict(os.environ, {MULTIHEAD_ENV: ""}):
+            out = EncoderModule().process(Context(text="Bugün hava çok güzel"))
+        self.assertTrue(out.ok, out.notes)
+        self.assertEqual(out.signals["artifact"], DEPLOYED_ID)
+        self.assertTrue({s.code for s in out.content} <= {ContentCode.A1})
+
+    @NEEDS_ARTIFACT
+    def test_no_b_or_c_code_is_ever_published(self) -> None:
+        module = shared_module()
+        for text in ("Seni öldüreceğim", "Onlardan başka ne beklenir", "Sen tam bir aptalsın", "Bugün hava çok güzel"):
+            with self.subTest(text=text):
+                out = module.process(Context(text=text, normalized_text=text.lower()))
+                self.assertTrue(out.ok, out.notes)
+                self.assertTrue({s.code for s in out.content} <= {ContentCode.A1}, out.content)

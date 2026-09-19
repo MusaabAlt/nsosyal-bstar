@@ -11,10 +11,10 @@
 # placeholder POLICY and need sign-off, not tuning.
 
 artifact:
-  id: thresholds-v0.1.0
+  id: thresholds-v0.2.0
   status: derived              # placeholder | derived (validated)
   # derived covers binary_offensive ONLY; every other number below is still a PLACEHOLDER.
-  derived_on: "binary_offensive: frozen dev split 034415af (CAL half, n 2382), m3-berturk-pytorch-fp32-epoch1, 2026-09-15"
+  derived_on: "binary_offensive: frozen dev split 034415af (CAL half, n 2382), m3-berturk-multihead-a-rule-v4-20260918-163728 (weights dc7fe306...0b76), 2026-09-19"
 
 fusion:
   # Per content code, take the max score over channels and sources.
@@ -30,6 +30,8 @@ family_a:
   # ADR-005: A1/A2/A3 differ only by target. m1 and m3 report "profanity present" on
   # the A1 carrier; the decision layer assigns the final code from m6's target before
   # any threshold applies. A4 (sacred, concept-based) is not target-assigned.
+  # m3's A head (rule-v4 artifact) lands on the A1 carrier too and is thresholded by the same
+  # PLACEHOLDER A1/A2/A3 rows: no A-head operating policy exists for rule-v4 (A-OP-1 covers rule-v3 only).
   target_min_confidence: 0.50      # PLACEHOLDER - below it the target counts as none
   by_target:
     none: A1                       # owner decision (ADR-005)
@@ -78,16 +80,23 @@ binary_offensive:
   # m1_lexicon.lexicon_hit via threshold_when. It replaces stage 1 only after being
   # measured against it at equal coverage (ADR-006).
   # Not suppressible by guards: it has no code and no span to scope a guard to.
-  # DERIVED (protocols/threshold_derivation_binary_offensive_stage1.md): the study's S1b,
-  # diagnosis/results/12_threshold_policy/metrics.json#primary -> thresholds_fitted_on_CAL.S1b.
-  # Valid ONLY for artifact m3-berturk-pytorch-fp32-epoch1 (FP32, raw text, max_len 128),
-  # cost ratio r = 3, fitted on the CAL half of the frozen dev split. Raw channel only:
-  # no threshold was derived for a normalized score, so none is applied (owner decision).
-  # Study rule is `flag iff score > t`; fusion flags at >=. One dev row sits on the
-  # 6-decimal value; recorded in the derivation file, fusion.py unchanged (owner decision).
+  # DERIVED for the DEPLOYED m3 artifact m3-berturk-multihead-a-rule-v4-20260918-163728
+  # (binary head, raw text, max_len 128; weights sha256 dc7fe306...0b76):
+  # protocols/threshold_derivation_binary_offensive_stage1_rule_v4.md, the unchanged method of
+  # protocols/threshold_derivation_binary_offensive_stage1.md - cost ratio r = 3, fitted on the CAL
+  # half of the frozen dev split, EVAL read once. Valid ONLY for that artifact.
+  # The previous value 0.320188 was derived for m3-berturk-pytorch-fp32-epoch1 (the binary
+  # baseline, 2026-09-15) and belongs to it alone; it is not used any more.
+  # Raw channel only: no threshold was derived for a normalized score, so none is applied (owner decision).
+  # Comparator: flag iff score > t - the rule this threshold was derived with (protocol §3). Since
+  # 2026-09-19 fusion.apply_binary_offensive uses `>` too (owner decision, replacing the 2026-09-15 `>=`).
+  # CAL dev row 46164 scores exactly t and is NOT flagged under either.
+  # Deployment gate: clean_to_dirty_flip_rate FAILED (1/35, trap-030 "SİKKE": m3's A head on the normalized
+  # channel, not this threshold) - KNOWN DEMO LIMITATION / OWNER-ACCEPTED DEMO EXCEPTION: accepted by the owner 2026-09-19 for the
+  # TEKNOFEST demo build ONLY, not for production (protocol §7.2). The 1 % budget did not pass.
   channels:
     raw: m3_encoder.raw_score
-  threshold: 0.320188              # DERIVED - stage 1 global cost-derived threshold (r = 3)
+  threshold: 0.445857971906662     # DERIVED - stage 1 global cost-derived threshold (r = 3), rule-v4 artifact
   action: review                   # PLACEHOLDER policy (owner: stays review)
 
 fast_path:

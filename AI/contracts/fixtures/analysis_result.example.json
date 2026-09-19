@@ -1,6 +1,6 @@
 {
   "text": "Bu bir test cumlesi",
-  "verdict": "review",
+  "verdict": "clean",
   "form": {
     "patterns": [
       {
@@ -18,7 +18,16 @@
       "DEASCII"
     ]
   },
-  "content": [],
+  "content": [
+    {
+      "code": "A1",
+      "score": 0.002159919822588563,
+      "source": "m3_encoder@raw",
+      "span": null,
+      "threshold": 0.5,
+      "fired": false
+    }
+  ],
   "target": null,
   "guards": [],
   "thread": null,
@@ -51,25 +60,31 @@
       "engine": "terlik 0.1.0 balanced"
     },
     "m3_encoder": {
-      "raw_score": 0.02141149342060089,
-      "artifact": "m3-berturk-pytorch-fp32-epoch1",
+      "raw_score": 0.012991085648536682,
+      "artifact": "m3-berturk-multihead-a-rule-v4-20260918-163728",
       "truncated_differently": false,
-      "norm_score": 0.017840590327978134
+      "norm_score": 0.014690880663692951
     },
-    "m4_implicit": {},
-    "m5_sarcasm": {},
+    "m4_implicit": {
+      "stage": 1,
+      "stage1_input": "m3_encoder.raw_score",
+      "stage1_input_present": true,
+      "m3_artifact": "m3-berturk-multihead-a-rule-v4-20260918-163728",
+      "stage1_derived_for": "m3-berturk-multihead-a-rule-v4-20260918-163728",
+      "stage1_protocol": "protocols/threshold_derivation_binary_offensive_stage1_rule_v4.md",
+      "stage1_artifact_match": true,
+      "norm_minus_raw": 0.001699795015156269
+    },
+    "m5_sarcasm": {
+      "stage": 1,
+      "detector": "deterministic",
+      "rules_version": "m5-s1-1.0.0",
+      "matched_rules": [],
+      "excluded": [],
+      "precedence_checked": true
+    },
     "pipeline": {
-      "degraded": [
-        {
-          "module": "m5_sarcasm",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        }
-      ],
+      "degraded": [],
       "emits_spans": {
         "m0_charsafe": false,
         "m2_deobf": false,
@@ -81,27 +96,67 @@
       }
     },
     "decision": {
-      "family_a": null,
-      "threshold_branches": [],
+      "family_a": {
+        "target": "none",
+        "confidence": null,
+        "min_confidence": 0.5,
+        "resolved_as": "none",
+        "code": "A1"
+      },
+      "threshold_branches": [
+        {
+          "code": "A1",
+          "source": "m3_encoder@raw",
+          "threshold": 0.5,
+          "branch": "scalar",
+          "signal": null,
+          "signal_value": null
+        },
+        {
+          "code": "A1",
+          "source": "m3_encoder@normalized",
+          "threshold": 0.5,
+          "branch": "scalar",
+          "signal": null,
+          "signal_value": null
+        }
+      ],
       "binary_offensive": {
-        "threshold": 0.320188,
+        "threshold": 0.445857971906662,
         "branch": "scalar",
         "signal": null,
         "signal_value": null,
         "channels": {
           "raw": {
-            "score": 0.02141149342060089,
+            "score": 0.012991085648536682,
             "fired": false
           }
         },
         "fired": false,
         "action": "review"
       },
-      "channel_scores": [],
+      "channel_scores": [
+        {
+          "code": "A1",
+          "score": 0.002159919822588563,
+          "source": "m3_encoder@raw",
+          "span": null,
+          "threshold": 0.5,
+          "fired": false
+        },
+        {
+          "code": "A1",
+          "score": 0.0018347428413107991,
+          "source": "m3_encoder@normalized",
+          "span": null,
+          "threshold": 0.5,
+          "fired": false
+        }
+      ],
       "post_offensive": false
     }
   },
-  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m5_sarcasm henüz uygulanmadı.",
+  "explanation": "İçerikte eşiği aşan saldırgan bir kategori bulunmadı.",
   "latency_ms": 0.0,
   "per_module_ms": {
     "m0_charsafe": 0.0,
@@ -114,10 +169,8 @@
   },
   "fast_path": false,
   "trace_id": "example-trace-id",
-  "artifact_hash": "caf7399076221ba4772358d7bbe2fb0029d3c994336230af2aa6aaa7158d4385",
+  "artifact_hash": "b7d876a11aa60db41345c6ed8a3acd8cc1cf2333c88760af76bd028d438c926d",
   "notes": [
-    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m5_sarcasm (stub)",
-    "[m4_implicit] C1–C5 not implemented yet",
-    "[m5_sarcasm] stub: detection not implemented"
+    "[m4_implicit] C1–C5 not implemented yet"
   ]
 }

@@ -234,7 +234,13 @@ def apply_thresholds(scores: list[ContentScore], cfg: dict[str, Any], notes: lis
 
 def apply_binary_offensive(cfg: dict[str, Any], signals: Mapping[str, Any] | None,
                            notes: list[str]) -> dict[str, Any] | None:
-    """Threshold the channel-level binary offensive scores, if configured."""
+    """Threshold the channel-level binary offensive scores, if configured.
+
+    Flags iff score > threshold: the rule the threshold was derived with
+    (protocols/threshold_derivation_binary_offensive_stage1_rule_v4.md §3, the study's C12-3), so a
+    score exactly at the threshold - the fitted CAL row itself - is not flagged (owner decision
+    2026-09-19; it replaces the 2026-09-15 decision to keep `>=` here). Content-code rows and guards
+    keep `>=` in apply_thresholds / guard_is_active: no derivation defines them otherwise."""
     entry = cfg.get("binary_offensive")
     if entry is None:
         return None
@@ -245,7 +251,7 @@ def apply_binary_offensive(cfg: dict[str, Any], signals: Mapping[str, Any] | Non
         if isinstance(value, bool) or not isinstance(value, (int, float)):
             channels[channel] = {"score": None, "fired": None}
             continue
-        channels[channel] = {"score": float(value), "fired": float(value) >= threshold}
+        channels[channel] = {"score": float(value), "fired": float(value) > threshold}
     present = [c for c in channels.values() if c["fired"] is not None]
     if present and record["branch"] == "fallback":
         notes.append(f"[decision] binary_offensive: signal {record['signal']} absent or not bool; "

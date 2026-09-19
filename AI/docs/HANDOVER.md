@@ -155,8 +155,11 @@ Each row names where the decision is recorded.
   explicit instruction (decision #65).
 
 **Stubbed (declare `stub = True`; every result is degraded, verdict `review`)**
-- m5_sarcasm (gated by its spec §2).
-- m4_implicit is NOT a stub: it emits nothing by design (C1-C5 come from m3, decision #66).
+- none since 2026-09-19: m5_sarcasm runs Stage 1, a deterministic rule detector approved by the owner
+  (`protocols/m5_stage1_deterministic_protocol.md`); its neural model (spec §2 gate) is still pending.
+- m4_implicit is NOT a stub: it emits no content score by design (C1-C5 come from m3, decision #66); since
+  2026-09-19 (m4 0.3.0, ADR-006 amendments) it publishes stage-1 signals read from m3's scores, tied to
+  the deployed rule-v4 artifact.
 
 **Blocked on the project owner**
 - Owner-written spec sections are inserted in m2-m6 ("What it catches / does not catch", "Required fixtures", named tools); two of them carry open questions for the owner (see §5).

@@ -8,6 +8,10 @@ Interfaces covered (MODULE_MAP.md §3), with their oracle:
                     protocols/m4_stage1b_protocol.md §3)
   m3 -> decision    `raw_score`, `artifact`; `norm_score` absent today (thresholds.yaml
                     binary_offensive.channels; m3/module.py docstring)
+  m3 -> m4          `raw_score`, `norm_score`, `artifact` (m4 spec §5); m4's stage-1 constants
+                    against the config (ADR-006 amendment 2026-09-19)
+  m1 -> m5          `lexicon_hit` for the D1 precedence rule (m5 spec §3, protocol M5-S1 §5), and
+                    m5's D1 through the configured D1 row to the verdict
   pipeline -> decision  `signals.pipeline.degraded`, `signals.pipeline.emits_spans`
                     (HANDOVER #15, ADR-001 amendment; actions.degraded_modules, fusion.guard_applies)
 
@@ -23,13 +27,17 @@ import importlib.util
 import unittest
 from pathlib import Path
 
-from contracts.codes import ModuleName
+from contracts.codes import Action, ContentCode, ModuleName
 from contracts.module_api import BaseModule, Context, ModuleOutput
 from contracts.schema import AnalysisResult, ContentScore
 from decision import actions, fusion
 from modules.m0_charsafe.module import CharSafeModule
 from modules.m1_lexicon.module import LexiconModule
+from modules.m2_deobf.module import DeobfModule
 from modules.m3_encoder import module as m3
+from modules.m4_implicit import module as m4
+from modules.m5_sarcasm.module import SarcasmModule
+from modules.m6_target.module import TargetModule
 from modules.m3_encoder.test_unit import artifact_available
 from pipeline.run import Pipeline, public_signals, span_declarations
 
@@ -211,7 +219,9 @@ class M3ToDecisionSignalsTest(unittest.TestCase):
         with self.subTest(stage="MODULE_OUTPUT"):
             self.assertTrue(out.ok, out.notes)
             self.assertEqual(set(out.signals), M3_SIGNAL_KEYS | {"norm_score"})   # a normalized channel was given
-            self.assertEqual(out.content, [])                                      # frozen binary artifact: no heads
+            # rule-v4: the trained A head on the A1 carrier, one score per channel; B and C are not trained.
+            self.assertEqual(sorted((s.code.value, s.source) for s in out.content),
+                             [("A1", "m3_encoder@normalized"), ("A1", "m3_encoder@raw")])
             self.assertEqual(out.signals["artifact"], m3.ARTIFACT_ID)
         signals = {ModuleName.M3_ENCODER.value: out.signals}
         with self.subTest(stage="INTERFACE_CONTRACT"):
@@ -226,7 +236,92 @@ class M3ToDecisionSignalsTest(unittest.TestCase):
             self.assertEqual(set(binary["channels"]), {"raw"})
             self.assertEqual(binary["channels"]["raw"]["score"], out.signals["raw_score"])
             self.assertIsInstance(binary["fired"], bool)
-            self.assertEqual(binary["fired"], out.signals["raw_score"] >= binary["threshold"])
+            self.assertEqual(binary["fired"], out.signals["raw_score"] > binary["threshold"])
+
+
+class M3ToM4SignalsTest(unittest.TestCase):
+    """m4 reads what m3 publishes (m4 spec §5) and names what the stage-1 row thresholds
+    (ADR-006 amendment 2026-09-19). Its constants must say what the config says."""
+
+    def setUp(self) -> None:
+        self.cfg = fusion.load_config()
+
+    def test_stage1_constants_are_the_configured_ones(self) -> None:
+        self.assertEqual(m4.STAGE1_INPUT, self.cfg["binary_offensive"]["channels"]["raw"])
+        self.assertIn(m4.STAGE1_DERIVED_FOR, self.cfg["artifact"]["derived_on"])
+        self.assertEqual(m4.STAGE1_DERIVED_FOR, m3.ARTIFACT_ID)
+        manifest = (ROOT / "artifacts" / "MANIFEST.md").read_text(encoding="utf-8")
+        self.assertIn(f"| {m4.STAGE1_DERIVED_FOR} |", manifest)
+
+    def test_m4_reports_the_score_the_decision_layer_thresholds(self) -> None:
+        require_m3_artifact(self)
+        modules = [CharSafeModule(), DeobfModule(), m3.EncoderModule(), m4.ImplicitModule()]
+        pipeline = Pipeline(modules=modules, config=self.cfg)
+        for text in ("Bu bir test cumlesi", "s1kt1r git"):
+            with self.subTest(text=text):
+                result = pipeline.analyze(text)
+                published, stage1 = result.signals["m3_encoder"], result.signals["m4_implicit"]
+                self.assertEqual(result.signals["pipeline"]["degraded"], [])
+                self.assertIs(stage1["stage1_input_present"], True)
+                self.assertEqual(stage1["m3_artifact"], published["artifact"])
+                self.assertIs(stage1["stage1_artifact_match"], True)
+                binary = result.signals["decision"]["binary_offensive"]
+                self.assertEqual(fusion.lookup_signal(result.signals, stage1["stage1_input"]),
+                                 binary["channels"]["raw"]["score"])
+                if "norm_score" in published:
+                    self.assertEqual(stage1["norm_minus_raw"], published["norm_score"] - published["raw_score"])
+                else:
+                    self.assertIsNone(stage1["norm_minus_raw"])
+                self.assertEqual([n for n in result.notes if n.startswith("[m4_implicit]")],
+                                 [f"[m4_implicit] {m4.NOTE_C_FAMILY}"])
+
+
+class M1ToM5SignalsTest(unittest.TestCase):
+    """m5 Stage 1 in the real pipeline (protocols/m5_stage1_deterministic_protocol.md): it reads m1's
+    published lexicon_hit for the spec §3 precedence rule, and its D1 reaches the verdict through the
+    configured D1 row. m3 is left out on purpose: none of this depends on the encoder."""
+
+    def setUp(self) -> None:
+        require_terlik(self)
+        self.cfg = fusion.load_config()
+        self.pipeline = Pipeline(modules=[CharSafeModule(), DeobfModule(), TargetModule(), LexiconModule(),
+                                          SarcasmModule()], config=self.cfg)
+
+    def test_d1_reaches_the_verdict_through_its_configured_row(self) -> None:
+        result = self.pipeline.analyze("Bu kadar 'derin' bir yorum yapman etkileyici.")
+        with self.subTest(stage="MODULE_OUTPUT"):
+            self.assertEqual(result.signals["m5_sarcasm"]["matched_rules"], ["R1_SCARE_QUOTE"])
+            self.assertIs(result.signals["m5_sarcasm"]["precedence_checked"], True)
+            self.assertEqual(result.signals["pipeline"]["degraded"], [])
+        with self.subTest(stage="DECISION_THRESHOLD"):
+            [d1] = [s for s in result.content if s.code is ContentCode.D1]
+            self.assertEqual((d1.score, d1.source), (1.0, "m5_sarcasm@raw"))
+            self.assertEqual(d1.threshold, float(self.cfg["categories"]["D1"]["threshold"]))
+            self.assertTrue(d1.fired)
+        with self.subTest(stage="FINAL_ACTION"):
+            verdict, driver = actions.resolve(result, self.cfg)
+            self.assertIs(verdict, Action(self.cfg["categories"]["D1"]["action"]))
+            self.assertIs(result.verdict, verdict)
+            self.assertEqual(getattr(driver, "code", None), ContentCode.D1)
+            self.assertIn("(D1)", result.explanation)
+
+    def test_explicit_content_wins_over_d1(self) -> None:
+        # spec §3 precedence: m1's B1 is the post's code; m5 withholds D1 and says why.
+        result = self.pipeline.analyze("Aferin sana aptal, yine her şeyi berbat ettin.")
+        self.assertIs(result.signals["m1_lexicon"]["lexicon_hit"], True)
+        self.assertEqual(result.signals["m5_sarcasm"]["matched_rules"], [])
+        self.assertEqual([e["reason"] for e in result.signals["m5_sarcasm"]["excluded"]], ["X_EXPLICIT_CONTENT"])
+        self.assertEqual(sorted(s.code.value for s in result.fired()), ["B1"])
+        self.assertIn("[m5_sarcasm] D1 withheld: m1_lexicon found explicit content, which takes precedence (spec §3)",
+                      result.notes)
+
+    def test_benign_sarcasm_and_sincere_praise_leave_the_post_clean(self) -> None:
+        for text in ("Harika, otobüs yine gelmedi.", "Aferin sana, sınavı geçtin."):
+            with self.subTest(text=text):
+                result = self.pipeline.analyze(text)
+                self.assertEqual(result.fired(), [])
+                self.assertEqual(result.signals["pipeline"]["degraded"], [])
+                self.assertIs(result.verdict, Action.CLEAN)
 
 
 class _Stub(BaseModule):

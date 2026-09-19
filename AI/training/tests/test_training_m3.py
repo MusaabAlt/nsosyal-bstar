@@ -97,6 +97,40 @@ class TrainingSmokeTest(unittest.TestCase):
         self.assertEqual(sources, {(ContentCode.A1, "m3_encoder@raw"), (ContentCode.A1, "m3_encoder@normalized")})
         self.assertTrue(all(s.threshold is None and s.fired is None for s in out.content))
 
+    def _relabelled_copy(self, name: str, artifact_id: str) -> Path:
+        """A copy of the smoke export whose heads.json claims `artifact_id`, with a CONSISTENT sha256.txt
+        (so only the pinning, never the file check, can refuse it)."""
+        import shutil
+        from training.m3_encoder import correct_metadata as C
+
+        copy = Path(self.tmp.name) / name
+        shutil.copytree(self.artifact, copy)
+        heads = json.loads((copy / "heads.json").read_text(encoding="utf-8"))
+        heads["artifact_id"] = artifact_id
+        (copy / "heads.json").write_bytes(C.dump(heads))
+        entries = C.read_digests(copy / "sha256.txt")
+        (copy / "sha256.txt").write_bytes(C.write_digests([(C.sha256_file(copy / n), n) for _, n in entries]))
+        return copy
+
+    def test_an_artifact_claiming_the_deployed_id_with_other_weights_is_refused(self) -> None:
+        from modules.m3_encoder import module as M
+
+        impostor = self._relabelled_copy("impostor", M.DEPLOYED_ID)
+        with mock.patch.dict(os.environ, {"NSOSYAL_M3_ARTIFACT": str(impostor)}):
+            out = M.EncoderModule().process(Context(text="x"))
+        self.assertFalse(out.ok)
+        self.assertIn(f"is not the pinned {M.DEPLOYED_WEIGHTS_SHA256}", out.notes[0])
+        self.assertEqual(out.signals, {})
+
+    def test_the_deployed_directory_must_hold_the_deployed_artifact(self) -> None:
+        from modules.m3_encoder import module as M
+
+        with mock.patch.object(M, "DEPLOYED_DIR", self.artifact), mock.patch.dict(os.environ, {"NSOSYAL_M3_ARTIFACT": ""}):
+            out = M.EncoderModule().process(Context(text="x"))
+        self.assertFalse(out.ok)
+        self.assertIn(f"not the deployed {M.DEPLOYED_ID}", out.notes[0])
+        self.assertEqual(out.signals, {})
+
     def test_tampered_artifact_fails_closed(self) -> None:
         from modules.m3_encoder.module import EncoderModule
 

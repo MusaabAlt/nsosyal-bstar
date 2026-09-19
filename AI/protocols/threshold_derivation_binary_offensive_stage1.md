@@ -60,7 +60,9 @@ gold NOT, study pred NOT, slice `lexicon_free`) has confidence `0.320188` in the
 study's rule `score > t` does not flag it; `decision/fusion.py` flags at `score >= t`, so on
 the rounded value the two rules disagree on this one row. At full precision m3 scores it
 **0.32018762826919556**, below 0.320188, so it is not flagged under either rule at runtime.
-`fusion.py` is unchanged (owner decision, 2026-09-15). Any other text scoring exactly
+`fusion.py` is unchanged (owner decision, 2026-09-15). *Later (2026-09-19): this threshold is no longer in
+force (the deployed artifact is rule-v4, see its derivation record), and `binary_offensive` is now flagged at
+`score > t`, the rule above (ADR-006 amendment).* Any other text scoring exactly
 0.320188 would be flagged by fusion and not by the study rule.
 
 ## 6. Sign-off

@@ -58,7 +58,8 @@ class _Channel(BaseModule):
 
 
 class _Stub(BaseModule):
-    """Takes the name of a module that is DECLARED a stub in eval/implementation_status.json."""
+    """A stub double. Since m5 Stage 1 (2026-09-19) no registered module is declared a stub, so a test
+    that needs the declaration writes its own status file (declared_stub)."""
 
     name = ModuleName.M5_SARCASM
     provides = frozenset({"content"})
@@ -145,6 +146,13 @@ class DegradationInHarnessTest(_Harness):
             with self.subTest(module=type(module).__name__):
                 self.assertEqual(None if kinds is None else record["kinds"], kinds)
 
+    def declared_stub(self) -> Path:
+        """A status file that declares the _Stub double's module a stub, as the real file once did."""
+        path = self.dir / "status_stub.json"
+        path.write_text(json.dumps({"modules": {_Stub.name.value: {"status": "STUB", "not_built": ["everything"]}}}),
+                        encoding="utf-8")
+        return path
+
     def test_stub_fixture_item_is_degraded_and_its_verdict_is_never_clean(self) -> None:
         evaluator = self.evaluator(_Stub())
         _, result, predicted = evaluator.run_item({"id": "f1", "text": "temiz", "expected": []})
@@ -153,7 +161,8 @@ class DegradationInHarnessTest(_Harness):
         with self.subTest(stage="FINAL_ACTION"):
             self.assertIs(result.verdict, actions.DEGRADED_ACTION)
             self.assertEqual(predicted, set())        # scoring is unchanged: degradation is not a prediction
-        report = evaluator.evaluate()
+        with mock.patch.object(harness, "IMPLEMENTATION_STATUS_PATH", self.declared_stub()):
+            report = evaluator.evaluate()
         with self.subTest(stage="REPORT"):
             self.assertEqual(report["degraded_items"]["n"], 1)
             self.assertTrue(report["implementation"]["stub"])

@@ -68,7 +68,13 @@ OPERATIONAL_LIMITS = {"MAX_BODY_BYTES": "HTTP request body size limit in api/mai
                                               "file's header by --check: an identity check, not a score cut-off",
                       "TAXONOMY_VERSION": "version number of the frozen A-head taxonomy (rule v4 keeps rule v3's), "
                                           "compared with a derived file's header by --check: an identity check, "
-                                          "not a score cut-off"}
+                                          "not a score cut-off",
+                      "MAX_SCARE_QUOTE_WORDS": "m5 Stage-1 rule shape (protocols/m5_stage1_deterministic_protocol.md "
+                                               "§4-§5): a quoted segment of more words is a quotation, not a scare "
+                                               "quote - a word count, not a score cut-off",
+                      "MIN_PAST_2P_LEN": "m5 Stage-1 person anchor (protocol §4): words shorter than this are not read "
+                                         "as a second-person past verb ('dün', 'adın') - a word length, not a score "
+                                         "cut-off"}
 
 # tests/ is not scanned for literals: decision-layer tests must pin their own
 # thresholds to test the decision layer independently of placeholder values.

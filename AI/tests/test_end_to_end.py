@@ -1,6 +1,7 @@
 """Gate 1, tasks 5-6: end-to-end verification of the CURRENT implemented behaviour
-through the REAL pipeline - real m0, real m1 (terlik), real m3 (BERTurk artifact),
-the documented stubs, the shipped thresholds.yaml.
+through the REAL pipeline - real m0, m2, m6, m1 (terlik), m3 (the deployed rule-v4
+multi-head artifact: binary + A heads), m4 (stage 1), m5 (Stage-1 deterministic rules)
+and the shipped thresholds.yaml. No module is a stub since 2026-09-19.
 
 This is not a golden set. It proves that module outputs -> merge -> decision ->
 verdict are connected, by asserting intermediate state at every stage, on posts
@@ -22,17 +23,19 @@ Oracles and labels:
   * expected verdicts are computed from the loaded config with actions.severity,
     never written as literals, so a placeholder change moves the expectation
     deliberately and visibly;
-  * m3's probability on a given sentence is a property of artifact
-    m3-berturk-pytorch-fp32-epoch1, not of any spec. Assertions on it are labelled
-    CURRENT_ARTIFACT_OBSERVATION: they pin the artifact the threshold was derived
-    on (the contract example already pins one such value);
+  * m3's probabilities on a given sentence are properties of artifact
+    m3-berturk-multihead-a-rule-v4-20260918-163728, not of any spec. Assertions on them
+    (the binary head against binary_offensive, the A head against the placeholder A rows)
+    are labelled CURRENT_ARTIFACT_OBSERVATION: they pin the artifact the binary threshold
+    was derived on, and were re-pinned on 2026-09-19 when rule-v4 replaced the baseline;
+  * m3's A head publishes an A1-carrier score on EVERY post (ADR-005), so the family-A
+    record always exists; "no family A" below means no family-A code FIRED, and m1's own
+    content is read by its source;
   * BLOCKED_BY_POLICY - cases deliberately NOT asserted here:
-      Q1  an A-family hit that m3 scores below threshold while m6 is a stub
-          (nudge vs review under degradation);
       Q2  a non-human target guard together with a binary fire;
       Q3  the verdict on obfuscated input (m3 scores the raw text): the ZWSP case
           below asserts m0 -> m1 only and records the binary state without judging it;
-      Q5  any normalized-channel span; Q6 any m6 target route (m6 is a stub).
+      Q5  any normalized-channel span.
 
 Preconditions FAIL with a named reason (never skip): the m3 artifact and terlik.
 """
@@ -50,7 +53,24 @@ from modules.m3_encoder.test_unit import artifact_available
 from pipeline.run import Pipeline
 from pipeline.thread_counter import ThreadBlock
 
-STUBS = ["m5_sarcasm"]      # only m5 is still a stub; m0, m2, m6, m1, m3, m4 run
+STUBS: list[str] = []      # no stub since m5 Stage 1 (2026-09-19): every module runs
+M4_SIGNAL_KEYS = {"stage", "stage1_input", "stage1_input_present", "m3_artifact", "stage1_derived_for",
+                  "stage1_protocol", "stage1_artifact_match", "norm_minus_raw"}
+FAMILY_A = {ContentCode.A1, ContentCode.A2, ContentCode.A3}
+
+
+def from_module(result: AnalysisResult, module: str) -> list:
+    """Fused content whose winning source is `module` (m3's A-carrier score sits beside m1's)."""
+    return [s for s in result.content if s.source.startswith(module)]
+
+
+def channel_scores(result: AnalysisResult, module: str) -> list[dict]:
+    """Per-source, per-channel scores as decided (after thresholds and guards), for one module."""
+    return [c for c in result.signals["decision"]["channel_scores"] if c["source"].startswith(module)]
+
+
+def family_a_fired(result: AnalysisResult) -> list:
+    return [s for s in result.fired() if s.code in FAMILY_A]
 
 
 def most_severe(*candidates: Action) -> Action:
@@ -66,6 +86,8 @@ def diagnose(result: AnalysisResult) -> str:
         "m0": result.signals.get("m0_charsafe"),
         "m1": result.signals.get("m1_lexicon"),
         "m3": result.signals.get("m3_encoder"),
+        "m4": result.signals.get("m4_implicit"),
+        "m5": result.signals.get("m5_sarcasm"),
         "content": [{"code": s.code.value, "score": s.score, "source": s.source, "span": s.span,
                      "threshold": s.threshold, "fired": s.fired} for s in result.content],
         "guards": [{"code": g.code.value, "score": g.score, "span": g.span, "active": g.active,
@@ -102,14 +124,13 @@ class EndToEndTest(unittest.TestCase):
 
     # -- shared stage checks ------------------------------------------------------------
     def check_preconditions_held(self, result: AnalysisResult) -> None:
-        """m1 and m3 must have RUN. If they are degraded, the failure is a precondition
-        or a MODULE_OUTPUT failure, never a decision-layer one."""
+        """Every module must have RUN. A degraded module here is a precondition or a
+        MODULE_OUTPUT failure (m3 without its artifact, m1 without terlik), never a
+        decision-layer one."""
         degraded = {d["module"]: d for d in result.signals["pipeline"]["degraded"]}
         with self.subTest(stage="DEGRADATION/preconditions"):
-            for name in ("m1_lexicon", "m3_encoder", "m0_charsafe", "m4_implicit"):
-                self.assertNotIn(name, degraded, f"{name} degraded: {degraded.get(name)}\n{diagnose(result)}")
+            self.assertEqual(degraded, {}, f"PRECONDITION: degraded modules\n{diagnose(result)}")
             self.assertEqual([d["module"] for d in result.signals["pipeline"]["degraded"]], STUBS, diagnose(result))
-            self.assertTrue(all(d["kinds"] == ["stub"] for d in degraded.values()), diagnose(result))
 
     def check_interfaces(self, result: AnalysisResult) -> None:
         with self.subTest(stage="INTERFACE_CONTRACT"):
@@ -122,20 +143,41 @@ class EndToEndTest(unittest.TestCase):
             self.assertNotIn("_offsets", result.signals["m0_charsafe"])
             self.assertNotIn("channels", result.signals)
             self.assertEqual(len(result.per_module_ms), 7)
+        with self.subTest(stage="INTERFACE_CONTRACT/m3 -> m4"):
+            stage1 = result.signals["m4_implicit"]
+            self.assertEqual(set(stage1), M4_SIGNAL_KEYS)
+            self.assertEqual(stage1["stage"], 1)
+            self.assertIs(stage1["stage1_input_present"], True)
+            self.assertEqual(stage1["m3_artifact"], result.signals["m3_encoder"]["artifact"])
+            self.assertEqual(stage1["stage1_derived_for"], m3.ARTIFACT_ID)
+            self.assertIs(stage1["stage1_artifact_match"], True)
+            published = result.signals["m3_encoder"]
+            self.assertEqual(stage1["norm_minus_raw"], published["norm_score"] - published["raw_score"])
         with self.subTest(stage="DECISION_THRESHOLD/binary consistency"):
             binary = result.signals["decision"]["binary_offensive"]
             score = result.signals["m3_encoder"]["raw_score"]
             self.assertEqual(binary["channels"]["raw"]["score"], score)
-            self.assertIs(binary["fired"], score >= self.t)
+            self.assertIs(binary["fired"], score > self.t)
             self.assertEqual(binary["threshold"], self.t)
 
     def check_binary(self, result: AnalysisResult, fired: bool) -> None:
-        """CURRENT_ARTIFACT_OBSERVATION: pins what artifact m3-berturk-pytorch-fp32-epoch1
-        does on this sentence. A different artifact must re-derive the threshold and
-        re-pin these (MANIFEST.md: one thresholds file per artifact)."""
+        """CURRENT_ARTIFACT_OBSERVATION: pins what the binary head of artifact
+        m3-berturk-multihead-a-rule-v4-20260918-163728 does on this sentence at its derived
+        threshold. A different artifact must re-derive the threshold and re-pin these
+        (MANIFEST.md: one thresholds file per artifact)."""
         with self.subTest(stage="DECISION_THRESHOLD/binary", label="CURRENT_ARTIFACT_OBSERVATION"):
             self.assertIs(result.signals["decision"]["binary_offensive"]["fired"], fired,
                           f"artifact {m3.ARTIFACT_ID}\n{diagnose(result)}")
+
+    def check_m3_a(self, result: AnalysisResult, fired: bool) -> None:
+        """CURRENT_ARTIFACT_OBSERVATION: m3's A head published its A1-carrier score on both channels
+        (recoded by target, ADR-005) and whether either cleared the PLACEHOLDER family-A threshold."""
+        scores = channel_scores(result, "m3_encoder")
+        with self.subTest(stage="DECISION_THRESHOLD/m3 A head", label="CURRENT_ARTIFACT_OBSERVATION"):
+            self.assertEqual(sorted(c["source"] for c in scores), ["m3_encoder@normalized", "m3_encoder@raw"],
+                             diagnose(result))
+            self.assertTrue(all(ContentCode(c["code"]) in FAMILY_A for c in scores), diagnose(result))
+            self.assertIs(any(c["fired"] for c in scores), fired, diagnose(result))
 
     def check_verdict(self, result: AnalysisResult, expected: Action, driver: object) -> None:
         with self.subTest(stage="FINAL_ACTION"):
@@ -146,14 +188,14 @@ class EndToEndTest(unittest.TestCase):
                 self.assertEqual(getattr(got_driver, "code", None), driver, diagnose(result))
             else:
                 self.assertEqual(got_driver, driver, diagnose(result))
-            # Every verdict today is under degradation (three stubs): the explanation says so.
-            self.assertIn("değerlendirme eksik", result.explanation, diagnose(result))
+            # Nothing is degraded any more, so no explanation says the judgement is incomplete.
+            self.assertNotIn("değerlendirme eksik", result.explanation, diagnose(result))
 
-    def expected_verdict(self, code: ContentCode, *extra: Action) -> tuple[Action, object]:
-        """A content hit on `code` plus the binary fired: the more severe configured action wins; on
-        equal severity actions.resolve keeps the content driver (it is visited first)."""
-        candidates = [(Action(self.cfg["categories"][code.value]["action"]), code),
-                      (self.binary_action, "binary_offensive")]
+    def expected_verdict(self, code: ContentCode, *extra: Action, binary: bool = True) -> tuple[Action, object]:
+        """A content hit on `code`, plus the binary when it fired: the more severe configured action wins;
+        on equal severity actions.resolve keeps the content driver (it is visited first)."""
+        candidates = [(Action(self.cfg["categories"][code.value]["action"]), code)]
+        candidates += [(self.binary_action, "binary_offensive")] if binary else []
         candidates += [(a, "thread") for a in extra]
         best = candidates[0]
         for action, driver in candidates[1:]:
@@ -177,7 +219,7 @@ class EndToEndTest(unittest.TestCase):
         return best
 
     # -- cases --------------------------------------------------------------------------
-    def test_clean_sentence_is_reviewed_only_because_of_the_stubs(self) -> None:
+    def test_clean_sentence_is_clean(self) -> None:
         text = "Bu bir test cumlesi"
         result = self.pipeline.analyze(text)
         self.check_preconditions_held(result)
@@ -187,7 +229,8 @@ class EndToEndTest(unittest.TestCase):
             self.assertFalse(result.signals["m1_lexicon"]["lexicon_hit"], diagnose(result))
             self.assertEqual(result.signals["m1_lexicon"]["matched_roots"], [], diagnose(result))
         with self.subTest(stage="PIPELINE_MERGE"):
-            self.assertEqual(result.content, [], diagnose(result))
+            self.assertEqual(from_module(result, "m1_lexicon"), [], diagnose(result))
+            self.assertEqual(result.fired(), [], diagnose(result))
             self.assertEqual(result.guards, [], diagnose(result))
             self.assertIsNone(result.target)
             # "cumlesi" is ASCII-flattened Turkish: m2 restores "cümlesi" on the parallel channel (DEASCII,
@@ -197,15 +240,16 @@ class EndToEndTest(unittest.TestCase):
             self.assertEqual(result.signals["m2_deobf"]["codes"], ["DEASCII"], diagnose(result))
             self.assertNotIn("_repairs", result.signals["m2_deobf"])                  # internal, stripped
             self.assertFalse(result.signals["m1_lexicon"]["lexicon_hit_norm"], diagnose(result))
-        self.check_binary(result, fired=False)      # the frozen contract example pins raw_score 0.021 here
+        self.check_binary(result, fired=False)      # the contract example pins this raw_score
+        self.check_m3_a(result, fired=False)
         with self.subTest(stage="DECISION_THRESHOLD"):
-            self.assertIsNone(result.signals["decision"]["family_a"])
+            self.assertEqual(result.signals["decision"]["family_a"]["resolved_as"], "none")   # m3's A carrier, target none
+            self.assertEqual(family_a_fired(result), [])
             self.assertFalse(result.signals["decision"]["post_offensive"])
-        self.check_verdict(result, actions.DEGRADED_ACTION, "degraded")
+        self.check_verdict(result, Action.CLEAN, None)
         with self.subTest(stage="FINAL_ACTION/explanation"):
-            self.assertTrue(result.explanation.startswith("Karar verilemedi"), result.explanation)
-            for name in STUBS:
-                self.assertIn(name, result.explanation)
+            self.assertEqual(result.explanation, "İçerikte eşiği aşan saldırgan bir kategori bulunmadı.")
+            self.assertEqual(result.signals["m5_sarcasm"]["matched_rules"], [])
 
     def test_explicit_insult_fires_lexicon_and_binary(self) -> None:
         """M1-ROUTE-1 (protocols/m1_runtime_routing_protocol.md): "aptal" is an ordinary insult, not
@@ -218,26 +262,28 @@ class EndToEndTest(unittest.TestCase):
             self.assertTrue(result.signals["m1_lexicon"]["lexicon_hit_raw"], diagnose(result))
             self.assertTrue(result.signals["m1_lexicon"]["matched_roots"], diagnose(result))
         with self.subTest(stage="PIPELINE_MERGE"):
-            self.assertEqual([(s.code, s.source, s.span) for s in result.content],
+            self.assertEqual([(s.code, s.source, s.span) for s in from_module(result, "m1_lexicon")],
                              [(ContentCode.B1, "m1_lexicon@raw", (6, 14))], diagnose(result))
             self.assertEqual(text[6:14], "aptallar")
             self.assertEqual(result.guards, [], diagnose(result))
+        self.check_m3_a(result, fired=False)
         with self.subTest(stage="DECISION_THRESHOLD"):
-            self.assertIsNone(result.signals["decision"]["family_a"], diagnose(result))   # no family-A score
-            score = result.content[0]
+            self.assertEqual(family_a_fired(result), [], diagnose(result))   # an ordinary insult reaches no family A
+            score = from_module(result, "m1_lexicon")[0]
             self.assertEqual(score.threshold, float(self.cfg["categories"]["B1"]["threshold"]), diagnose(result))
             self.assertGreaterEqual(score.score, score.threshold, diagnose(result))
             # m1 scans both channels (raw and m2's normalized), so two B1 scores reach the decision layer.
-            self.assertEqual(sorted((b["code"], b["source"]) for b in result.signals["decision"]["threshold_branches"]),
+            self.assertEqual(sorted((b["code"], b["source"]) for b in result.signals["decision"]["threshold_branches"]
+                                    if b["source"].startswith("m1_lexicon")),
                              [("B1", "m1_lexicon@normalized"), ("B1", "m1_lexicon@raw")], diagnose(result))
         self.check_binary(result, fired=True)
         with self.subTest(stage="GUARD_APPLICATION"):
             # channel_scores are recorded AFTER guards ran: `fired` here means "not suppressed".
             self.assertEqual(result.guards, [])
-            channel = result.signals["decision"]["channel_scores"]
+            channel = channel_scores(result, "m1_lexicon")
             self.assertEqual(sorted((c["code"], c["source"], c["fired"]) for c in channel),
                              [("B1", "m1_lexicon@normalized", True), ("B1", "m1_lexicon@raw", True)], diagnose(result))
-            self.assertTrue(result.content[0].fired, diagnose(result))
+            self.assertTrue(from_module(result, "m1_lexicon")[0].fired, diagnose(result))
         with self.subTest(stage="FINAL_ACTION/post_offensive"):
             self.assertTrue(result.signals["decision"]["post_offensive"], diagnose(result))
         verdict, driver = self.expected_verdict(ContentCode.B1)
@@ -253,7 +299,7 @@ class EndToEndTest(unittest.TestCase):
             self.assertTrue(result.signals["m0_charsafe"]["charsafe_changed"], diagnose(result))
             self.assertFalse(result.signals["m1_lexicon"]["lexicon_hit"], diagnose(result))
         with self.subTest(stage="PIPELINE_MERGE"):
-            self.assertEqual(result.content, [], diagnose(result))
+            self.assertEqual(from_module(result, "m1_lexicon"), [], diagnose(result))
             self.assertEqual([(g.code, g.span) for g in result.guards],
                              [(GuardCode.SUBSTRING_COLLISION, (0, 7))], diagnose(result))
             self.assertEqual(text[0:7], "SIKINTI")
@@ -269,9 +315,10 @@ class EndToEndTest(unittest.TestCase):
                                if max(p.confidence for p in result.form.patterns if p.code is c) >= min_confidence]
             self.assertEqual(result.form.active, expected_active, diagnose(result))
         self.check_binary(result, fired=False)
+        self.check_m3_a(result, fired=False)
         with self.subTest(stage="DECISION_THRESHOLD"):
             self.assertFalse(result.signals["decision"]["post_offensive"], diagnose(result))
-        self.check_verdict(result, actions.DEGRADED_ACTION, "degraded")
+        self.check_verdict(result, Action.CLEAN, None)
 
     def test_prayer_word_with_exclamation_carries_no_obscene_root(self) -> None:
         """Review 2026-09-18: "Amiiin!" reached A1 through m2's parallel channel ("!" read as a leet "i"
@@ -306,10 +353,11 @@ class EndToEndTest(unittest.TestCase):
                 result = self.pipeline.analyze(text)
                 self.check_preconditions_held(result)
                 self.check_interfaces(result)
-                self.assertEqual([(s.code, text[s.span[0]:s.span[1]], s.fired) for s in result.content],
+                self.assertEqual([(s.code, text[s.span[0]:s.span[1]], s.fired) for s in from_module(result, "m1_lexicon")],
                                  [(ContentCode.B1, word, True)], diagnose(result))
                 self.assertEqual(result.target.type.value, "individual", diagnose(result))
-                self.assertIsNone(result.signals["decision"]["family_a"], diagnose(result))
+                self.check_m3_a(result, fired=False)
+                self.assertEqual(family_a_fired(result), [], diagnose(result))   # B1 is never target-recoded
                 self.assertTrue(result.signals["decision"]["post_offensive"], diagnose(result))
 
     def test_non_overlapping_collision_guard_suppresses_nothing(self) -> None:
@@ -320,8 +368,11 @@ class EndToEndTest(unittest.TestCase):
         result = self.pipeline.analyze(text)
         self.check_preconditions_held(result)
         self.check_interfaces(result)
+        self.check_m3_a(result, fired=True)
         with self.subTest(stage="PIPELINE_MERGE"):
-            self.assertEqual([s.span for s in result.content], [(8, 14)], diagnose(result))   # code asserted below
+            # One fused family-A entry; m1's exact-word score (1.0) wins over m3's post-level A score.
+            self.assertEqual([(s.span, s.source) for s in result.content], [((8, 14), "m1_lexicon@raw")],
+                             diagnose(result))   # code asserted below
             self.assertEqual(text[8:14], "piçsin")
             self.assertEqual([(g.code, g.span) for g in result.guards],
                              [(GuardCode.SUBSTRING_COLLISION, (16, 21))], diagnose(result))
@@ -361,13 +412,13 @@ class EndToEndTest(unittest.TestCase):
             self.assertEqual(result.signals["m0_charsafe"]["invisible_removed"], 1, diagnose(result))
             self.assertTrue(result.signals["m1_lexicon"]["lexicon_hit_raw"], diagnose(result))
         with self.subTest(stage="PIPELINE_MERGE"):
-            self.assertEqual([(s.code, s.span) for s in result.content], [(ContentCode.B1, (0, 6))],
+            self.assertEqual([(s.code, s.span) for s in from_module(result, "m1_lexicon")], [(ContentCode.B1, (0, 6))],
                              diagnose(result))
             self.assertEqual(text[0:6], "ap​tal")                     # ORIGINAL span, invisible char inside
         with self.subTest(stage="DECISION_THRESHOLD/form"):
             self.assertIn(FormCode.ZERO_WIDTH, result.form.active, diagnose(result))
         with self.subTest(stage="GUARD_APPLICATION"):
-            self.assertTrue(result.content[0].fired, diagnose(result))          # no guard on this post
+            self.assertTrue(from_module(result, "m1_lexicon")[0].fired, diagnose(result))   # no guard on this post
         # Recorded, not judged (Q3): what m3 did with the raw text on this run.
         binary = result.signals["decision"]["binary_offensive"]
         self.assertIn(binary["fired"], (True, False), diagnose(result))
@@ -394,7 +445,7 @@ class EndToEndTest(unittest.TestCase):
         with self.subTest(stage="FINAL_ACTION/clean post after abuse"):
             self.assertEqual(after.thread.repeat_count, min_repeats, diagnose(after))   # history is a fact ...
             self.assertFalse(after.thread.fired, diagnose(after))                      # ... never an escalation
-            self.assertIs(after.verdict, actions.DEGRADED_ACTION, diagnose(after))
+            self.assertIs(after.verdict, Action.CLEAN, diagnose(after))
 
     def test_non_human_target_guard_suppresses_the_lexicon_hit(self) -> None:
         """m6 -> m1 -> decision (ADR-005 mechanics, all settled): a lexicon hit aimed at a program
@@ -402,7 +453,9 @@ class EndToEndTest(unittest.TestCase):
         layer suppresses that match: a family-A root (recoded from the target) and, since
         M1-ROUTE-1, an ordinary insult on B1 (thresholds.yaml lists B1 for this guard). The VERDICT
         is BLOCKED_BY_POLICY (Q2: the binary score is not suppressible by guards), so it is
-        recorded, not asserted."""
+        recorded, not asserted. Since rule-v4 (2026-09-19) m3's A head scores "bok" as profanity too;
+        m1's guard cannot suppress another module's score (ADR-001), so that A1 fires - recorded as a
+        CURRENT_ARTIFACT_OBSERVATION, reported as a known consequence, not fixed here."""
         self.assertIn("B1", self.cfg["guards"]["NON_HUMAN_TARGET"]["suppresses"])
         for text, word, code in (("Bu program tam bir bok", "bok", self.cfg["family_a"]["by_target"]["non_human"]),
                                  ("Bu program tam bir aptal", "aptal", "B1")):
@@ -420,16 +473,15 @@ class EndToEndTest(unittest.TestCase):
                     self.assertEqual(guards[0].score, result.signals["m6_target"]["target_confidence"], diagnose(result))
                 with self.subTest(stage="DECISION_THRESHOLD"):
                     family_a = result.signals["decision"]["family_a"]
-                    if code == "B1":
-                        self.assertIsNone(family_a, diagnose(result))            # B1 is never target-recoded
-                    else:
-                        self.assertEqual(family_a["resolved_as"], "non_human", diagnose(result))
-                        self.assertEqual(family_a["code"], code, diagnose(result))
+                    self.assertEqual(family_a["resolved_as"], "non_human", diagnose(result))
+                    self.assertEqual(family_a["code"], self.cfg["family_a"]["by_target"]["non_human"], diagnose(result))
                 with self.subTest(stage="GUARD_APPLICATION"):
                     guard = [g for g in result.guards if g.code is GuardCode.NON_HUMAN_TARGET][0]
                     self.assertTrue(guard.active, diagnose(result))
                     self.assertEqual([c.value for c in guard.suppressed], [code], diagnose(result))
-                    self.assertFalse(any(s.fired for s in result.content), diagnose(result))   # every m1 score suppressed
+                    self.assertFalse(any(c["fired"] for c in channel_scores(result, "m1_lexicon")),
+                                     diagnose(result))   # every m1 score suppressed
+                self.check_m3_a(result, fired=code != "B1")   # "bok": m3's A1 is outside m1's guard (ADR-001)
                 # Q2: whether the binary score should also yield to the guard is undecided; recorded only.
                 self.assertIn(result.signals["decision"]["binary_offensive"]["fired"], (True, False), diagnose(result))
 
@@ -449,7 +501,7 @@ class EndToEndTest(unittest.TestCase):
                 self.assertFalse(set(result.signals["m1_lexicon"]["matched_roots"]) & ROUTE_A, diagnose(result))
                 self.assertEqual([s for s in result.content if s.code in family_a and s.source.startswith("m1_lexicon")],
                                  [], diagnose(result))
-                self.assertIsNone(result.signals["decision"]["family_a"], diagnose(result))
+                self.assertEqual(family_a_fired(result), [], diagnose(result))   # m3's A head stays below it too
         for text, root in (("#sikiş", "sik"), ("B O K", "bok"), ("[piç(3) nalan(5)]", "piç"), ("ta*ak geçtim", "taşak"),
                            ("s1k", "sik"), ("sıkecek", "sik")):
             with self.subTest(obscene=text):
@@ -473,12 +525,83 @@ class EndToEndTest(unittest.TestCase):
                 self.check_preconditions_held(result)
                 self.assertTrue(result.signals["m1_lexicon"]["lexicon_hit"], diagnose(result))
                 self.assertEqual([s.code for s in result.content if s.fired], fired, diagnose(result))
-                self.assertIsNone(result.signals["decision"]["family_a"], diagnose(result))
+                self.assertEqual(family_a_fired(result), [], diagnose(result))
         for text in ("mal varlığı açıklandı", "domuz eti"):
             result = self.pipeline.analyze(text)
             homonym = [g for g in result.guards if g.code is GuardCode.HOMONYM]
             self.assertTrue(homonym and all(g.active and g.suppressed == [ContentCode.B1] for g in homonym[:1]),
                             diagnose(result))
+
+    def test_lexicon_free_attack_reaches_the_verdict_through_m4_stage_one(self) -> None:
+        """m3 -> m4 -> decision (m4 spec §4, ADR-006): a group-aimed attack with no profane root is
+        caught only by stage 1, the binary_offensive row m4 owns, on the raw score m4 names as its
+        input. No module emits a content code; the verdict is the binary action."""
+        text = "Bu Suriyeliler ülkeyi mahvetti"
+        result = self.pipeline.analyze(text)
+        self.check_preconditions_held(result)
+        self.check_interfaces(result)
+        with self.subTest(stage="MODULE_OUTPUT"):
+            self.assertFalse(result.signals["m1_lexicon"]["lexicon_hit"], diagnose(result))
+            self.assertEqual(result.signals["m6_target"]["target_type"], "group", diagnose(result))
+            self.assertEqual(result.signals["m4_implicit"]["stage1_input"],
+                             self.cfg["binary_offensive"]["channels"]["raw"], diagnose(result))
+        with self.subTest(stage="PIPELINE_MERGE"):
+            self.assertEqual(from_module(result, "m1_lexicon"), [], diagnose(result))
+            self.assertEqual(result.fired(), [], diagnose(result))
+            self.assertEqual(result.guards, [], diagnose(result))
+        self.check_binary(result, fired=True)
+        self.check_m3_a(result, fired=False)
+        with self.subTest(stage="DECISION_THRESHOLD"):
+            binary = result.signals["decision"]["binary_offensive"]
+            self.assertEqual(binary["channels"]["raw"]["score"],
+                             fusion.lookup_signal(result.signals, result.signals["m4_implicit"]["stage1_input"]))
+            self.assertTrue(result.signals["decision"]["post_offensive"], diagnose(result))
+        self.check_verdict(result, self.binary_action, "binary_offensive")
+
+    def test_rule_v4_a_head_reaches_the_decision(self) -> None:
+        """m3 A head -> ADR-005 family A -> PLACEHOLDER A threshold -> verdict. Explicit profanity: m1 and
+        m3's A head both report the A1 carrier; the decision layer assigns the code from the target and
+        thresholds every source and channel separately; the fused code fires."""
+        text = "Siktir git buradan"
+        result = self.pipeline.analyze(text)
+        self.check_preconditions_held(result)
+        self.check_interfaces(result)
+        code = ContentCode(self.cfg["family_a"]["by_target"]["none"])
+        with self.subTest(stage="MODULE_OUTPUT"):
+            self.assertEqual(result.signals["m3_encoder"]["artifact"], m3.DEPLOYED_ID, diagnose(result))
+            self.assertIn("sik", result.signals["m1_lexicon"]["matched_roots"], diagnose(result))
+        self.check_m3_a(result, fired=True)
+        with self.subTest(stage="DECISION_THRESHOLD"):
+            self.assertEqual(result.signals["decision"]["family_a"]["code"], code.value, diagnose(result))
+            m3_scores = channel_scores(result, "m3_encoder")
+            self.assertTrue(all(c["code"] == code.value and c["threshold"] == float(self.cfg["categories"][code.value]["threshold"])
+                                for c in m3_scores), diagnose(result))
+            self.assertTrue(all(c["fired"] is (c["score"] >= c["threshold"]) for c in m3_scores), diagnose(result))
+            self.assertEqual([s.code for s in result.fired()], [code], diagnose(result))
+        self.check_binary(result, fired=True)
+        verdict, driver = self.expected_verdict(code)
+        self.check_verdict(result, verdict, driver)
+
+    def test_degrading_sarcasm_reaches_the_verdict_through_m5(self) -> None:
+        """m5 Stage 1 (protocols/m5_stage1_deterministic_protocol.md) end to end: the spec's scare-quote
+        example fires D1 by rule R1, the D1 row (placeholder policy) decides, nothing is degraded."""
+        text = "Bu kadar 'derin' bir yorum yapman etkileyici."
+        result = self.pipeline.analyze(text)
+        self.check_preconditions_held(result)
+        self.check_interfaces(result)
+        with self.subTest(stage="MODULE_OUTPUT"):
+            m5 = result.signals["m5_sarcasm"]
+            self.assertEqual((m5["stage"], m5["detector"], m5["matched_rules"]), (1, "deterministic", ["R1_SCARE_QUOTE"]))
+            self.assertIs(m5["precedence_checked"], True)
+            self.assertFalse(result.signals["m1_lexicon"]["lexicon_hit"], diagnose(result))
+        with self.subTest(stage="PIPELINE_MERGE"):
+            [d1] = from_module(result, "m5_sarcasm")
+            self.assertEqual((d1.code, d1.score), (ContentCode.D1, 1.0))
+            self.assertEqual(text[d1.span[0]:d1.span[1]], "'derin'")
+        self.check_binary(result, fired=False)
+        self.check_m3_a(result, fired=False)
+        verdict, driver = self.expected_verdict(ContentCode.D1, binary=False)
+        self.check_verdict(result, verdict, driver)
 
     def test_response_is_bounded_and_serialisable(self) -> None:
         result = self.pipeline.analyze("ap​tal herif " * 20)

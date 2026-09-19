@@ -82,25 +82,26 @@
     "m3_encoder": {
       "status": "PARTIAL",
       "built": [
-        "binary raw_score on ctx.text and norm_score on ctx.normalized_text (frozen epoch-1 OFF/NOT checkpoint; second pass only when the text differs)",
-        "artifact sha256 check (binary checkpoint or a multi-head artifact directory via NSOSYAL_M3_ARTIFACT)",
+        "deployed artifact m3-berturk-multihead-a-rule-v4-20260918-163728 (owner decision 2026-09-19): binary head -> raw_score on ctx.text and norm_score on ctx.normalized_text (second pass only when the text differs); trained A head -> A1 carrier per channel (ADR-005)",
+        "pinned weights sha256 for the deployed artifact; no silent fallback (the binary baseline m3-berturk-pytorch-fp32-epoch1 only on explicit NSOSYAL_M3_ARTIFACT)",
+        "artifact sha256 check of every file (binary checkpoint or a multi-head artifact directory)",
         "multi-head artifact loader: content scores from TRAINED heads only, per channel (training/m3_encoder export format)",
-        "fail-closed on missing / tampered artifact",
+        "fail-closed on missing / tampered / unpinned artifact",
         "no network at load",
         "truncation notes and truncated_differently signal",
         "training package with CPU smoke test (training/m3_encoder, training/tests/test_training_m3.py)",
         "banned-dataset written check (DATASETS.md)"
       ],
       "not_built": [
-        "A head training run (label source undecided, docs/blockers/m3_head_labels.md; WAITING_FOR_GPU_ARTIFACT)",
-        "B head (no B-labelled corpus)",
-        "C head (slice being labelled)",
+        "A head operating threshold for rule-v4: the family-A rows of decision/thresholds.yaml stay 0.50 placeholders (A-OP-1 is scoped to rule-v3)",
+        "B head: NOT TRAINED (no B-labelled corpus)",
+        "C head: NOT TRAINED (no C-labelled slice)",
         "per-code metrics with CIs on a labelled fixture, frozen-baseline comparison, decision-flip table (spec §7, §10)",
         "channel truncation-difference rate on dev (spec §5, measured once the normalized channel is scored on the corpus)"
       ],
       "expected_skipped_tests": [],
       "preconditions": [
-        "m3 artifact files present (artifacts/m3_encoder/, git-ignored)",
+        "deployed m3 artifact present (artifacts/m3_encoder/m3-berturk-multihead-a-rule-v4-20260918-163728/, git-ignored, copied from Drive)",
         "torch and transformers importable"
       ],
       "source": [
@@ -113,10 +114,12 @@
       "status": "PARTIAL",
       "built": [
         "stage 1: binary_offensive threshold row in decision/thresholds.yaml (derived)",
-        "stage 1b measured and rejected (protocols/m4_stage1b_protocol.md)"
+        "stage 1b measured and rejected (protocols/m4_stage1b_protocol.md)",
+        "stage-1 runtime signals read from m3's raw_score / norm_score / artifact: input present, derivation-artifact match, channel gap (m4 0.2.0, ADR-006 amendment 2026-09-19)"
       ],
       "not_built": [
         "stage 2 slice repair and its precision budget (spec §4.1, §10)",
+        "C1-C5 scores: m3's C head is untrained, no C-labelled slice (docs/blockers/m3_head_labels.md)",
         "C1-C5 threshold derivations",
         "fixture set of spec §9"
       ],
@@ -128,18 +131,24 @@
       ]
     },
     "m5_sarcasm": {
-      "status": "STUB",
-      "built": [],
+      "status": "PARTIAL",
+      "built": [
+        "Stage 1 deterministic D1 detector, owner-approved amendment 2026-09-19 (protocols/m5_stage1_deterministic_protocol.md, M5-S1): R1 scare-quoted praise, R2 clause-final tabii, R3 congratulated failure, R4 (!) irony mark, each with a second-person anchor",
+        "exclusions: reported speech, mention, negation, question, no person anchor, explicit-content precedence (m1 lexicon_hit, spec §3)",
+        "spec §11 fixture classes with inversion_span (fixtures/cases.jsonl)"
+      ],
       "not_built": [
-        "everything; entry gate (spec §2) not executed"
+        "neural D1 model (Stage 2, spec §6, ADR-003): entry gate (spec §2) not executed, no sarcasm or D1 corpus",
+        "precision on the benign-sarcasm control set and D1 recall with CIs (spec §10): NOT MEASURED",
+        "annotation agreement on a D1 slice; D1<->C confusion count (spec §10, §12)",
+        "D1 threshold derivation (decision/thresholds.yaml D1 row is a placeholder)"
       ],
-      "expected_skipped_tests": [
-        "SarcasmModuleBehaviourTest.test_friendly_irony_is_not_d1"
-      ],
+      "expected_skipped_tests": [],
       "preconditions": [],
       "source": [
-        "modules/m5_sarcasm/module.py (stub = True)",
-        "AI/docs/audit/MODULE_CONTRACTS.md#m5_sarcasm"
+        "modules/m5_sarcasm/module.py",
+        "protocols/m5_stage1_deterministic_protocol.md",
+        "protocols/ADR-003-d1-ownership.md (amendment 2026-09-19)"
       ]
     },
     "m6_target": {

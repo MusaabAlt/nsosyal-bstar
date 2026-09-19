@@ -123,6 +123,9 @@ with its own thresholds, as M3's artifact discipline requires (ADR-006).
 
 **Writes:** no content scores. C1–C5 are M3's content (ADR-006). M4's deliverables are the `C1`–`C5` and `binary_offensive` rows of `decision/thresholds.yaml` and the slice repair.
 
+**Publishes (signals, ADR-006 amendment 2026-09-19):** what stage 1 runs on, read from the three M3 signals above — `stage`, `stage1_input` / `stage1_input_present`, `m3_artifact` / `stage1_derived_for` / `stage1_artifact_match` / `stage1_protocol` (the threshold's
+derivation record; since 0.3.0 the rule-v4 artifact), and `norm_minus_raw` (the channel disagreement of §4). Information only: no decision-layer row reads them, and M4 compares none of them with anything.
+
 **Never** sets `threshold` or `fired`.
 
 ---

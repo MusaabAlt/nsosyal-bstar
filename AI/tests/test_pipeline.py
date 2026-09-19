@@ -65,9 +65,10 @@ class PipelineTest(unittest.TestCase):
         text = "Bu bir test cumlesi"
         result = Pipeline().analyze(text)
         self.assertEqual(result.text, text)
-        # Three stub modules (m2, m6, m5): the judgement is incomplete, so never clean (Phase 9).
-        # Shape and fail-closed only; the per-stage end-to-end assertions live in tests/test_end_to_end.py.
-        self.assertIs(result.verdict, Action.REVIEW)
+        # Every module runs (no stub since m5 Stage 1, 2026-09-19), so a clean sentence can be clean.
+        # Shape only; the per-stage end-to-end assertions live in tests/test_end_to_end.py.
+        self.assertEqual(result.signals["pipeline"]["degraded"], [], "PRECONDITION: a module is degraded")
+        self.assertIs(result.verdict, Action.CLEAN)
         self.assertEqual(len(result.per_module_ms), 7)
         self.assertNotIn("channels", result.signals)  # bounded response (decision 17)
         self.assertEqual(len(result.artifact_hash), 64)
@@ -82,20 +83,17 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(ctx.charsafe_text, "abc")
         self.assertIn("m0_charsafe", ctx.signals)
 
-    def test_stub_modules_are_degraded_and_named(self) -> None:
-        result = Pipeline().analyze("Bu bir test cumlesi")
-        stubs = ["m5_sarcasm"]  # only m5 is still a stub; m0, m2, m6, m1, m3 and m4 run
+    def test_no_registered_module_is_a_stub_or_degraded(self) -> None:
+        # Since m5 Stage 1 (2026-09-19) no registered module is a stub. Gate 1 (G0-F): a module degraded
+        # here - m3 without its git-ignored artifact, m1 without terlik - is a named precondition failure,
+        # never masked out. The stub path itself is covered by the _Stub modules of the other tests.
+        pipeline = Pipeline()
+        self.assertEqual([m.name.value for m in pipeline.modules if getattr(m, "stub", False)], [])
+        result = pipeline.analyze("Bu bir test cumlesi")
         degraded = result.signals["pipeline"]["degraded"]
-        # Gate 1 (G0-F): a non-stub module that is degraded here - m3 without its git-ignored
-        # artifact, m1 without terlik - is a named precondition failure, never masked out.
-        broken = [d for d in degraded if d["module"] not in stubs]
-        self.assertEqual(broken, [], f"PRECONDITION: non-stub module degraded on this machine: {broken}")
-        self.assertEqual([d["module"] for d in degraded], stubs)
-        self.assertTrue(all(d["kinds"] == ["stub"] for d in degraded))
-        self.assertTrue(result.notes[0].startswith("[pipeline] DEGRADED"))
-        for name in stubs:
-            self.assertIn(name, result.explanation)
-        self.assertTrue(result.explanation.startswith("Karar verilemedi"))
+        self.assertEqual(degraded, [], f"PRECONDITION: module degraded on this machine: {degraded}")
+        self.assertFalse(any(n.startswith("[pipeline] DEGRADED") for n in result.notes))
+        self.assertFalse(result.explanation.startswith("Karar verilemedi"))
 
     def test_clean_is_reachable_only_without_degradation(self) -> None:
         result = Pipeline(modules=[_Charsafe()], config=self.cfg).analyze("x")
@@ -143,7 +141,7 @@ class PipelineTest(unittest.TestCase):
         with redirect_stdout(buffer):
             self.assertEqual(run.main(["Bu bir test cumlesi", "--compact"]), 0)
         data = json.loads(buffer.getvalue())
-        self.assertEqual(data["verdict"], "review")  # stubs: judgement incomplete
+        self.assertEqual(data["verdict"], "clean")   # every module ran and nothing fired
 
 
 class _InitBoom(BaseModule):
@@ -279,8 +277,20 @@ class RobustnessTest(unittest.TestCase):
         self.assertEqual(size(result), size(short))
 
     def test_response_signals_do_not_grow_with_post_length(self) -> None:
-        # Decision 17: no copy of the post in signals; only `text` itself scales.
-        size = lambda text: len(json.dumps(Pipeline(config=self.cfg).analyze(text).to_dict()["signals"]))
+        # Decision 17: no copy of the post in signals; only `text` itself scales. Every float is
+        # measured as one fixed token: a score's repr length depends on its value (m4's
+        # norm_minus_raw is -0.003570903092622757 on the short post, -0.0012133773416280746 on the
+        # long one), which is not growth. Anything that scales - a string, a list - still counts.
+        def shape(value):
+            if isinstance(value, float):
+                return 0.0
+            if isinstance(value, dict):
+                return {k: shape(v) for k, v in value.items()}
+            if isinstance(value, list):
+                return [shape(v) for v in value]
+            return value
+
+        size = lambda text: len(json.dumps(shape(Pipeline(config=self.cfg).analyze(text).to_dict()["signals"])))
         self.assertEqual(size("Bu bir test cumlesi"), size("Bu bir test cumlesi " * 250))
 
     def test_nested_signal_payload_is_read_only(self) -> None:

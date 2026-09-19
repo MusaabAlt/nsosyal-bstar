@@ -1,5 +1,16 @@
-"""m3_encoder - shared encoder. PARTIAL: the frozen binary baseline today; a multi-head artifact
-when one is installed (training/m3_encoder, docs/training/m3_encoder.md).
+"""m3_encoder - shared encoder. PARTIAL: the deployed artifact is the rule-v4 multi-head encoder
+(binary + A heads trained; B and C heads NOT trained), owner decision 2026-09-19.
+
+Artifact selection (no silent fallback, ever):
+  * NSOSYAL_M3_ARTIFACT unset -> the DEPLOYED artifact DEPLOYED_ID in artifacts/m3_encoder/<id>/
+    (git-ignored; copied from Drive, artifacts/MANIFEST.md). Its heads.json must name DEPLOYED_ID and
+    its weights.pt must hash to DEPLOYED_WEIGHTS_SHA256; missing or different -> the module fails
+    closed and the result is degraded. It never falls back to another artifact.
+  * NSOSYAL_M3_ARTIFACT=m3-berturk-pytorch-fp32-epoch1 -> the frozen binary baseline, on explicit
+    request only (NSOSYAL_M3_CHECKPOINT / NSOSYAL_M3_TOKENIZER locate its files).
+  * NSOSYAL_M3_ARTIFACT=<directory> -> that multi-head artifact, an explicit override (Colab, tests),
+    every file verified against its sha256.txt; one that claims a pinned id must carry the pinned
+    weights.
 
 Catches:
   * a binary offensive probability per channel: `signals["raw_score"]` on `ctx.text` and
@@ -10,9 +21,9 @@ Catches:
   * a note whenever a channel is longer than MAX_LEN tokens and was truncated, and
     `signals["truncated_differently"]` when the two channels did not truncate at the same token count
     (spec §5); the token counts themselves are internal (`_truncation`)
-  * with a MULTI-HEAD artifact (NSOSYAL_M3_ARTIFACT -> a directory written by
-    training/m3_encoder/model.py::export_artifact, every file sha256-verified against its
-    sha256.txt): one ContentScore per TRAINED head code and channel - the A head on the A1 carrier
+  * with a MULTI-HEAD artifact (a directory written by training/m3_encoder/model.py::export_artifact,
+    every file sha256-verified against its sha256.txt): one ContentScore per TRAINED head code and
+    channel - the A head on the A1 carrier
     (ADR-005), B1/B2/B3/B5 from the multi-label B head, C1..C5 from the C head - with
     source "m3_encoder@raw" / "@normalized". Untrained heads are never published.
 
@@ -43,12 +54,21 @@ from contracts.codes import ContentCode, ModuleName
 from contracts.module_api import NORMALIZED, RAW, BaseModule, Context, ModuleOutput
 from contracts.schema import ContentScore
 
-ARTIFACT_ID = "m3-berturk-pytorch-fp32-epoch1"
 ARTIFACTS = Path(__file__).resolve().parents[2] / "artifacts" / "m3_encoder"
+# The artifact the runtime deploys (owner decision 2026-09-19); decision/thresholds.yaml holds ITS
+# binary_offensive threshold (protocols/threshold_derivation_binary_offensive_stage1_rule_v4.md).
+DEPLOYED_ID = "m3-berturk-multihead-a-rule-v4-20260918-163728"
+DEPLOYED_WEIGHTS_SHA256 = "dc7fe3062b33938ccbb78b632947bf254ad72e60104e163c64830bb95f0d0b76"
+DEPLOYED_DIR = ARTIFACTS / DEPLOYED_ID
+ARTIFACT_ID = DEPLOYED_ID
+# Weights every multi-head artifact must carry under its id, wherever it is loaded from.
+PINNED_WEIGHTS = {DEPLOYED_ID: DEPLOYED_WEIGHTS_SHA256}
+# The frozen epoch-1 binary checkpoint: loaded only when NSOSYAL_M3_ARTIFACT names it.
+BASELINE_ID = "m3-berturk-pytorch-fp32-epoch1"
 # Environment overrides, so a Colab or demo machine can point at Drive or another disk.
 CHECKPOINT_ENV = "NSOSYAL_M3_CHECKPOINT"
 TOKENIZER_ENV = "NSOSYAL_M3_TOKENIZER"
-# A multi-head artifact directory (heads.json + weights.pt + tokenizer files + sha256.txt).
+# A multi-head artifact directory (heads.json + weights.pt + tokenizer files + sha256.txt), or BASELINE_ID.
 MULTIHEAD_ENV = "NSOSYAL_M3_ARTIFACT"
 DEFAULT_CHECKPOINT = ARTIFACTS / "berturk_epoch1.pt"
 DEFAULT_TOKENIZER = ARTIFACTS / "tokenizer"
@@ -84,13 +104,16 @@ def artifact_paths() -> tuple[Path, Path]:
 
 
 def multihead_dir() -> Path | None:
+    """The multi-head artifact directory the runtime will load, or None for the explicit baseline."""
     value = os.environ.get(MULTIHEAD_ENV)
-    return Path(value) if value else None
+    if value == BASELINE_ID:
+        return None
+    return Path(value) if value else DEPLOYED_DIR
 
 
 class EncoderModule(BaseModule):
     name = ModuleName.M3_ENCODER
-    version = "0.2.0"
+    version = "0.3.0"
     provides = frozenset({"content"})
     # ADR-001 runtime enforcement: whether content scores / guards carry spans.
     # encoder heads score the whole post, not a substring.
@@ -103,10 +126,10 @@ class EncoderModule(BaseModule):
         self._torch = torch
         self._heads: dict[str, Any] | None = None       # multi-head artifact layout, or None (binary only)
         target = multihead_dir()
-        if target is not None:
-            self._load_multihead(target)
-        else:
+        if target is None:
             self._load_binary()
+        else:
+            self._load_multihead(target, deployed=not os.environ.get(MULTIHEAD_ENV))
 
     def _load_binary(self) -> None:
         checkpoint, tokenizer_dir = artifact_paths()
@@ -127,29 +150,44 @@ class EncoderModule(BaseModule):
         state = self._torch.load(checkpoint, map_location="cpu", weights_only=True)
         model.load_state_dict(state["model"], strict=True)
         self._model = model.float().to("cpu").eval()
-        self._artifact_id = ARTIFACT_ID
+        self._artifact_id = BASELINE_ID
 
-    def _load_multihead(self, directory: Path) -> None:
+    def _load_multihead(self, directory: Path, deployed: bool) -> None:
         """A class-free artifact: AutoModel encoder weights + head tensors + heads.json, every file
-        listed in sha256.txt verified before use (spec §8)."""
+        listed in sha256.txt verified before use (spec §8); a pinned id must carry its pinned weights."""
         digests_file = directory / "sha256.txt"
         if not digests_file.is_file():
-            raise FileNotFoundError(f"{MULTIHEAD_ENV}={directory}: no sha256.txt; refusing an unverifiable artifact")
-        wrong, missing = [], []
+            where = (f"deployed artifact {DEPLOYED_ID} not installed at {directory} (copy it from Drive, "
+                     f"artifacts/MANIFEST.md); no fallback to another artifact" if deployed
+                     else f"{MULTIHEAD_ENV}={directory}")
+            raise FileNotFoundError(f"{where}: no sha256.txt; refusing an unverifiable artifact")
+        wrong, missing, digests = [], [], {}
         for line in digests_file.read_text(encoding="utf-8").splitlines():
             if not line.strip():
                 continue
             want, name = line.split(None, 1)
-            path = directory / name.strip()
+            name = name.strip()
+            path = directory / name
             if not path.is_file():
-                missing.append(name.strip())
-            elif sha256(path) != want:
-                wrong.append(name.strip())
+                missing.append(name)
+                continue
+            digests[name] = sha256(path)
+            if digests[name] != want:
+                wrong.append(name)
         if missing or wrong:
             raise ValueError(f"multi-head artifact {directory}: missing {missing}, sha256 mismatch {wrong}")
+        if "weights.pt" not in digests or "heads.json" not in digests:
+            raise ValueError(f"multi-head artifact {directory}: sha256.txt does not cover weights.pt and heads.json")
         from transformers import AutoConfig, AutoModel, AutoTokenizer
 
         heads = json.loads((directory / "heads.json").read_text(encoding="utf-8"))
+        artifact_id = str(heads.get("artifact_id"))
+        if deployed and artifact_id != DEPLOYED_ID:
+            raise ValueError(f"{directory} holds {artifact_id!r}, not the deployed {DEPLOYED_ID}; refusing it")
+        pinned = PINNED_WEIGHTS.get(artifact_id)
+        if pinned is not None and digests["weights.pt"] != pinned:
+            raise ValueError(f"{artifact_id}: weights.pt sha256 {digests['weights.pt']} is not the pinned "
+                             f"{pinned}; refusing it")
         self._tokenizer = AutoTokenizer.from_pretrained(directory, local_files_only=True)
         config = AutoConfig.from_pretrained(directory, local_files_only=True)
         encoder = AutoModel.from_config(config)
@@ -158,7 +196,7 @@ class EncoderModule(BaseModule):
         self._model = encoder.float().to("cpu").eval()
         self._head_tensors = {name: (t["weight"].float(), t["bias"].float()) for name, t in state["heads"].items()}
         self._heads = heads
-        self._artifact_id = str(heads["artifact_id"])
+        self._artifact_id = artifact_id
 
     # -- scoring ---------------------------------------------------------------------------
     def _token_count(self, text: str) -> int:

@@ -4,19 +4,25 @@ Turkish offensive-content moderation. Modular: every category of offensive
 speech gets its own engine, its own threshold and its own action. Runs fully
 offline on CPU - no platform API, no network call at inference.
 
-**Status (2026-09-17, `docs/audit/PROJECT_COMPLETION_STATUS.md`).** Contracts,
+**Status (2026-09-19, `docs/audit/PROJECT_COMPLETION_STATUS.md`).** Contracts,
 decision layer, pipeline, evaluation harness and `m0_charsafe` are implemented and
 verified. `m2_deobf` runs (protection pass, tier 1, zeyrek-validated DEASCII; the
 lexicon-dependent patterns are declared unhandled). `m6_target` v1 runs (target
 resolution and B4 doxing; the three documented ambiguities are declared pending the
 owner). `m1_lexicon` runs on terlik on both channels with SUBSTRING_COLLISION,
-HOMONYM and NON_HUMAN_TARGET (A4 needs an owner-approved table). `m3_encoder` is
-PARTIAL: the frozen epoch-1 BERTurk baseline scores both channels (`raw_score`,
-`norm_score`); the A, B and C heads wait for labels and a GPU run
-(`docs/training/GPU_HANDOFF.md`). `m4_implicit` emits nothing by design (C1-C5 come
-from m3's C head, ADR-006); `m5_sarcasm` is the one remaining stub (entry gate,
-`docs/blockers/`). In `decision/thresholds.yaml` the `binary_offensive` threshold is
-derived; every other number is a placeholder until derived on dev.
+HOMONYM and NON_HUMAN_TARGET (A4 needs an owner-approved table). `m3_encoder` runs
+the deployed rule-v4 multi-head artifact `m3-berturk-multihead-a-rule-v4-20260918-163728`
+(pinned weights sha256 `dc7fe306…0b76`, git-ignored, copied from Drive; no fallback): the binary
+head scores both channels (`raw_score`, `norm_score`) and the trained A head publishes the A1
+carrier; the B and C heads are NOT trained. `m4_implicit` runs stage 1: it reads m3's
+published scores and publishes what the `binary_offensive` row it owns thresholds (input,
+the artifact and protocol the threshold was derived for, cross-channel gap); it emits no
+content score - C1-C5 come from m3's C head, which has no labels (ADR-006 and its
+2026-09-19 amendments). `m5_sarcasm` runs Stage 1: a deterministic, rule-based D1 detector,
+not a trained model and not benchmarked (`protocols/m5_stage1_deterministic_protocol.md`);
+no module is a stub, so a clean verdict is reachable. In `decision/thresholds.yaml` the
+`binary_offensive` threshold (0.445857971906662) is derived for rule-v4; every other number
+is a placeholder until derived on dev.
 
 ## Quick start
 

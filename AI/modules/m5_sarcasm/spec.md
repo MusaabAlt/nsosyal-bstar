@@ -2,7 +2,9 @@
 
 **Type:** detection
 **Owner:** Abdullah
-**Status:** GATED. Do not start implementation until section 2 passes.
+**Status:** Stage 1 ACTIVE (deterministic rules, owner-approved amendment 2026-09-19,
+`protocols/m5_stage1_deterministic_protocol.md`, M5-S1). The neural model of §6 is Stage 2 and stays
+GATED: do not start it until section 2 passes. Stage 1 is not a trained model and is not benchmarked.
 
 ---
 
@@ -28,6 +30,12 @@ Catch abuse whose **literal polarity is positive** but whose intent is to humili
 | Neither available | **Drop the D1 claim entirely** from the project. |
 
 The rule behind this: claiming sarcasm coverage with no evaluation set is the easiest thing for a judge to break. Either you have a slice with a declared agreement number, or you do not make the claim. Silence is an acceptable outcome for this module.
+
+**Owner amendment (2026-09-19).** For the TEKNOFEST prototype the owner approved a Stage-1
+deterministic detector ahead of the gate (`protocols/m5_stage1_deterministic_protocol.md`). It
+claims only its four documented constructions, carries no metric, and is presented as "Stage 1,
+deterministic, not benchmarked". This gate still governs the neural model (Stage 2) and any D1
+coverage claim beyond those rules.
 
 Be careful with dataset identity — there are at least two distinct small Turkish irony datasets with different sizes floating around in citations. Record the exact name, version and size of whatever you use.
 
@@ -100,9 +108,13 @@ Reported context effect in the Turkish sarcasm corpus is small — accuracy arou
 
 ## 7. Contract
 
-**Reads:** `ctx.text` (raw — sarcasm markers are often in the original punctuation and casing)
+**Reads:** `ctx.text` (raw — sarcasm markers are often in the original punctuation and casing).
+Stage 1 also reads `ctx.signals["m1_lexicon"]["lexicon_hit"]` to apply the §3 precedence rule
+(explicit content wins); nothing else (M5-S1 §5).
 
-**Writes:** `out.content` for `D1`
+**Writes:** `out.content` for `D1`. Stage 1: score `1.0` = "a deterministic rule is satisfied", not
+a probability; signals `stage`, `detector`, `rules_version`, `matched_rules`, `excluded`,
+`precedence_checked` (M5-S1 §6).
 
 **Never** sets `threshold` or `fired`.
 

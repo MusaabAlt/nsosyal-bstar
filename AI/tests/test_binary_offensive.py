@@ -31,10 +31,14 @@ from pipeline.run import Pipeline
 from pipeline.thread_counter import ThreadBlock
 
 ROOT = Path(__file__).resolve().parent.parent
-DERIVATION_PROTOCOL = ROOT / "protocols" / "threshold_derivation_binary_offensive_stage1.md"
-# The derivation file records the tie row (dev row 29308) at full precision. Quoted
-# verbatim from that file; if the file changes, the test that reads it tells us.
-TIE_ROW_PATTERN = re.compile(r"\*\*(0\.32018762826919556)\*\*")
+# The threshold in force was derived for the deployed m3 artifact (rule-v4, 2026-09-19); the baseline's
+# derivation (0.320188, 2026-09-15) stays the historical record that stage 1b was measured against.
+DERIVATION_PROTOCOL = ROOT / "protocols" / "threshold_derivation_binary_offensive_stage1_rule_v4.md"
+BASELINE_PROTOCOL = ROOT / "protocols" / "threshold_derivation_binary_offensive_stage1.md"
+# Each derivation file records its tie row at full precision. Quoted verbatim from those files;
+# if a file changes, the test that reads it tells us.
+TIE_ROW_PATTERN = re.compile(r"scores exactly\s+\*\*([0-9.]+)\*\*")
+BASELINE_TIE_ROW_PATTERN = re.compile(r"\*\*(0\.32018762826919556)\*\*")
 EVAL_T_PATTERN = re.compile(r"EVAL confusion at t = ([0-9.]+)")
 
 
@@ -63,19 +67,21 @@ class RealConfigTest(unittest.TestCase):
             self.assertTrue(0 < self.t < 1)
 
     def test_threshold_equals_the_derivation_record(self) -> None:
-        """The number in the yaml is the number the protocol derived; the stage-1b
-        script carries the same constant as an integrity check."""
-        text = DERIVATION_PROTOCOL.read_text(encoding="utf-8")
-        recorded = EVAL_T_PATTERN.search(text)
+        """The number in the yaml is the number the rule-v4 protocol derived; the stage-1b script
+        carries the BASELINE constant it was measured against, which stays equal to its own record."""
+        recorded = EVAL_T_PATTERN.search(DERIVATION_PROTOCOL.read_text(encoding="utf-8"))
         self.assertIsNotNone(recorded, f"{DERIVATION_PROTOCOL.name} no longer states the EVAL threshold")
         with self.subTest(source="derivation protocol"):
             self.assertEqual(float(recorded.group(1)), self.t)
-        with self.subTest(source="eval.m4_stage1b EXPECTED"):
-            self.assertEqual(float(m4_stage1b.EXPECTED["stage1_t"]), self.t)
+        baseline = EVAL_T_PATTERN.search(BASELINE_PROTOCOL.read_text(encoding="utf-8"))
+        with self.subTest(source="eval.m4_stage1b EXPECTED = the baseline record"):
+            self.assertEqual(float(m4_stage1b.EXPECTED["stage1_t"]), float(baseline.group(1)))
+            self.assertNotEqual(float(baseline.group(1)), self.t)   # the baseline value is not in force
 
 
 class BoundaryTest(unittest.TestCase):
-    """NO-MODEL. fired == (score >= threshold) at and around the real threshold."""
+    """NO-MODEL. fired == (score > threshold) at and around the real threshold: the derivation rule
+    (protocols/threshold_derivation_binary_offensive_stage1_rule_v4.md §3), used by fusion since 2026-09-19."""
 
     @classmethod
     def setUpClass(cls) -> None:
@@ -132,28 +138,33 @@ class BoundaryTest(unittest.TestCase):
     def test_just_below_threshold_does_not_fire(self) -> None:
         self.assertBinary(math.nextafter(self.t, 0.0), fired=False)
 
-    def test_exactly_threshold_fires_inclusive(self) -> None:
-        # fusion flags at >=; the study's rule was >. The derivation protocol records
-        # this difference and the one dev row that sits on the value (next test).
-        self.assertBinary(self.t, fired=True)
+    def test_exactly_threshold_does_not_fire(self) -> None:
+        # fusion flags at >, the rule the threshold was derived with; a score equal to t is not flagged.
+        self.assertBinary(self.t, fired=False)
 
     def test_just_above_threshold_fires(self) -> None:
         self.assertBinary(math.nextafter(self.t, 1.0), fired=True)
 
-    def test_tie_row_at_full_precision_does_not_fire(self) -> None:
-        """Dev row 29308 scores 0.32018762826919556 at full precision: below the
-        6-decimal threshold, so not flagged under either rule (protocol, 'Tie row')."""
-        text = DERIVATION_PROTOCOL.read_text(encoding="utf-8")
-        found = TIE_ROW_PATTERN.search(text)
+    def test_tie_row_is_not_flagged_at_runtime(self) -> None:
+        """Dev row 46164 scores exactly the rule-v4 threshold (it is the CAL score the fit chose). The
+        derivation rule `score > t` does not flag it, and neither does fusion (protocol, 'Tie row')."""
+        found = TIE_ROW_PATTERN.search(DERIVATION_PROTOCOL.read_text(encoding="utf-8"))
         self.assertIsNotNone(found, "the derivation protocol no longer records the tie row value")
         tie = float(found.group(1))
-        self.assertLess(tie, self.t)
+        self.assertEqual(tie, self.t)
         self.assertBinary(tie, fired=False)
 
-    def test_fired_is_score_ge_threshold_across_the_range(self) -> None:
+    def test_baseline_tie_row_record_is_unchanged(self) -> None:
+        """Historical record: the baseline's tie row (dev row 29308, 0.32018762826919556) sat below its
+        6-decimal threshold 0.320188."""
+        text = BASELINE_PROTOCOL.read_text(encoding="utf-8")
+        tie = float(BASELINE_TIE_ROW_PATTERN.search(text).group(1))
+        self.assertLess(tie, float(EVAL_T_PATTERN.search(text).group(1)))
+
+    def test_fired_is_score_gt_threshold_across_the_range(self) -> None:
         for score in (0.0, self.t / 2, math.nextafter(self.t, 0.0), self.t, math.nextafter(self.t, 1.0),
                       (self.t + 1.0) / 2, 1.0):
-            self.assertBinary(score, fired=score >= self.t)
+            self.assertBinary(score, fired=score > self.t)
 
     def test_deciding_twice_keeps_the_same_binary_state(self) -> None:
         result, first = self.decide(self.t)
@@ -186,9 +197,10 @@ class BinaryThroughPipelineTest(unittest.TestCase):
         cls.t = float(cls.cfg["binary_offensive"]["threshold"])
 
     def test_binary_only_post_counts_as_offensive_for_the_thread_counter(self) -> None:
-        """G0-7: post_is_offensive's binary branch feeds the repetition counter."""
+        """G0-7: post_is_offensive's binary branch feeds the repetition counter. The smallest firing
+        score is the next float above t (fusion flags at score > t)."""
         cfg = copy.deepcopy(self.cfg)
-        pipeline = Pipeline(modules=[_BinaryOnly(self.t)], config=cfg)
+        pipeline = Pipeline(modules=[_BinaryOnly(math.nextafter(self.t, 1.0))], config=cfg)
         block = ThreadBlock("u1", "u2")
         results = [pipeline.analyze("x", thread_block=block) for _ in range(int(cfg["thread"]["min_repeats"]))]
         with self.subTest(stage="DEGRADATION"):
