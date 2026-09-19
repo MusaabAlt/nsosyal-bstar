@@ -30,3 +30,15 @@ data/
 eval/results/*.json
 eval/results/*.tmp
 !eval/results/.gitkeep
+
+# Gate 1.5: named reference runs (python -m eval.run_all --results-dir eval/results/<name>) are
+# ignored like the top-level results; the tracked eval/results/m4_stage1b.json is unaffected.
+eval/results/*/
+
+# A-head human annotation: templates and filled files hold corpus text (never committed); the
+# committed ids file in eval/annotation/ carries the design and the ids only.
+eval/annotation/private/
+
+# Row-level reports that carry corpus text or the corpus gold label (e.g. the rule-v4 flip report's full
+# version): private, never committed. The committed versions next to them hold ids and spans only.
+eval/derived/private/

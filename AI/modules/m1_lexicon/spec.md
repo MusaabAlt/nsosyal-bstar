@@ -11,6 +11,16 @@ Produce a profanity signal that is **independent of the neural model**, and prec
 
 This module exists for two reasons. First, it gives the decision layer a second opinion that fails in a different way than the model does. Second, it is the runtime lexicon signal; the evaluation set's `lexicon_hit` / `lexicon_free` slices — the split the entire project is built on — are not recomputed from it but read from `AI/eval/frozen/study_slice_dev.json`, produced once by the study's own matcher (owner decision, 2026-09-15). If this module is sloppy, every number downstream is wrong.
 
+**Two lexicon files, two purposes — never merged** (owner decision, 2026-09-16):
+
+| file | produced by | purpose | status |
+|---|---|---|---|
+| `AI/eval/frozen/study_slice_dev.json` | the study's karaliste matcher, once | **the** `lexicon_hit` / `lexicon_free` evaluation slice; every published M4 number (0.5628, +0.3301, 0.5180 → 0.6367) was measured against it | frozen: never recomputed, never replaced |
+| `AI/eval/derived/m1_lexicon_dev_seed42.json` | this module (terlik) through m0 → m2 → m6 → m1, `AI/protocols/m1_lexicon_dev_labels_protocol.md` | pseudo-label *agreement* for M3's A head (never its evaluation) and comparison against the frozen slice | regenerable whenever M0, M1, M2, M6, terlik, zeyrek or the pipeline order changes (`python -m eval.m1_lexicon_labels --check`) |
+| `AI/eval/derived/m1_lexicon_train_seed42.json` | the same generator on the TRAIN split, `AI/protocols/m1_lexicon_train_labels_protocol.md` | M3 A-head **training supervision** (`a_label`, owner decision 2026-09-18); the evaluation oracle is the human-labelled dev subset (`docs/annotation/A_HEAD_PROFANITY_GUIDELINE.md`) | same |
+
+The derived file never defines a slice, and the frozen file is never regenerated from this module. Replacing one with the other would silently change what the published M4 numbers mean.
+
 ---
 
 ## 2. What it catches / does not catch
@@ -28,10 +38,15 @@ This module exists for two reasons. First, it gives the decision layer a second 
 **Reads:** `ctx.text` **and** `ctx.normalized_text` — run on both, report both. `ctx.signals["m6_target"]` — the target M6 publishes (`target_type`, `target_confidence`).
 
 **Writes:**
-- `out.signals["lexicon_hit"]` — bool, true if any legitimate match on either channel
+- `out.signals["lexicon_hit"]` — bool, true if any legitimate match on either channel, whatever the match's route
 - `out.signals["lexicon_hit_raw"]` / `["lexicon_hit_norm"]` — per channel
-- `out.content` — family-A profanity on the `A1` carrier (the decision layer assigns `A1`/`A2`/`A3` from M6's target, ADR-005), and `A4`
-- `out.guards` — `SUBSTRING_COLLISION`, `HOMONYM`, and `NON_HUMAN_TARGET`: raised on each of this module's family-A matches when M6's published `target_type` is `non_human`, with `score` = M6's `target_confidence` and `span` = that match's span (ADR-005)
+- `out.signals["_matches"]` — PRIVATE (kept out of the response by the pipeline): every match with `root`, `channel`, original `span` and `route`, including matches that emit no content code; the pseudo-label generator reads matches from here
+- `out.content` — one score of 1.0 per match, on the code its root is ROUTED to (`AI/protocols/m1_runtime_routing_protocol.md`, M1-ROUTE-1, owner approval 2026-09-18):
+  - the 17 explicit obscene / profane roots of pseudo-label rule v3 → the family-A carrier `A1` (the decision layer assigns `A1`/`A2`/`A3` from M6's target, ADR-005); these are the ONLY lexical family-A roots. A match of one of them counts only as a real word of that root (`AI/protocols/m1_positive_matching_precision_protocol.md`, M1-PREC-1, pseudo-label rule v4, rules R1–R9); a rejected one is a `SUBSTRING_COLLISION` whose evidence names the rule
+  - ordinary insults (100 roots) → `B1` (degradation); threats (7) → `B2`; curses / exclusion (9) → `B3`. B means "non-profane abuse; no profane root required": a deterministic lexical B code needs no trained B head. M6's target does not recode B codes
+  - topic or neutral vocabulary (14 roots, e.g. `meme`, `fuhuş`, `kaşar`) → no content score: still a match, a hit and a matched root
+  - `A4` when the sacred-concept extension exists
+- `out.guards` — `SUBSTRING_COLLISION`, `HOMONYM`, and `NON_HUMAN_TARGET`: raised on each of this module's content scores when M6's published `target_type` is `non_human`, with `score` = M6's `target_confidence` and `span` = that match's span (ADR-005); `thresholds.yaml` decides which codes each guard may suppress (`NON_HUMAN_TARGET`: A1–A3 and B1; `HOMONYM`: A and B1)
 
 **Every match and every guard carries `span`** — the `(start, end)` of the exact substring of the original text that triggered it (`ContentScore.span`, `GuardResult.span`), plus `GuardResult.source = "m1_lexicon"`. A match or guard with no span is a contract violation: the decision layer scopes guards by span overlap (ADR-001), and without spans a collision guard on `amcam` could clear a real insult elsewhere in the same post.
 

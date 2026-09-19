@@ -6,6 +6,18 @@ Read `CLAUDE.md` first. This file turns its rules into a workflow.
 
 Python 3.11 or newer. Run everything from `AI/`.
 
+**Interpreter.** The project interpreter is `AI/.venv` — the only environment in which the
+recorded verification results (test counts, reference evaluation runs, contract example) are
+reproducible. It must hold `requirements.txt` plus every module's `requirements.txt` you exercise;
+for the full suite that means **terlik** (m1) **and zeyrek** (m2 tier 2, `modules/m2_deobf/requirements.txt`)
+and the pinned torch / transformers (m3). The repository-root `.venv` is the study's environment
+(`diagnosis/`) and does not have zeyrek: running the AI suite with it fails m2's tier-2 tests, the
+end-to-end DEASCII case, the pipeline size test and `pipeline.contract_example --check`. Those are
+precondition failures by design (the module suites fail rather than skip on a missing dependency),
+not regressions. Before reading any failure as a regression, confirm `python -c "import zeyrek, terlik"`
+succeeds in the interpreter you used. Expected result of the full suite on a correct interpreter:
+all tests OK, exactly 1 skipped (the declared m5 stub skip).
+
 ```bash
 # 1. virtual environment
 python -m venv .venv
@@ -15,6 +27,8 @@ source .venv/bin/activate              # Windows, Git Bash: source .venv/Scripts
 # 2. install - the core needs pyyaml only; a module's heavy dependencies are in its own requirements.txt
 python -m pip install -r requirements.txt
 python -m pip install -r modules/m1_lexicon/requirements.txt   # terlik; without it m1's tests fail
+python -m pip install -r modules/m2_deobf/requirements.txt     # zeyrek; without it m2's tier-2 tests and the contract check fail
+python -m pip install -r modules/m3_encoder/requirements.txt   # torch / transformers; without them m3's tests fail
 
 # 3. the commands, in order
 python -m unittest discover -p "test_*.py"      # all tests (the skipped ones belong to stub modules)
@@ -37,11 +51,12 @@ The system **fails closed**. A module that is a stub, fails, is unavailable or
 returns invalid output makes the result *degraded*, and a degraded result is
 never `clean`: a verdict that would have been clean becomes `review`, and a more
 severe verdict stands with "ancak değerlendirme eksik" added (`pipeline/run.py`,
-`decision/actions.py`). `m0_charsafe` is implemented and `m4_implicit` is a
-non-stub that emits nothing yet (C1–C5 come from m3, ADR-006); m1, m2, m3, m5 and
-m6 are stubs (`stub = True`), so every result is degraded today. That is why every ordinary
-post comes back as `review`, with `signals.pipeline.degraded` naming the stub
-modules and the Turkish explanation saying the judgement is incomplete. This is
+`decision/actions.py`). m0, m2, m6, m1 and m3 run (m3 partially: no heads yet), `m4_implicit`
+is a non-stub that emits nothing yet (C1–C5 come from m3, ADR-006), and `m5_sarcasm` is a stub
+(`stub = True`), so every result is still degraded today. That is why every ordinary post comes
+back as `review`, with `signals.pipeline.degraded` naming `m5_sarcasm` and the Turkish
+explanation saying the judgement is incomplete. `eval/implementation_status.json` is the
+declared status per module. This is
 by design: silence from an unimplemented module is not evidence that a post is
 clean. Every number in `decision/thresholds.yaml` is a placeholder as well.
 

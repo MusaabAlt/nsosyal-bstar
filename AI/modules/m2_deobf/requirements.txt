@@ -1,0 +1,8 @@
+# Dependencies owned by m2_deobf ONLY (CLAUDE.md rule 6). Not installed by the root requirements.
+# Tier 1 (character rules) needs nothing beyond the standard library; terlik's LEET table is
+# copied as data into module.py (MIT, see README.md), not imported at runtime.
+# Tier 2 DEASCII validation (spec §5 "morphological VALIDATION only, never a blind normalizer"):
+# zeyrek is a pure-Python Turkish morphological analyser (Zemberek's lexicon), MIT. Only its
+# word-level parser is used; its sentence API would pull NLTK punkt data over the network, which
+# the module never does. Pinned because its lexicon defines which repairs are legal Turkish words.
+zeyrek==0.1.3

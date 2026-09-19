@@ -1,0 +1,473 @@
+{
+  "protocol": {
+    "file": "protocols/m1_terlik_vs_karaliste_protocol.md",
+    "sha256": "4461bb166e0676d919aaa1d7dbe7688fede65fd7ef747439961c06fe92b31f64",
+    "commit": "6e45225949a3ee123af4e9a5f3f2ba24ce81181f"
+  },
+  "created_at": "2026-09-17T21:54:10+00:00",
+  "git_head": "a6347f52005ea134fb25a61dd7fcc4b073adc657",
+  "inputs": {
+    "frozen_slice": {
+      "path": "eval\\frozen\\study_slice_dev.json",
+      "sha256": "94754632fb66d543b7c1e84bc4e396b65585f8adba90a4f2fc87aca8f2acbed8"
+    },
+    "derived_labels": {
+      "path": "eval\\derived\\m1_lexicon_dev_seed42.json",
+      "sha256": "03c9895541cc6d86dfaffcd201ab753228e89ae59f36e6a0cc09139faa7a7fa0"
+    },
+    "predictions": {
+      "path": "diagnosis/results/01_baseline_berturk/dev_predictions.csv",
+      "sha256": "a2f5bddf12dcfbc4f4ffa1f0bbfd9d37adcffaec0518d3aa627864a0538a6346"
+    }
+  },
+  "bootstrap": {
+    "n_boot": 2000,
+    "seed": 42,
+    "unit": "row",
+    "ci": 0.95
+  },
+  "n_rows": 4764,
+  "n_off": 920,
+  "n_not": 3844,
+  "counts": {
+    "karaliste_hits": 614,
+    "terlik_hits": 459
+  },
+  "derived_labels_generator": {
+    "version": "2.0.0",
+    "module_versions": {
+      "m0_charsafe": "0.2.0",
+      "m2_deobf": "0.1.1",
+      "m6_target": "0.1.0",
+      "m1_lexicon": "0.1.0"
+    },
+    "normalized_channel_available": true
+  },
+  "karaliste": {
+    "recall": {
+      "value": 0.3858695652173913,
+      "ci_low": 0.35425531914893615,
+      "ci_high": 0.41734104046242776
+    },
+    "fpr": {
+      "value": 0.0673777315296566,
+      "ci_low": 0.0594161715319039,
+      "ci_high": 0.07569825110937092
+    },
+    "precision": {
+      "value": 0.5781758957654723,
+      "ci_low": 0.5394524959742351,
+      "ci_high": 0.6185737976782753
+    }
+  },
+  "terlik": {
+    "recall": {
+      "value": 0.3923913043478261,
+      "ci_low": 0.36404494382022473,
+      "ci_high": 0.42424242424242425
+    },
+    "fpr": {
+      "value": 0.025494276795005204,
+      "ci_low": 0.020677177565262342,
+      "ci_high": 0.03084499740798341
+    },
+    "precision": {
+      "value": 0.7864923747276689,
+      "ci_low": 0.747072599531616,
+      "ci_high": 0.8227571115973742
+    }
+  },
+  "terlik_minus_karaliste": {
+    "recall": {
+      "value": 0.0065217391304348005,
+      "ci_low": -0.02192982456140352,
+      "ci_high": 0.03655913978494624
+    },
+    "fpr": {
+      "value": -0.0418834547346514,
+      "ci_low": -0.05023671751709627,
+      "ci_high": -0.03364389233954451
+    }
+  },
+  "terlik_any_channel": {
+    "predictor": "lexicon_hit (raw OR normalized), the A-head pseudo-label predicate",
+    "hits": 459,
+    "normalized_only_rows": 0,
+    "raw_only_rows": 4,
+    "recall": {
+      "value": 0.3923913043478261,
+      "ci_low": 0.36404494382022473,
+      "ci_high": 0.42424242424242425
+    },
+    "fpr": {
+      "value": 0.025494276795005204,
+      "ci_low": 0.020677177565262342,
+      "ci_high": 0.03084499740798341
+    },
+    "precision": {
+      "value": 0.7864923747276689,
+      "ci_low": 0.747072599531616,
+      "ci_high": 0.8227571115973742
+    },
+    "minus_karaliste": {
+      "recall": {
+        "value": 0.0065217391304348005,
+        "ci_low": -0.02192982456140352,
+        "ci_high": 0.03655913978494624
+      },
+      "fpr": {
+        "value": -0.0418834547346514,
+        "ci_low": -0.05023671751709627,
+        "ci_high": -0.03364389233954451
+      }
+    }
+  },
+  "disagreement": {
+    "all_rows": {
+      "both": 303,
+      "karaliste_only": 311,
+      "terlik_only": 156,
+      "neither": 3994
+    },
+    "gold_off_rows": {
+      "both": 264,
+      "karaliste_only": 91,
+      "terlik_only": 97,
+      "neither": 468
+    },
+    "terlik_free_rows_with_substring_collision": {
+      "n": 2114,
+      "of": 4305,
+      "share": 0.49105691056910566
+    },
+    "examples_karaliste_only": [
+      {
+        "row_id": "39505",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "20479",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "12707",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "20233",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "16716",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "31265",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "24217",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "14777",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "32289",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "38484",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "17892",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "27427",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "34764",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "32539",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "24182",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "11728",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "41010",
+        "gold": "NOT",
+        "terlik_collision": false
+      },
+      {
+        "row_id": "29888",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "42590",
+        "gold": "NOT",
+        "terlik_collision": true
+      },
+      {
+        "row_id": "42187",
+        "gold": "NOT",
+        "terlik_collision": true
+      }
+    ],
+    "examples_terlik_only": [
+      {
+        "row_id": "26578",
+        "gold": "NOT",
+        "roots": [
+          "sik"
+        ],
+        "surfaces": [
+          "şike",
+          "şike"
+        ]
+      },
+      {
+        "row_id": "33511",
+        "gold": "NOT",
+        "roots": [
+          "piç"
+        ],
+        "surfaces": [
+          "PC",
+          "PC"
+        ]
+      },
+      {
+        "row_id": "23217",
+        "gold": "NOT",
+        "roots": [
+          "am"
+        ],
+        "surfaces": [
+          "amin",
+          "amin"
+        ]
+      },
+      {
+        "row_id": "29515",
+        "gold": "NOT",
+        "roots": [
+          "sik"
+        ],
+        "surfaces": [
+          "sıkıldım",
+          "sıkıldım"
+        ]
+      },
+      {
+        "row_id": "38474",
+        "gold": "NOT",
+        "roots": [
+          "maymun"
+        ],
+        "surfaces": [
+          "maymun",
+          "maymun"
+        ]
+      },
+      {
+        "row_id": "14292",
+        "gold": "NOT",
+        "roots": [
+          "am"
+        ],
+        "surfaces": [
+          "A M"
+        ]
+      },
+      {
+        "row_id": "10773",
+        "gold": "NOT",
+        "roots": [
+          "amk"
+        ],
+        "surfaces": [
+          "a k"
+        ]
+      },
+      {
+        "row_id": "12632",
+        "gold": "NOT",
+        "roots": [
+          "yalaka"
+        ],
+        "surfaces": [
+          "Yalakacılar",
+          "Yalakacılar"
+        ]
+      },
+      {
+        "row_id": "14717",
+        "gold": "NOT",
+        "roots": [
+          "sersem"
+        ],
+        "surfaces": [
+          "sersemine",
+          "sersemine"
+        ]
+      },
+      {
+        "row_id": "27110",
+        "gold": "NOT",
+        "roots": [
+          "rezil"
+        ],
+        "surfaces": [
+          "rezil",
+          "rezil"
+        ]
+      },
+      {
+        "row_id": "36176",
+        "gold": "NOT",
+        "roots": [
+          "am"
+        ],
+        "surfaces": [
+          "Amin",
+          "Amin"
+        ]
+      },
+      {
+        "row_id": "12234",
+        "gold": "NOT",
+        "roots": [
+          "alık"
+        ],
+        "surfaces": [
+          "ali, kimi",
+          "ali, kimi"
+        ]
+      },
+      {
+        "row_id": "30675",
+        "gold": "NOT",
+        "roots": [
+          "rezil"
+        ],
+        "surfaces": [
+          "rezillik",
+          "rezillik"
+        ]
+      },
+      {
+        "row_id": "27253",
+        "gold": "NOT",
+        "roots": [
+          "piç"
+        ],
+        "surfaces": [
+          "pc",
+          "pc"
+        ]
+      },
+      {
+        "row_id": "18776",
+        "gold": "NOT",
+        "roots": [
+          "sahtekar"
+        ],
+        "surfaces": [
+          "sahtekarlık",
+          "sahtekarlık"
+        ]
+      },
+      {
+        "row_id": "17322",
+        "gold": "NOT",
+        "roots": [
+          "sik"
+        ],
+        "surfaces": [
+          "sık",
+          "sık"
+        ]
+      },
+      {
+        "row_id": "14848",
+        "gold": "NOT",
+        "roots": [
+          "am"
+        ],
+        "surfaces": [
+          "‘amca",
+          "‘amca"
+        ]
+      },
+      {
+        "row_id": "20542",
+        "gold": "NOT",
+        "roots": [
+          "amk"
+        ],
+        "surfaces": [
+          "mk",
+          "mk"
+        ]
+      },
+      {
+        "row_id": "18290",
+        "gold": "NOT",
+        "roots": [
+          "yüzkarası"
+        ],
+        "surfaces": [
+          "Yuz karası",
+          "Yuz karası"
+        ]
+      },
+      {
+        "row_id": "43138",
+        "gold": "NOT",
+        "roots": [
+          "göt"
+        ],
+        "surfaces": [
+          "667",
+          "667",
+          "672",
+          "672",
+          "677",
+          "677",
+          "673",
+          "673"
+        ]
+      }
+    ]
+  },
+  "decision_rule": "none (protocol §3): comparison only; the frozen slice stays karaliste's"
+}

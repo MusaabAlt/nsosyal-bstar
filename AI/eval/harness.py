@@ -36,8 +36,11 @@ from __future__ import annotations
 
 import argparse
 import datetime as dt
+import hashlib
 import json
+import platform
 import random
+import subprocess
 import sys
 import unicodedata
 from dataclasses import dataclass
@@ -46,16 +49,19 @@ from typing import Any
 
 from contracts.codes import ContentCode, FormCode, GuardCode, ModuleName, TargetType
 from contracts.module_api import Context, ModuleOutput
-from contracts.schema import AnalysisResult
-from decision import fusion
+from contracts.schema import AnalysisResult, ContentScore
+from decision import actions, fusion
 from modules import registry
-from pipeline.run import (Pipeline, artifact_hash, build_modules_safely, deep_freeze, safe_process,
-                          span_declarations)
+from pipeline.run import (DEGRADED_FAILED, DEGRADED_INVALID, DEGRADED_STUB, Pipeline, artifact_hash,
+                          build_modules_safely, deep_freeze, safe_process, span_declarations)
 
 ROOT = Path(__file__).resolve().parent.parent
 TRAPS_PATH = ROOT / "eval" / "traps" / "traps.jsonl"
 RESULTS_DIR = ROOT / "eval" / "results"
 REPRESENTATION_FIELDS = ("charsafe_text", "normalized_text")
+# Declared per-module implementation status (STUB / PARTIAL / IMPLEMENTED), owner-maintained.
+IMPLEMENTATION_STATUS_PATH = ROOT / "eval" / "implementation_status.json"
+IMPLEMENTATION_STATUSES = ("IMPLEMENTED", "PARTIAL", "STUB")
 
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
@@ -187,6 +193,118 @@ def tr_fold(text: str) -> str:
     return unicodedata.normalize("NFC", text).replace("I", "ı").replace("İ", "i").lower()
 
 
+# -- observability (Gate 1) -----------------------------------------------------------
+# Three things a result file used to hide: that the module was a stub or failed
+# (the harness never degraded), what the binary offensive score did (only content
+# codes were scored), and which bytes produced the number (no provenance).
+
+def degradation_record(module: Any, out: ModuleOutput, problems: list[str]) -> dict[str, Any] | None:
+    """The `signals.pipeline.degraded` entry Pipeline.analyze would write for this
+    module's output: stub, ok=False, or items dropped by Pipeline._merge - same
+    kinds, same reasons, same order. tests/test_harness_gate1.py checks the two
+    agree, so the harness cannot drift into calling a stub healthy."""
+    kinds: list[str] = []
+    reasons: list[str] = []
+    if getattr(module, "stub", False):
+        kinds.append(DEGRADED_STUB)
+        reasons.append("stub: no detection logic yet")
+    if not out.ok:
+        kinds.append(DEGRADED_FAILED)
+        reasons.append("; ".join(map(str, out.notes)) or "ok=False")
+    if problems:
+        kinds.append(DEGRADED_INVALID)
+        reasons.extend(problems)
+    if not kinds:
+        return None
+    return {"module": module.name.value, "kinds": kinds, "reasons": reasons}
+
+
+def observe(result: AnalysisResult, cfg: dict[str, Any]) -> dict[str, Any]:
+    """What one decided result says, as SEPARATE facts - never one boolean:
+    content that fired, the binary score's state, form / guard effects,
+    degradation, and the verdict with what drove it (actions.resolve is pure, so
+    re-asking it here changes nothing)."""
+    decision = result.signals.get("decision", {})
+    binary = decision.get("binary_offensive")
+    verdict, driver = actions.resolve(result, cfg)
+    return {
+        "content_fired": sorted(s.code.value for s in result.fired()),
+        "content_scored": sorted(f"{s.code.value}<-{s.source}" for s in result.content
+                                 if s.code is not ContentCode.CLEAN),
+        "binary": None if binary is None else {"fired": binary["fired"], "threshold": binary["threshold"],
+                                                "channels": binary["channels"], "action": binary["action"]},
+        "form_active": [c.value for c in result.form.active],
+        "guards_active": sorted(g.code.value for g in result.guards if g.active),
+        "guards_suppressed": {g.code.value: [c.value for c in g.suppressed] for g in result.guards if g.suppressed},
+        "degraded": [d["module"] for d in actions.degraded_modules(result)],
+        "post_offensive": decision.get("post_offensive"),
+        "verdict": None if verdict is None else verdict.value,
+        "driver": f"content:{driver.code.value}" if isinstance(driver, ContentScore) else driver,
+    }
+
+
+def binary_fired(result: AnalysisResult) -> bool:
+    binary = result.signals.get("decision", {}).get("binary_offensive") or {}
+    return bool(binary.get("fired"))
+
+
+def _git(*args: str) -> str | None:
+    try:
+        done = subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    return done.stdout.strip()
+
+
+def file_digest(path: Path) -> str | None:
+    try:
+        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    except OSError:
+        return None
+
+
+def provenance(inputs: dict[str, Path], **extra: Any) -> dict[str, Any]:
+    """Where a number came from: the commit, whether tracked files under AI/ were
+    dirty, and the digest of every data file read. A result without this block
+    cannot be tied to a commit (HISTORICAL_RESULT); one with it is a
+    CURRENT_REPRODUCIBLE_RESULT only while `git_dirty` is false and the digests
+    match that commit."""
+    status = _git("status", "--porcelain", "--", ".")
+    lines = [line for line in (status or "").splitlines() if line]
+    return {
+        "git_head": _git("rev-parse", "HEAD"),
+        "git_dirty": None if status is None else any(not line.startswith("??") for line in lines),
+        "git_untracked_under_ai": None if status is None else sum(1 for line in lines if line.startswith("??")),
+        "python": platform.python_version(),
+        "inputs": {name: {"path": (str(Path(p).relative_to(ROOT)) if Path(p).is_relative_to(ROOT) else str(p)),
+                          "sha256": file_digest(Path(p))} for name, p in inputs.items()},
+        **extra,
+    }
+
+
+def implementation_status(module: Any) -> dict[str, Any]:
+    """Declared status (eval/implementation_status.json) cross-checked with the
+    module's `stub` flag. The report says in words what its numbers cover: a
+    stub's numbers cover nothing, a PARTIAL module's numbers never cover its
+    `not_built` list."""
+    declared = json.loads(IMPLEMENTATION_STATUS_PATH.read_text(encoding="utf-8"))["modules"].get(module.name.value)
+    is_stub = bool(getattr(module, "stub", False))
+    status = "UNDECLARED" if declared is None else str(declared.get("status"))
+    consistent = declared is not None and status in IMPLEMENTATION_STATUSES and (status == "STUB") == is_stub
+    if not consistent:
+        # A wrong declaration is a data error to fix before any number is read.
+        scope = f"INCONSISTENT: declared {status!r} but stub={is_stub}; fix eval/implementation_status.json"
+    elif is_stub:
+        scope = "NOT VERIFIED: stub - traps, per-code metrics and latency describe an empty module"
+    else:
+        scope = (f"MEASURED ({status}); items in not_built are outside this measurement"
+                 if status == "PARTIAL" else f"MEASURED ({status})")
+    return {"stub": is_stub, "declared_status": status, "consistent": consistent,
+            "not_built": list((declared or {}).get("not_built", [])),
+            "preconditions": list((declared or {}).get("preconditions", [])),
+            "behaviour_measurable": consistent and not is_stub, "scope": scope}
+
+
 @dataclass
 class Cells:
     tp: int = 0
@@ -255,12 +373,17 @@ class ModuleEvaluator:
             latencies += timings
             self.trap_items += [index] * len(timings)
         result = AnalysisResult(text=item["text"])
-        Pipeline._merge(result, out, self.module)
+        problems = list(Pipeline._merge(result, out, self.module))
         # Same signal view the pipeline gives the decision layer, so signal-
-        # conditioned thresholds resolve identically in eval and at inference.
+        # conditioned thresholds resolve identically in eval and at inference -
+        # including DEGRADATION: a stub, a failure or dropped output is degraded
+        # here exactly as in Pipeline.analyze, so a result file can never show a
+        # clean verdict for a module that did not run (Gate 1).
         result.signals.update(extra.get("signals", {}))
         result.signals[self.module.name.value] = out.signals
-        result.signals["pipeline"] = {"emits_spans": span_declarations([self.module])}
+        degraded = degradation_record(self.module, out, problems)
+        result.signals["pipeline"] = {"degraded": [degraded] if degraded else [],
+                                      "emits_spans": span_declarations([self.module])}
         fusion.decide(result, self.config)
         predicted = {s.code.value for s in result.fired()}
         predicted |= {c.value for c in result.form.active}
@@ -337,10 +460,13 @@ class ModuleEvaluator:
         expect_total, expect_failures, module_errors, out_of_space = 0, [], [], []
         representation_field = next((f for f in REPRESENTATION_FIELDS if f in self.module.provides), None)
         clean_rows: list[tuple[str, str, str | None]] = []
+        degraded_items: list[dict[str, Any]] = []
         for item in scored:
-            out, _, predicted = self.run_item(item)
+            out, result, predicted = self.run_item(item)
             if not out.ok:
                 module_errors.append({"id": item.get("id"), "notes": out.notes})
+            for entry in result.signals["pipeline"]["degraded"]:
+                degraded_items.append({"id": item.get("id"), "kinds": entry["kinds"]})
             gold = set(item.get("expected", item.get("expect_patterns", [])))
             unknown = sorted(gold - set(codes))
             if unknown:
@@ -369,10 +495,21 @@ class ModuleEvaluator:
         traps = self.check_traps()
         budget = self.config["budgets"]["module_latency_p95_ms"].get(self.module.name.value)
         fixture_p95 = percentile(self.fixture_latencies, 95)
+        status = implementation_status(self.module)
         return {
             "module": self.module.name.value,
             "version": self.module.version,
             "created_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+            # Gate 1: what this report's numbers cover, and which bytes produced them.
+            "implementation": status,
+            "degraded_items": {"n": len(degraded_items), "n_scored": len(scored), "items": degraded_items,
+                               "note": "an item is degraded for the same reasons Pipeline.analyze degrades it; "
+                                       "a stub degrades every item, so its per-code numbers verify nothing"},
+            "provenance": provenance({"fixture": self.fixture_path, "traps": self.traps_path,
+                                      "thresholds": fusion.DEFAULT_CONFIG_PATH,
+                                      "implementation_status": IMPLEMENTATION_STATUS_PATH},
+                                     traps_n=traps["n"], latency_repeats=self.latency_repeats,
+                                     n_boot=self.n_boot),
             "fixture": (str(self.fixture_path.relative_to(ROOT)) if self.fixture_path.is_relative_to(ROOT)
                         else str(self.fixture_path)),
             "thresholds_artifact": self.config["artifact"]["id"],
@@ -415,40 +552,72 @@ class ModuleEvaluator:
 
         A "must" that a stub cannot meet yet is reported as pending, not as a
         regression; a stub still has to respect every "must_not".
+
+        Gate 1 additions:
+          binary         {"modules": [...], "must_not_fire": true} - the binary
+                         offensive score (signals.decision.binary_offensive) must
+                         not fire for a listed module; a listed module that
+                         publishes no numeric score fails the rule outright.
+          observations   one record per trap with the SEPARATE facts: content
+                         fired, binary state, form / guard effects, degradation,
+                         verdict and driver - so "0 regressions" can be read next
+                         to "binary fired on N traps".
+          binary_fired   ids of every trap whose binary score fired, whether or
+                         not a rule asked about it. Which traps may carry a
+                         `binary` rule is not decided (OPEN_QUESTIONS Q2, Q18),
+                         so no committed trap has one yet; the list is the
+                         observable fact the rule would assert on.
         """
         if not self.traps_path.exists():
-            return {"n": 0, "regressions": 0, "failures": [], "pending": [], "note": "traps file missing"}
+            return {"n": 0, "regressions": 0, "failures": [], "pending": [], "binary_fired": [],
+                    "binary_observable": False, "observations": [], "note": "traps file missing"}
         traps = load_jsonl(self.traps_path)
         name = self.module.name.value
         is_stub = bool(getattr(self.module, "stub", False))
-        failures, pending = [], []
+        failures, pending, observations, fired_binary = [], [], [], []
         for trap in traps:
             out, result, _ = self.run_item(trap, latencies=self.trap_latencies)
+            observed = observe(result, self.config)
+            observations.append({"id": trap.get("id"), **observed})
             banned = set(trap.get("must_not_fire", ["*"]))
-            fired = {s.code.value for s in result.fired()}
+            fired = set(observed["content_fired"])
             hit = fired if "*" in banned else fired & banned
             problems = [f"fired {sorted(hit)}"] if hit else []
             problems += self._expect_failures(trap, out)
             emitted = {"form": {p.code.value for p in result.form.patterns},
                        "guards": {g.code.value for g in result.guards}}
             waiting = []
-            for field_name, observed in emitted.items():
+            for field_name, emitted_codes in emitted.items():
                 rule = trap.get(field_name)
                 if not rule or name not in rule.get("modules", []):
                     continue
-                missing = sorted(set(rule.get("must", [])) - observed)
+                missing = sorted(set(rule.get("must", [])) - emitted_codes)
                 if missing:
                     (waiting if is_stub else problems).append(f"{field_name}: expected {missing}")
                 forbidden = set(rule.get("must_not", []))
-                unwanted = sorted(observed if "*" in forbidden else observed & forbidden)
+                unwanted = sorted(emitted_codes if "*" in forbidden else emitted_codes & forbidden)
                 if unwanted:
                     problems.append(f"{field_name}: must not emit {unwanted}")
+            binary = observed["binary"]
+            if binary is not None and binary["fired"]:
+                fired_binary.append(trap.get("id"))
+            rule = trap.get("binary")
+            if rule and name in rule.get("modules", []):
+                if binary is None or binary["fired"] is None:
+                    problems.append("binary: no numeric score observed on any configured channel")
+                elif rule.get("must_not_fire") and binary["fired"]:
+                    problems.append(f"binary: fired {binary['channels']} at threshold {binary['threshold']}")
             if problems:
                 failures.append({"id": trap.get("id"), "text": trap["text"], "problems": problems})
             if waiting:
                 pending.append({"id": trap.get("id"), "text": trap["text"], "pending": waiting})
         return {"n": len(traps), "regressions": len(failures), "failures": failures, "pending": pending,
-                "checks": "content codes (must_not_fire), expect fields, emitted form patterns and guards"}
+                "binary_fired": fired_binary,
+                "binary_observable": any(o["binary"] is not None and o["binary"]["fired"] is not None
+                                         for o in observations),
+                "observations": observations,
+                "checks": "content codes (must_not_fire), expect fields, emitted form patterns and guards, "
+                          "binary rule where a trap names this module; binary_fired is reported for every trap"}
 
     def write(self, report: dict[str, Any]) -> Path:
         self.results_dir.mkdir(parents=True, exist_ok=True)
@@ -469,10 +638,19 @@ def summarize(report: dict[str, Any]) -> str:
     """Human summary: one line per code with support or predictions - never an average."""
     lat = report["latency"]
     p95 = "n/a" if lat["fixture"]["p95_ms"] is None else f"{lat['fixture']['p95_ms']:.3f}ms"
-    lines = [f"{report['module']}: scored={report['n_scored']} placeholder={report['n_placeholder']} "
-             f"traps={report['traps']['regressions']}/{report['traps']['n']} "
-             f"pending={len(report['traps'].get('pending', []))} fixture_p95={p95} x{lat['repeats']} "
+    status = report.get("implementation", {})
+    traps = report["traps"]
+    lines = [f"{report['module']} [{status.get('declared_status', '?')}]: scored={report['n_scored']} "
+             f"placeholder={report['n_placeholder']} degraded_items={report.get('degraded_items', {}).get('n', '?')} "
+             f"traps={traps['regressions']}/{traps['n']} pending={len(traps.get('pending', []))} "
+             f"binary_fired={len(traps.get('binary_fired', []))}/{traps['n']}"
+             f"{'' if traps.get('binary_observable') else ' (binary not observable for this module)'} "
+             f"fixture_p95={p95} x{lat['repeats']} "
              f"within_budget(clean)={lat['within_budget']} adversarial_over_budget={lat['adversarial_over_budget']}"]
+    if status and not status.get("behaviour_measurable", True):
+        lines.append(f"  ** {status['scope']} **")
+    elif status.get("not_built"):
+        lines.append(f"  not_built (outside this measurement): {'; '.join(status['not_built'])}")
     for name in LATENCY_CLASSES:
         bands = " ".join(_band_text(b) for b in lat[name].get("budget_bands", []))
         if bands:
@@ -521,10 +699,18 @@ def pipeline_budget_report(config: dict[str, Any] | None = None, traps_path: Pat
     without_channel = Pipeline(modules=[NoNormalizedChannel() if m.name is ModuleName.M2_DEOBF else m
                                         for m in modules], config=cfg)
     traps = load_jsonl(traps_path)
-    flips = [t.get("id") for t in traps
-             if not without_channel.analyze(t["text"]).fired() and with_channel.analyze(t["text"]).fired()]
+    with_runs = [(t, with_channel.analyze(t["text"])) for t in traps]
+    without_runs = [without_channel.analyze(t["text"]) for t in traps]
+    flips = [t.get("id") for (t, on), off in zip(with_runs, without_runs) if not off.fired() and on.fired()]
     flip_budget = cfg["budgets"]["clean_to_dirty_flip_rate"]
     flip_rate = _ratio(len(flips), len(traps))
+    # Gate 1: the binary offensive score is verdict-relevant but not a content code,
+    # so the budget above never sees it. Reported next to it, not folded in: the
+    # budget's definition (m2 spec.md §8) is content codes, and whether a binary flip
+    # counts is undecided (OPEN_QUESTIONS Q18).
+    binary_flips = [t.get("id") for (t, on), off in zip(with_runs, without_runs)
+                    if not binary_fired(off) and binary_fired(on)]
+    trap_observations = [{"id": t.get("id"), **observe(on, cfg)} for t, on in with_runs]
 
     if texts is None:
         texts = [t["text"] for t in traps]
@@ -540,11 +726,26 @@ def pipeline_budget_report(config: dict[str, Any] | None = None, traps_path: Pat
             "value": flip_rate, "flipped_trap_ids": flips, "n_traps": len(traps), "budget": flip_budget,
             "within_budget": None if flip_rate is None else flip_rate <= flip_budget,
         },
+        "binary_offensive_on_traps": {
+            "fired_with_channel_trap_ids": [o["id"] for o in trap_observations if o["binary"] and o["binary"]["fired"]],
+            "flipped_by_channel_trap_ids": binary_flips,
+            "n_traps": len(traps),
+            "budgeted": False,
+            "note": "reported, not budgeted: clean_to_dirty_flip_rate is defined on content codes (m2 spec §8)",
+        },
+        "trap_observations": trap_observations,
         "pipeline_latency": {
             "repeats": runs, "n_texts": len(texts),
             "n": len(latencies), "p50_ms": percentile(latencies, 50), "p95_ms": p95, "budget_p95_ms": latency_budget,
             "within_budget": None if p95 is None else p95 <= latency_budget,
         },
+        "degraded_modules": sorted({d["module"] for _, on in with_runs for d in actions.degraded_modules(on)}),
+        "provenance": provenance({"traps": Path(traps_path), "thresholds": fusion.DEFAULT_CONFIG_PATH,
+                                  **{f"fixture:{entry.name.value}": default_fixture(entry.name.value)
+                                     for entry in registry.PIPELINE_ORDER
+                                     if default_fixture(entry.name.value).exists()}},
+                                 traps_n=len(traps), latency_repeats=runs,
+                                 modules=[f"{m.name.value}:{getattr(m, 'version', '')}" for m in modules]),
     }
 
 

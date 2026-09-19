@@ -86,7 +86,7 @@ used, not by the target, and M1's sacred-concept extension carries it.
 - Toraman v2 — large, but distributed as tweet IDs. **Measure and report the hydration loss** when you download it, together with the resulting class distribution. Licence is non-commercial share-alike; record it.
 - TDDİ-2023 — available, but see the warning below about its label set.
 - ATC — Turkish Instagram comments, roughly 10.5k offensive / 19.8k non-offensive.
-- The Çöltekin OffensEval-TR corpus — 36,232 tweets, about 19% offensive, top-level annotator agreement κ ≈ 0.76.
+- The Çöltekin OffensEval-TR corpus — 35,284 tweets as distributed (31,756 training + 3,528 test, verified file counts; the paper's 36,232 headline figure is not what the files hold, `docs/team/abdullah/RESOURCES.md` item 3), about 19% offensive, top-level annotator agreement κ ≈ 0.76. The test half is SPENT and locked; only the training half is used (`modules/m3_encoder/DATASETS.md`).
 
 **Training data — banned outright:**
 
@@ -102,6 +102,14 @@ identically if de-obfuscation changes token count, which means the two channels
 can end up judging different amounts of text. Measure how often that happens on
 your own data and record it; if it is common, truncate both channels at the
 same character offset rather than the same token count.
+
+*Declared policy (implemented, `module.py`, `DATASETS.md`):* maximum sequence length **128
+tokens** (the study's `max_len`, the value the frozen threshold was fitted with), the first tokens
+kept and the rest dropped, on each channel independently; a note `truncated (<channel>): N tokens,
+scored the first 128` whenever it happens, and `signals["truncated_differently"]` set when only one
+channel was truncated (token counts stay internal). How often the channels truncate differently on
+dev is measured once the normalized channel is scored on the corpus (the training package's
+evaluation records both token counts); until then the same-token-count rule stands.
 
 
 ---

@@ -22,9 +22,21 @@
 {"id": "trap-022", "text": "sIkIntI", "must_not_fire": ["*"], "expect": {"charsafe_text": "sıkıntı"}, "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}}
 {"id": "trap-023", "text": "SiKiNTi", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
 {"id": "trap-024", "text": "Kemal'in mali durumu normal.", "must_not_fire": ["*"]}
+{"id": "trap-025", "text": "götür", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
 {"id": "trap-026", "text": "Bisiklete binerken sıkıcı bir film düşündüm.", "must_not_fire": ["*"]}
 {"id": "trap-027", "text": "Çocuğu okula kendisi götürdü.", "must_not_fire": ["*"]}
 {"id": "trap-028", "text": "Kerpiç evler yazın serin olur.", "must_not_fire": ["*"]}
 {"id": "trap-029", "text": "Müzede eski sikkeleri inceledik.", "must_not_fire": ["*"]}
 {"id": "trap-030", "text": "Amasya'ya tatile gittik.", "must_not_fire": ["*"]}
+{"id": "trap-031", "text": "PSİKOLOJİ", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
 {"id": "trap-032", "text": "Salı günü elmaların hepsini aldık.", "must_not_fire": ["*"]}
+{"id": "trap-033", "text": "AMİR", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-034", "text": "Allah kabul etsin, amin", "must_not_fire": ["*"], "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-035", "text": "Allah akıl fikir versin AMİN", "must_not_fire": ["*"], "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-036", "text": "götürdüler", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-037", "text": "amacımız", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-038", "text": "GÖTÜRMEK", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-039", "text": "AMAÇ", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must_not": ["*"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-040", "text": "KERPİÇ", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-041", "text": "SİKKE", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}
+{"id": "trap-042", "text": "KLASİK", "must_not_fire": ["*"], "form": {"modules": ["m0_charsafe"], "must": ["DOTLESS_I"], "must_not": ["ZERO_WIDTH", "HOMOGLYPH"]}, "guards": {"modules": ["m1_lexicon"], "must": ["SUBSTRING_COLLISION"]}}

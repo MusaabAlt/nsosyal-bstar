@@ -4,21 +4,27 @@ Turkish offensive-content moderation. Modular: every category of offensive
 speech gets its own engine, its own threshold and its own action. Runs fully
 offline on CPU - no platform API, no network call at inference.
 
-**Status: skeleton.** Contracts, decision layer, pipeline, evaluation harness
-and the reference module `m0_charsafe` are implemented. `m1_lexicon` is
-implemented on terlik (`f9159be`). `m3_encoder` is PARTIAL (`0bb9d25`):
-inference wraps the frozen epoch-1 BERTurk baseline and publishes `raw_score`,
-but the A, B and C heads are deferred. `m4_implicit` emits nothing yet by
-design (C1-C5 come from m3's C head, ADR-006); m2, m5 and m6 are documented
-stubs. In `decision/thresholds.yaml` the `binary_offensive` threshold is
-derived (`0bb9d25`); every other number is a placeholder until derived on dev.
+**Status (2026-09-17, `docs/audit/PROJECT_COMPLETION_STATUS.md`).** Contracts,
+decision layer, pipeline, evaluation harness and `m0_charsafe` are implemented and
+verified. `m2_deobf` runs (protection pass, tier 1, zeyrek-validated DEASCII; the
+lexicon-dependent patterns are declared unhandled). `m6_target` v1 runs (target
+resolution and B4 doxing; the three documented ambiguities are declared pending the
+owner). `m1_lexicon` runs on terlik on both channels with SUBSTRING_COLLISION,
+HOMONYM and NON_HUMAN_TARGET (A4 needs an owner-approved table). `m3_encoder` is
+PARTIAL: the frozen epoch-1 BERTurk baseline scores both channels (`raw_score`,
+`norm_score`); the A, B and C heads wait for labels and a GPU run
+(`docs/training/GPU_HANDOFF.md`). `m4_implicit` emits nothing by design (C1-C5 come
+from m3's C head, ADR-006); `m5_sarcasm` is the one remaining stub (entry gate,
+`docs/blockers/`). In `decision/thresholds.yaml` the `binary_offensive` threshold is
+derived; every other number is a placeholder until derived on dev.
 
 ## Quick start
 
 Run from `AI/`.
 
 ```bash
-python -m pip install -r requirements.txt      # pyyaml only
+python -m pip install -r requirements.txt      # pyyaml only; the full suite also needs the module requirements
+                                               # (terlik, zeyrek, torch/transformers) - use AI/.venv, see CONTRIBUTING.md "Interpreter"
 python -m pipeline.run "Bu bir test cumlesi"   # prints the full contract JSON
 python -m pipeline.run "a" "b" "c" --thread '{"sender_id": "u1", "target_id": "u2"}'   # Axis 4 path (ADR-004)
 python -m unittest discover -p "test_*.py"

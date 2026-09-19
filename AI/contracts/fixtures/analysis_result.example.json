@@ -2,8 +2,21 @@
   "text": "Bu bir test cumlesi",
   "verdict": "review",
   "form": {
-    "patterns": [],
-    "active": []
+    "patterns": [
+      {
+        "code": "DEASCII",
+        "confidence": 0.55,
+        "evidence": "cumlesi",
+        "span": [
+          12,
+          19
+        ],
+        "source": "m2_deobf"
+      }
+    ],
+    "active": [
+      "DEASCII"
+    ]
   },
   "content": [],
   "target": null,
@@ -16,8 +29,20 @@
       "homoglyphs_mapped": 0,
       "charsafe_changed": false
     },
-    "m2_deobf": {},
-    "m6_target": {},
+    "m2_deobf": {
+      "changed": true,
+      "codes": [
+        "DEASCII"
+      ],
+      "tier2_enabled": true,
+      "offsets_identity": false
+    },
+    "m6_target": {
+      "target_type": "none",
+      "target_confidence": 0.0,
+      "target_evidence": null,
+      "target_candidates": []
+    },
     "m1_lexicon": {
       "lexicon_hit": false,
       "lexicon_hit_raw": false,
@@ -27,30 +52,14 @@
     },
     "m3_encoder": {
       "raw_score": 0.02141149342060089,
-      "artifact": "m3-berturk-pytorch-fp32-epoch1"
+      "artifact": "m3-berturk-pytorch-fp32-epoch1",
+      "truncated_differently": false,
+      "norm_score": 0.017840590327978134
     },
     "m4_implicit": {},
     "m5_sarcasm": {},
     "pipeline": {
       "degraded": [
-        {
-          "module": "m2_deobf",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
-        {
-          "module": "m6_target",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
         {
           "module": "m5_sarcasm",
           "kinds": [
@@ -92,7 +101,7 @@
       "post_offensive": false
     }
   },
-  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m2_deobf henüz uygulanmadı, m6_target henüz uygulanmadı, m5_sarcasm henüz uygulanmadı.",
+  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m5_sarcasm henüz uygulanmadı.",
   "latency_ms": 0.0,
   "per_module_ms": {
     "m0_charsafe": 0.0,
@@ -105,11 +114,9 @@
   },
   "fast_path": false,
   "trace_id": "example-trace-id",
-  "artifact_hash": "4dd6d64b047ddd2d1c01dc6b66e96a8aadb41b63d02a3f155e6acabe08f4ab7f",
+  "artifact_hash": "caf7399076221ba4772358d7bbe2fb0029d3c994336230af2aa6aaa7158d4385",
   "notes": [
-    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m2_deobf (stub), m6_target (stub), m5_sarcasm (stub)",
-    "[m2_deobf] stub: detection not implemented",
-    "[m6_target] stub: detection not implemented",
+    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m5_sarcasm (stub)",
     "[m4_implicit] C1–C5 not implemented yet",
     "[m5_sarcasm] stub: detection not implemented"
   ]

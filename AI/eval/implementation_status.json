@@ -1,0 +1,165 @@
+{
+  "_README": "Declared implementation status per module, read by eval/harness.py (report block `implementation`) and pinned by tests/test_implementation_status.py. STUB must agree with the module's `stub = True` flag; PARTIAL lists what the spec requires that is NOT built, so a measurement can never be read as covering it; IMPLEMENTED means every spec deliverable exists (it still says nothing about correctness - that is what the measurement is for). `expected_skipped_tests` is the exact set of behaviour tests that are allowed to be skipped in the module's test_unit.py; any other skip fails the suite. `preconditions` name what a machine needs for the behaviour tests to RUN rather than skip. Sources: AI/docs/audit/MODULE_CONTRACTS.md, MODULE_MAP.md (2026-09-17). Owners update this file with their module (docs/team/README.md).",
+  "generic_contract_tests": [
+    "test_name_matches_folder",
+    "test_provides_are_contract_fields",
+    "test_process_returns_ok_module_output",
+    "test_output_stays_within_provides",
+    "test_never_sets_decision_fields",
+    "test_contract_shape",
+    "test_input_not_mutated",
+    "test_never_raises"
+  ],
+  "modules": {
+    "m0_charsafe": {
+      "status": "IMPLEMENTED",
+      "built": [
+        "invisible characters",
+        "combining marks",
+        "styled Latin",
+        "confusables",
+        "Turkish casing",
+        "_offsets signal",
+        "per-length latency"
+      ],
+      "not_built": [],
+      "expected_skipped_tests": [],
+      "preconditions": [],
+      "source": [
+        "modules/m0_charsafe/spec.md",
+        "AI/docs/audit/MODULE_CONTRACTS.md#m0_charsafe"
+      ]
+    },
+    "m1_lexicon": {
+      "status": "PARTIAL",
+      "built": [
+        "raw-channel morpheme-boundary match (terlik balanced), spans tightened to the matched word",
+        "normalized channel through m2's _offsets (ADR-008)",
+        "A1 carrier with spans through m0 _offsets",
+        "SUBSTRING_COLLISION",
+        "HOMONYM (declared context table: 'am' as a time abbreviation)",
+        "NON_HUMAN_TARGET from m6 signals",
+        "lexicon_hit / lexicon_hit_raw / lexicon_hit_norm",
+        "terlik vs karaliste comparison (protocols/m1_terlik_vs_karaliste_protocol.md, eval/results/m1_terlik_vs_karaliste.json)"
+      ],
+      "not_built": [
+        "A4 sacred-concept extension (spec §3, §4.3): owner-approved table needed (docs/blockers/m1_a4_sacred_concepts.md)",
+        "recall / FPR of the signal on a functional test set with CIs (spec §6): only the dev-split comparison exists"
+      ],
+      "expected_skipped_tests": [],
+      "preconditions": [
+        "terlik importable"
+      ],
+      "source": [
+        "modules/m1_lexicon/README.md#not-built-yet",
+        "AI/docs/audit/MODULE_CONTRACTS.md#m1_lexicon"
+      ]
+    },
+    "m2_deobf": {
+      "status": "PARTIAL",
+      "built": [
+        "protection pass (URLs, mentions, hashtags, brand tokens, proper nouns, numbers)",
+        "tier 1: LEET, REPEAT, SPACED, PUNCT_SPLIT, accent (HOMOGLYPH), PHONETIC",
+        "tier 2: DEASCII (zeyrek-validated, ambiguity-safe), SUFFIX_ON_MASKED (reported)",
+        "spans into the original text, _offsets (ADR-008), repairs signal"
+      ],
+      "not_built": [
+        "ABBREV, VOWEL_DROP, WORD_MERGE, CHAR_DROP, DIALECT (need a Turkish lexicon / curated maps; declared unhandled, README.md)",
+        "EMOJI_SUB (out of scope v1, spec §3)",
+        "headline recall-recovery number (spec §8: needs a detector on both channels and a labelled paired set)",
+        "real-obfuscation slice and human spot-check (spec §8, §9: human tasks)"
+      ],
+      "expected_skipped_tests": [],
+      "preconditions": [
+        "zeyrek importable for tier 2 (modules/m2_deobf/requirements.txt); tier 1 runs without it"
+      ],
+      "source": [
+        "modules/m2_deobf/README.md",
+        "protocols/m2_obfuscation_eval_protocol.md",
+        "protocols/ADR-008-normalized-channel-offsets.md"
+      ]
+    },
+    "m3_encoder": {
+      "status": "PARTIAL",
+      "built": [
+        "binary raw_score on ctx.text and norm_score on ctx.normalized_text (frozen epoch-1 OFF/NOT checkpoint; second pass only when the text differs)",
+        "artifact sha256 check (binary checkpoint or a multi-head artifact directory via NSOSYAL_M3_ARTIFACT)",
+        "multi-head artifact loader: content scores from TRAINED heads only, per channel (training/m3_encoder export format)",
+        "fail-closed on missing / tampered artifact",
+        "no network at load",
+        "truncation notes and truncated_differently signal",
+        "training package with CPU smoke test (training/m3_encoder, training/tests/test_training_m3.py)",
+        "banned-dataset written check (DATASETS.md)"
+      ],
+      "not_built": [
+        "A head training run (label source undecided, docs/blockers/m3_head_labels.md; WAITING_FOR_GPU_ARTIFACT)",
+        "B head (no B-labelled corpus)",
+        "C head (slice being labelled)",
+        "per-code metrics with CIs on a labelled fixture, frozen-baseline comparison, decision-flip table (spec §7, §10)",
+        "channel truncation-difference rate on dev (spec §5, measured once the normalized channel is scored on the corpus)"
+      ],
+      "expected_skipped_tests": [],
+      "preconditions": [
+        "m3 artifact files present (artifacts/m3_encoder/, git-ignored)",
+        "torch and transformers importable"
+      ],
+      "source": [
+        "modules/m3_encoder/module.py docstring",
+        "AI/README.md",
+        "AI/docs/audit/MODULE_CONTRACTS.md#m3_encoder"
+      ]
+    },
+    "m4_implicit": {
+      "status": "PARTIAL",
+      "built": [
+        "stage 1: binary_offensive threshold row in decision/thresholds.yaml (derived)",
+        "stage 1b measured and rejected (protocols/m4_stage1b_protocol.md)"
+      ],
+      "not_built": [
+        "stage 2 slice repair and its precision budget (spec §4.1, §10)",
+        "C1-C5 threshold derivations",
+        "fixture set of spec §9"
+      ],
+      "expected_skipped_tests": [],
+      "preconditions": [],
+      "source": [
+        "protocols/ADR-006-m4-thresholds-c-head-stage-1.md",
+        "AI/docs/audit/MODULE_CONTRACTS.md#m4_implicit"
+      ]
+    },
+    "m5_sarcasm": {
+      "status": "STUB",
+      "built": [],
+      "not_built": [
+        "everything; entry gate (spec §2) not executed"
+      ],
+      "expected_skipped_tests": [
+        "SarcasmModuleBehaviourTest.test_friendly_irony_is_not_d1"
+      ],
+      "preconditions": [],
+      "source": [
+        "modules/m5_sarcasm/module.py (stub = True)",
+        "AI/docs/audit/MODULE_CONTRACTS.md#m5_sarcasm"
+      ]
+    },
+    "m6_target": {
+      "status": "PARTIAL",
+      "built": [
+        "target resolution v1: @mentions, frozen second-person deictic set, vocatives, second-person endings, group and non-human gazetteers with suffix awareness, precedence individual > group > non_human",
+        "B4 doxing: mobile / landline, national ID with both checksum digits, IBAN mod-97, plates with a province code, addresses with a personal cue and no public-place cue, e-mail, social-profile links; every score spanned"
+      ],
+      "not_built": [
+        "the three documented ambiguities and the sports-supporter position: v1 behaviour declared in protocols/m6_target_guideline.md, PENDING OWNER DECISION (Q28)",
+        "person-name gazetteer (no licensed Turkish name list in the repository)",
+        "hand-labelled target slice, agreement number, confusion matrix (spec §8, §10: annotation)"
+      ],
+      "expected_skipped_tests": [],
+      "preconditions": [],
+      "source": [
+        "modules/m6_target/module.py docstring",
+        "protocols/m6_target_guideline.md",
+        "modules/m6_target/gazetteers/*.txt"
+      ]
+    }
+  }
+}

@@ -1,0 +1,171 @@
+{
+  "artifact_id": "m3-berturk-multihead-a-rule-v3-20260918-074806",
+  "format": "multi-head-encoder-v1",
+  "heads": {
+    "binary": {
+      "size": 2,
+      "labels": [
+        "NOT",
+        "OFF"
+      ],
+      "trained": true,
+      "activation": "softmax"
+    },
+    "a": {
+      "size": 1,
+      "labels": [
+        "A1"
+      ],
+      "trained": true,
+      "activation": "sigmoid"
+    },
+    "b": {
+      "size": 4,
+      "labels": [
+        "B1",
+        "B2",
+        "B3",
+        "B5"
+      ],
+      "trained": false,
+      "activation": "sigmoid"
+    },
+    "c": {
+      "size": 6,
+      "labels": [
+        "C1",
+        "C2",
+        "C3",
+        "C4",
+        "C5",
+        "NONE"
+      ],
+      "trained": false,
+      "activation": "softmax"
+    }
+  },
+  "off_index": 1,
+  "base_model": "dbmdz/bert-base-turkish-cased",
+  "date": "2026-09-18",
+  "seed": 42,
+  "epochs": 3,
+  "best_epoch": 0,
+  "hyperparams": {
+    "labels_a_reference_kind": "ai-assisted-human-adjudicated",
+    "base": "dbmdz/bert-base-turkish-cased",
+    "epochs": 3,
+    "batch_size": 32,
+    "eval_batch_size": 64,
+    "grad_accum": 1,
+    "lr": 2e-05,
+    "max_len": 128,
+    "warmup_ratio": 0.1,
+    "weight_decay": 0.01,
+    "max_grad_norm": 1.0,
+    "seed": 42,
+    "fp16": true,
+    "resume": false,
+    "artifact_id": "m3-berturk-multihead-a-rule-v3-20260918-074806",
+    "smoke": 0
+  },
+  "a_evaluation_reference_kind": "ai-assisted-human-adjudicated",
+  "split": {
+    "created_at": "2026-08-15T15:02:14",
+    "seed": 42,
+    "dev_fraction": 0.15,
+    "train_sha256": "8509c01c4bf387d9e387c4637829585431cc045adaf7d0413c0022bf2bcd4baa",
+    "n_rows": 31756,
+    "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4",
+    "counts": {
+      "train": {
+        "NOT": 21781,
+        "OFF": 5211
+      },
+      "dev": {
+        "NOT": 3844,
+        "OFF": 920
+      }
+    },
+    "reused_existing_file": true,
+    "matches_regeneration": true
+  },
+  "label_coverage": {
+    "train": {
+      "rows": 26992,
+      "binary": 26992,
+      "a": 26992,
+      "a_human": 0,
+      "b": 0,
+      "c": 0
+    },
+    "dev": {
+      "rows": 4764,
+      "binary": 4764,
+      "a": 4764,
+      "a_human": 500,
+      "b": 0,
+      "c": 0
+    }
+  },
+  "label_sources": {
+    "a": [
+      {
+        "file": "m1_lexicon_train_seed42.json",
+        "sha256": "78d845a5fed8dd38441d9ef23f416b85ed8d2ba747d94f5943509550d9fc50c8",
+        "kind": "derived-pseudo-label"
+      },
+      {
+        "file": "m1_lexicon_dev_seed42.json",
+        "sha256": "8f4dcdfeec707bd8cb9b52744ff6b72a675cdb94790b64d167b87c12fd603ee7",
+        "kind": "derived-pseudo-label"
+      }
+    ],
+    "a_human": [
+      {
+        "file": "a_dev_ai_assisted_adjudicated.jsonl",
+        "sha256": "931c606b36734ae01b45a99cf820ea1d5e49233dea02d326f53ebf8cdcab8442",
+        "kind": "jsonl"
+      }
+    ],
+    "b": [],
+    "c": []
+  },
+  "a_head_supervision": "terlik-derived pseudo-labels (keyword); quality claims only against the human dev oracle (dev_eval.json 'a'), never against pseudo-label agreement",
+  "dev_fingerprint": "034415af3a23b388cb2bfbb13fc5eda37e43f71a3542e9ea925de72e06a133b4",
+  "max_len": 128,
+  "truncation": "first tokens kept",
+  "smoke": false,
+  "random_init": false,
+  "history": [
+    {
+      "epoch": 0,
+      "train_loss": 0.5056524989217237,
+      "train_loss_parts": {
+        "binary": 0.34804697610190694,
+        "a": 0.15760552330423694
+      },
+      "dev_binary_macro_f1": 0.8247056083562243,
+      "seconds": 97.9
+    },
+    {
+      "epoch": 1,
+      "train_loss": 0.3057182484187221,
+      "train_loss_parts": {
+        "binary": 0.2247855230389048,
+        "a": 0.08093272568437301
+      },
+      "dev_binary_macro_f1": 0.8166037945876417,
+      "seconds": 99.0
+    },
+    {
+      "epoch": 2,
+      "train_loss": 0.21237476533543653,
+      "train_loss_parts": {
+        "binary": 0.1504506513264507,
+        "a": 0.061924114186091624
+      },
+      "dev_binary_macro_f1": 0.8203847263884025,
+      "seconds": 99.3
+    }
+  ]
+}

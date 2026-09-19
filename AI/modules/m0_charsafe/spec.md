@@ -42,8 +42,9 @@ M0 does **not** decide whether text is offensive. It has no opinion on content.
 
 **Writes:**
 - `out.charsafe_text` — the cleaned string
-- `out.form.patterns` — one `FormPattern` per transformation applied
+- `out.form.patterns` — one `FormPattern` per transformation applied, each with a `span` into the original text
 - `out.signals["charsafe_changed"]` — bool
+- `out.signals["_offsets"]` — the original index of every character of `charsafe_text` (internal: passed to later modules through `ctx.signals`, stripped from the response). m1 maps every span of a raw-channel match through it; m2 composes its own map on top of it (ADR-001 "Consequences", ADR-008). Also `offsets_identity` (bool), `invisible_removed` and `homoglyphs_mapped` (counts).
 
 **FormCodes this module may emit:** `ZERO_WIDTH`, `HOMOGLYPH`, `DOTLESS_I`
 
@@ -53,13 +54,13 @@ Every `FormPattern` must carry `evidence`. A transformation that leaves no evide
 
 ## 4. Approach
 
-Run in this exact order:
+Three concerns, run in this exact order; the implementation carries them out in five passes (the owner decisions of sessions 2–5 that widened each concern are recorded in `docs/HANDOVER.md` #39, #45, #47 and #16g):
 
-**Step 1 — invisible characters.** Delete every character whose Unicode general category is `Cf` or `Cc`. Use `unicodedata.category()`. Record how many were removed as evidence.
+**Step 1 — invisible characters.** Delete every character whose Unicode general category is `Cf` or `Cc` (`unicodedata.category()`), plus the invisible filler letters (Hangul fillers, braille blank) that are not `Cf` but render as nothing. Record how many were removed as evidence. Kept on purpose: the layout controls `\t` `\n` `\r` (deleting them glues words and creates collisions) and a ZWJ between two emoji parts (it builds one glyph; reporting it would flag every compound emoji). Pass 1b handles combining marks: a decomposed letter is composed canonically (`s` + U+0327 → `ş`, lossless, recorded at low confidence); marks stuffed onto Latin letters are stripped and reported as `ZERO_WIDTH`; marks on other scripts are left alone because those scripts need them.
 
-**Step 2 — homoglyphs, conditionally.** Only run this if the text contains at least one non-ASCII character. Map a small, curated confusables table. Start from the Unicode confusables file and keep only single-character, cross-script mappings for the Latin letters used in Turkish.
+**Step 2 — homoglyphs, conditionally.** Two passes. (a) Styled Latin letters — fullwidth, mathematical, circled, squared, negative circled / squared, parenthesized, superscript and subscript letters, small capitals, and regional-indicator letters that do not form flags — are mapped to plain letters by an explicit per-character table (never NFKC over the whole text; superscript digits are never mapped). (b) Cross-script confusables: only when the text contains a non-ASCII, non-Turkish letter, map a small curated table of Cyrillic / Greek / Latin lookalikes, and only in a token that mixes Latin letters or is made entirely of lookalikes — a token written wholly in another script is a foreign word, not an attack. Turkish letters are never keys.
 
-**Step 3 — Turkish-aware lowercase.** Map `I` → `ı` and `İ` → `i` explicitly before calling `.lower()`.
+**Step 3 — Turkish-aware lowercase.** Map `I` → `ı` and `İ` → `i` explicitly (including the decomposed `I` + U+0307 and small capital `ɪ` → `I` → `ı`) before generic lowering; emit `DOTLESS_I` evidence only where Turkish and default Unicode rules diverge.
 
 ---
 

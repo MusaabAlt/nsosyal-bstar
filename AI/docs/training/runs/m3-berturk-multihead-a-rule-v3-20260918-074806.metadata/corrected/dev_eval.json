@@ -1,0 +1,176 @@
+{
+  "n_rows": 4764,
+  "decision_point_for_reporting": 0.5,
+  "n_boot": 1000,
+  "seed": 42,
+  "binary": {
+    "macro_f1": {
+      "value": 0.8247056083562243,
+      "ci_low": 0.8108333872571223,
+      "ci_high": 0.8376741844998417
+    },
+    "recall": {
+      "value": 0.7141304347826087,
+      "ci_low": 0.6848072562358276,
+      "ci_high": 0.7425531914893617
+    },
+    "precision": {
+      "value": 0.71960569550931,
+      "ci_low": 0.6908482142857143,
+      "ci_high": 0.7467248908296943
+    },
+    "f1": {
+      "value": 0.7168576104746318,
+      "ci_low": 0.6929046563192904,
+      "ci_high": 0.7385800770500827
+    },
+    "fpr": {
+      "value": 0.06659729448491156,
+      "ci_low": 0.05864037363777893,
+      "ci_high": 0.0742483660130719
+    },
+    "n": 4764,
+    "confusion": {
+      "tp": 657,
+      "fp": 256,
+      "fn": 263,
+      "tn": 3588
+    }
+  },
+  "a": {
+    "oracle": "ai-assisted-human-adjudicated",
+    "labelled_rows": 500,
+    "A1": {
+      "support": 39,
+      "tp": 32,
+      "fp": 1,
+      "fn": 7,
+      "tn": 460,
+      "insufficient_sample": false,
+      "recall": {
+        "value": 0.8205128205128205,
+        "ci_low": 0.6904761904761905,
+        "ci_high": 0.9302325581395349
+      },
+      "precision": {
+        "value": 0.9696969696969697,
+        "ci_low": 0.8888888888888888,
+        "ci_high": 1.0
+      },
+      "f1": {
+        "value": 0.8888888888888888,
+        "ci_low": 0.8,
+        "ci_high": 0.9565217391304348
+      },
+      "fpr": {
+        "value": 0.0021691973969631237,
+        "ci_low": 0.0,
+        "ci_high": 0.006726457399103139
+      }
+    }
+  },
+  "a_pseudo_label_agreement": {
+    "labelled_rows": 4764,
+    "note": "agreement with terlik-derived pseudo-labels (keyword labels); NOT accuracy, NOT a quality claim",
+    "A1": {
+      "support": 257,
+      "tp": 196,
+      "fp": 22,
+      "fn": 61,
+      "tn": 4485,
+      "insufficient_sample": false,
+      "recall": {
+        "value": 0.7626459143968871,
+        "ci_low": 0.7063492063492064,
+        "ci_high": 0.8127340823970037
+      },
+      "precision": {
+        "value": 0.8990825688073395,
+        "ci_low": 0.8557692307692307,
+        "ci_high": 0.9366515837104072
+      },
+      "f1": {
+        "value": 0.8252631578947369,
+        "ci_low": 0.7843137254901961,
+        "ci_high": 0.8606060606060606
+      },
+      "fpr": {
+        "value": 0.00488129576214777,
+        "ci_low": 0.002878016382554793,
+        "ci_high": 0.007103218645948946
+      }
+    }
+  },
+  "b": {
+    "labelled_rows": 0,
+    "note": "no B labels: head not evaluated"
+  },
+  "c": {
+    "labelled_rows": 0,
+    "note": "no C labels: head not evaluated"
+  },
+  "artifact_id": "m3-berturk-multihead-a-rule-v3-20260918-074806",
+  "digests": {
+    "config.json": "78b3256837f88fce883d62f7fd7a4f6748bab49acf36f654c378b0982fcea126",
+    "heads.json": "599b0d4b6714669ba75cb72ffbf712e9a62072774a2c5eac17a7c851e99dfaf7",
+    "tokenizer.json": "36c9681b1c49c34f83550432b4eb73b66609ab2895c6a2fdcf1f99adf3d2eb36",
+    "tokenizer_config.json": "4e5738ad97f034b944ce8b7b8c3165f7a6333b524b7b77044f7e9e9b963f4dea",
+    "weights.pt": "41d98d7fa2599907f4b3f4c22b24bdd2990b90ffecae4563d09e16fabf91e145"
+  },
+  "label_coverage": {
+    "train": {
+      "rows": 26992,
+      "binary": 26992,
+      "a": 26992,
+      "a_reference": 0,
+      "b": 0,
+      "c": 0
+    },
+    "dev": {
+      "rows": 4764,
+      "binary": 4764,
+      "a": 4764,
+      "a_reference": 500,
+      "b": 0,
+      "c": 0
+    }
+  },
+  "label_sources": {
+    "a": [
+      {
+        "file": "m1_lexicon_train_seed42.json",
+        "sha256": "78d845a5fed8dd38441d9ef23f416b85ed8d2ba747d94f5943509550d9fc50c8",
+        "kind": "derived-pseudo-label"
+      },
+      {
+        "file": "m1_lexicon_dev_seed42.json",
+        "sha256": "8f4dcdfeec707bd8cb9b52744ff6b72a675cdb94790b64d167b87c12fd603ee7",
+        "kind": "derived-pseudo-label"
+      }
+    ],
+    "a_reference": [
+      {
+        "file": "a_dev_ai_assisted_adjudicated.jsonl",
+        "sha256": "931c606b36734ae01b45a99cf820ea1d5e49233dea02d326f53ebf8cdcab8442",
+        "kind": "jsonl"
+      }
+    ],
+    "b": [],
+    "c": []
+  },
+  "smoke": false,
+  "metadata_corrections": [
+    {
+      "id": "a-reference-provenance-wording-v1",
+      "record": "metadata_correction.json",
+      "original_sha256": "e1d8264b2d70fe26876eb84e06d23d9aa99997ccf82b8f77ecac4a8a8d3caf24",
+      "fields": [
+        "label_coverage.dev",
+        "label_coverage.train",
+        "label_sources"
+      ],
+      "metrics": "unchanged: every metric block is the export-time evaluation of the unchanged weights",
+      "digests": "export-time digests; heads.json was 599b0d4b6714669ba75cb72ffbf712e9a62072774a2c5eac17a7c851e99dfaf7 when exported and is 897f7e95db747296e1f4e239968cd7a927ee8fe3d01caa82e52a8454c10de69e after this metadata-only correction (originals in original_metadata/)"
+    }
+  ]
+}

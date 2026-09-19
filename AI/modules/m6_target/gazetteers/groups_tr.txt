@@ -1,0 +1,95 @@
+# m6_target gazetteer: GROUP stems (spec §3: "a group forming part of members' identity -
+# ethnicity, gender, religion, political affiliation"). One stem per line, lowercase, Turkish
+# letters as written; the matcher accepts the stem followed by plural / possessive / case suffixes
+# (module.py SUFFIX pattern), so "türkler", "kürtlerin", "kadınlara" match "türk", "kürt", "kadın".
+# Lines starting with '#' are comments. Source: project-authored from the categories the spec names
+# (ethnicity/nationality, religion FOLLOWERS, gender and orientation, political affiliation) and the
+# OffensEval-TR annotation notes on group targets. Licence: project (in-repo). Sha256 registered in
+# artifacts/MANIFEST.md.
+#
+# NOT listed on purpose (protocols/m6_target_guideline.md, pending owner decisions, Q28):
+#   - religions themselves (islam, hristiyanlık, ...): religion-vs-followers rule undecided; only
+#     FOLLOWER nouns are here
+#   - party and institution names (akp, chp, belediye, devlet...): institution-vs-members undecided;
+#     institution common nouns resolve non_human per the taxonomy row, party names resolve nothing
+#   - sports-club supporters (fenerli, galatasaraylı, beşiktaşlı, trabzonlu, cimbom...): position undecided
+#   - ambiguous stems that are ordinary words (roman = novel, beyaz = white, sağ = right/alive)
+#
+# ethnicity / nationality
+türk
+kürt
+arap
+ermeni
+rum
+yahudi
+çerkes
+laz
+gürcü
+boşnak
+arnavut
+çingene
+suriyeli
+afgan
+iranlı
+iraklı
+rus
+ukraynalı
+alman
+yunan
+amerikalı
+avrupalı
+asyalı
+afrikalı
+zenci
+siyahi
+mülteci
+göçmen
+sığınmacı
+yabancı
+# religion FOLLOWERS (the religion itself is not listed)
+müslüman
+hristiyan
+hıristiyan
+yahudi
+alevi
+sünni
+şii
+ateist
+deist
+agnostik
+dinci
+dindar
+# gender / orientation
+kadın
+erkek
+kız
+eşcinsel
+gey
+lezbiyen
+trans
+travesti
+lgbt
+lgbti
+feminist
+# political affiliation
+solcu
+sağcı
+komünist
+sosyalist
+faşist
+milliyetçi
+ülkücü
+islamcı
+laik
+kemalist
+liberal
+muhafazakar
+muhafazakâr
+akpli
+chpli
+mhpli
+hdpli
+iyipli
+zafer partili
+# disability / other identity groups the reference corpus treats as targets
+engelli

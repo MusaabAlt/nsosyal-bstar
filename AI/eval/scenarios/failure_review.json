@@ -1,0 +1,79 @@
+{
+  "_README": "Classification of every raw FAIL after inspecting its module trace (task instruction: PRODUCTION_BUG, EXPECTATION_WRONG, KNOWN_LIMITATION, DEMO_BLOCKER, ARTIFACT/CONFIGURATION_PROBLEM, UNCLEAR_NEEDS_REVIEW). No expected value was changed to make a case pass: an EXPECTATION_WRONG case is reported as EXPECTATION_INVALID with its original expectation kept. Nothing was fixed. Evidence was collected with the real modules (m1_lexicon / m6_target alone and the full pipeline) on 2026-09-18.",
+  "TAX-A-amci-plain": {
+    "classification": "EXPECTATION_WRONG",
+    "evidence": "terlik 0.1.0 itself attributes the surface 'amcı' to the root 'am' (get_matches('amcı') -> [('am', 'amcı')]); both roots are on route A, so the content-level expectation (A1) PASSED. The failed check demanded root-NAME attribution ('amcı'), which no contract promises. Observation: in terlik 0.1.0 the dictionary root 'amcı' is shadowed by 'am' and is never the attributed root; every 'amcı' form is still caught as family A."
+  },
+  "TAX-A-amci-punct": {
+    "classification": "EXPECTATION_WRONG",
+    "evidence": "Same as TAX-A-amci-plain: 'amcı!' matched as root 'am' (route A), A1 fired as expected; only the root-name attribution check failed."
+  },
+  "TAX-A-amci-upper": {
+    "classification": "EXPECTATION_WRONG",
+    "evidence": "Same as TAX-A-amci-plain: 'AMCI' -> m0 'amcı' -> root 'am' (route A), A1 fired as expected; only the root-name attribution check failed."
+  },
+  "TAX-A-amci-targeted": {
+    "classification": "EXPECTATION_WRONG",
+    "evidence": "Same as TAX-A-amci-plain: 'Sen amcı mısın?' -> root 'am', m6 individual, decision recoded to A2 exactly as expected; only the root-name attribution check failed."
+  },
+  "TAX-B1-yuzkarasi-spaced_standard": {
+    "classification": "PRODUCTION_BUG",
+    "evidence": "m1 is correct: the standard two-word spelling 'yüz karası' matched root yüzkarası -> B1 on both channels (M1-ROUTE-1.1 works). m6 then resolved target non_human from 'karası' ('non-human stem kar', snow): its suffix regex accepts 'kar' + 'a' + 'sı', a chain that is not an inflection of 'kar' (the word is 'kara'+'sı'). m1 therefore raised NON_HUMAN_TARGET and the decision suppressed the genuine B1 (suppression NON_HUMAN_TARGET -> B1). Same gazetteer reach: 'Kara kedi gördüm' resolves non_human (see B1-NH-003). Low severity; not in the demo set. Only the baseline binary score (0.675, not Rule-v4) still sends the post to review.",
+    "demo_blocker": false
+  },
+  "A-T04": {
+    "classification": "PRODUCTION_BUG",
+    "evidence": "m6_target._harmonic compares EVERY vowel of the suffix tail with the stem's last vowel class; for a rounded stem vowel the allowed set is two vowels ('u' -> 'au', 'ü' -> 'eü'), so a plural + case chain whose four-way vowel follows the plural's a/e ('-ların', '-lerin') is rejected: _harmonic('solcu','ların') = False, _harmonic('türk','lerin') = False. m6 alone: 'Solcuların hepsi piç' -> none, 'Türklerin/Kürtlerin/Rusların/Ülkücülerin hepsi' -> none, while 'Kadınların hepsi' -> group and 'Solcular hep piç' -> group. The guideline (§1) declares plural / possessive / case suffix awareness and cites 'mültecilerin'. Effect here: group-targeted profanity is assigned A1 (review via the baseline binary) instead of A3 (block).",
+    "demo_blocker": false
+  },
+  "DEMO-09": {
+    "classification": "DEMO_BLOCKER",
+    "evidence": "Root cause is the m6 PRODUCTION_BUG described under A-T04 ('Solcuların' is not resolved as a group). In a live demo the planned sentence shows A1 / review instead of A3 / block. Tested alternative without a case suffix: DEMO-09B 'Solcular hep piç.' (group -> A3 -> block).",
+    "demo_blocker": true
+  },
+  "V4-GEN-020": {
+    "classification": "PRODUCTION_BUG",
+    "evidence": "Cross-channel guard interaction. Raw channel: m1 keeps 'a.q' as a genuine amk hit (A1, span 0-3) exactly as M1-PREC-1 ACCEPT_GENUINE says. m2 PHONETIC maps q->k, so the normalized channel reads 'a.k'; m1 rejects it there by R8 (clean form ak) and raises SUBSTRING_COLLISION with the SAME original span. Guards are scoped per module + overlapping span (ADR-001), not per channel, so the normalized-channel collision suppresses the raw-channel hit (decision: SUBSTRING_COLLISION suppressed A1). Not caught by the existing suite: m1's acceptance test sets normalized_text equal to the input, and tests/test_m1_lexicon_labels.py checks _matches (pre-guard), not post-guard firing. Pseudo-labels are unaffected (they read _matches).",
+    "demo_blocker": false
+  },
+  "V4-GEN-021": {
+    "classification": "PRODUCTION_BUG",
+    "evidence": "Same mechanism as V4-GEN-020: 'A.q' -> raw amk hit suppressed by the normalized-channel collision on 'a.k' (m2 PHONETIC q->k, M1-PREC-1 R8).",
+    "demo_blocker": false
+  },
+  "V4-GEN-022": {
+    "classification": "PRODUCTION_BUG",
+    "evidence": "Same mechanism as V4-GEN-020: 'aq' -> raw amk hit; m2 PHONETIC -> 'ak'; R8 collision on the normalized channel suppresses the raw hit. m1 alone on the raw channel keeps it; m1 given normalized_text='ak' reproduces the suppression. 'aq' is one of the most common Turkish abbreviations: a live-demo risk if typed by the audience (see A-AQ-001; the control 'amq' works).",
+    "demo_blocker": false
+  },
+  "B1-011": {
+    "classification": "KNOWN_LIMITATION",
+    "evidence": "terlik 0.1.0 accepts a root only before a suffix in its own table (m1 docstring: 'accepts a root only when what follows is a suffix it knows'). Its 112 suffixes contain in / ın / un but no nin / nın, so get_matches('ibnenin') = [] and m1 records only SUBSTRING_COLLISION 'ibne in ibnenin'. Same for 'gerizekalının' (collision) and 'salağın' (k->ğ mutation, no match at all; B1-LIM-SUFFIX-001). The plural form works ('ibneler' -> B1). Lexicon-coverage limitation, not a pipeline defect; not fixed here.",
+    "demo_blocker": false
+  },
+  "M6-023": {
+    "classification": "EXPECTATION_WRONG",
+    "evidence": "The declared rule held: 'İslam' (the religion itself) resolved nothing. The sentence also contains 'kitap' (book), a non_human gazetteer stem, so m6 correctly resolved non_human with evidence 'kitap'. The scenario sentence was badly chosen; the expected value is kept unchanged and the case is reported as EXPECTATION_INVALID.",
+    "demo_blocker": false
+  },
+  "M6-GRP-001": {
+    "classification": "PRODUCTION_BUG",
+    "evidence": "Reach of the A-T04 defect: 'Türklerin' (türk + ler + in) rejected by m6_target._harmonic ('ü' allows only e/ü, the genitive vowel is i) -> target none instead of group.",
+    "demo_blocker": false
+  },
+  "M6-GRP-002": {
+    "classification": "PRODUCTION_BUG",
+    "evidence": "Reach of the A-T04 defect: 'Kürtlerin' rejected by m6_target._harmonic -> target none instead of group.",
+    "demo_blocker": false
+  },
+  "M6-GRP-003": {
+    "classification": "PRODUCTION_BUG",
+    "evidence": "Reach of the A-T04 defect: 'Rusların' (rus + lar + ın) rejected by m6_target._harmonic ('u' allows only a/u) -> target none instead of group.",
+    "demo_blocker": false
+  },
+  "A-AQ-001": {
+    "classification": "PRODUCTION_BUG",
+    "evidence": "Reach of the V4-GEN-022 defect in an ordinary sentence: 'Ne diyorsun aq' -> the raw amk hit is suppressed by the normalized-channel R8 collision on 'ak'. Control A-AQ-002 ('amq') fires.",
+    "demo_blocker": false
+  }
+}
