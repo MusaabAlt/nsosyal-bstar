@@ -14,14 +14,14 @@
 
 Every task's requirements implicitly include this section.
 
-- **Target platform is `linux/amd64` only.** The VPS is `x86_64`; the development Mac is `arm64`. Never build a deployable image locally — always in CI.
+- **Target platform is `linux/amd64` only.** The VPS is `x86_64`; the development Mac is `arm64`. Never build on the Mac — build on the host, natively, under a memory cap.
 - **Go 1.27.0** — required by `backend/go.mod`. An older toolchain fails the build.
 - **npm, not pnpm.** `frontend/` ships only `package-lock.json`. Use `npm ci`.
 - **torch CPU-only wheel index.** The default index pulls CUDA libraries worth several GB that this host cannot use.
 - **No upstream application code is modified.** Behaviour is changed only through `NSOSYAL_*` environment variables and new files under `infra/` and `.github/`.
 - **Every service declares a memory limit.** Unlimited services on this host can OOM-kill the sahhil storefront.
 - **Traefik network is `traefik_proxy`** (external, pre-existing).
-- **Image namespace is `ghcr.io/musaabalt/nsosyal-*`**, published with the built-in `GITHUB_TOKEN`. (sahhil uses `ghcr.io/realoab/` because that repo is owned by `realoab`; the rule is repo-owner namespace.)
+- **Images are built and tagged locally on the host** as `nsosyal-app:<sha>` / `nsosyal-infer:<sha>`. No registry: the `workflow` token scope and repo admin needed for GHCR-via-Actions are both unavailable.
 - **Host access is Tailscale-only.** `root@100.75.227.23`. Public IP `46.224.235.180` has port 22 firewalled.
 - **Secrets never enter the repo.** Weights, DB passwords, and auth keys travel via volumes and GitHub secrets.
 
@@ -37,7 +37,6 @@ Mirrors the `infra/` layout already used by `sahhil-alsayed`.
 | `infra/docker-stack.yml` | `app` + `infer` services, Traefik labels, memory limits |
 | `infra/verify-deploy.sh` | The deploy gate — asserts §8 of the spec, used manually and by CI |
 | `infra/README.md` | Runbook: weights upload, rollback, memory budget, first-run |
-| `.github/workflows/deploy.yml` | Build both images → GHCR → deploy over Tailscale → verify |
 | `.dockerignore` | Keeps the 15MB `AI/eval` tree and `.git` out of build context |
 
 ---
@@ -368,89 +367,81 @@ git commit -m "infra: add inference image build"
 
 ---
 
-### Task 6: Build pipeline — images to GHCR
+### Task 6: Build both images on the VPS
 
-Build-only first. The deploy job lands in Task 9, once there is something to deploy to.
+**Replaces the original CI-build task.** Two permission facts make GitHub Actions
+unreachable: the active `gh` token lacks the `workflow` scope (so `.github/workflows/`
+cannot be pushed), and the user is `admin: false` on the repo (so Actions secrets cannot
+be set). The user also dropped automatic deployment. Images therefore build on the host.
 
-**Files:**
-- Create: `.github/workflows/deploy.yml`
+Spec §6 chose off-box builds to keep `pip install torch` away from a 4GB host serving
+production. That protection is preserved by a different mechanism: a hard cgroup cap on
+the build, plus the 6GB swap from Task 1.
+
+**Files:** none in the repo. Uses `infra/app.Dockerfile` and `infra/infer.Dockerfile`.
 
 **Interfaces:**
-- Consumes: `infra/app.Dockerfile`, `infra/infer.Dockerfile`.
-- Produces: `ghcr.io/musaabalt/nsosyal-app:<sha>` and `ghcr.io/musaabalt/nsosyal-infer:<sha>`, both `linux/amd64`. Tasks 7 and 9 consume these tags.
+- Consumes: the two Dockerfiles from Tasks 4 and 5.
+- Produces: local images `nsosyal-app:<sha>` and `nsosyal-infer:<sha>` on the host. Task 7
+  consumes these tags. No registry involved.
 
-- [ ] **Step 1: Write the build workflow**
+- [ ] **Step 1: Ship the build context to the host**
 
-```yaml
-name: Deploy
-on:
-  push:
-    branches: [master, deploy/vps-cd]
-
-concurrency:
-  group: nsosyal-deploy
-  cancel-in-progress: false
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    strategy:
-      matrix:
-        include:
-          - name: app
-            dockerfile: infra/app.Dockerfile
-          - name: infer
-            dockerfile: infra/infer.Dockerfile
-    steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ${{ matrix.dockerfile }}
-          platforms: linux/amd64
-          push: true
-          tags: ghcr.io/${{ github.repository_owner }}/nsosyal-${{ matrix.name }}:${{ github.sha }}
-          cache-from: type=gha,scope=${{ matrix.name }}
-          cache-to: type=gha,mode=max,scope=${{ matrix.name }}
-```
-
-`concurrency` mirrors the sahhil release workflow: two pushes must not race into `docker stack deploy`.
-
-- [ ] **Step 2: Push the branch and watch the run**
-
-This is the first push to the remote and requires the user's explicit approval.
+The host has no clone. Send a clean archive rather than the working tree:
 
 ```bash
-git push -u origin deploy/vps-cd
-gh run watch
+SHA=$(git rev-parse --short HEAD)
+git archive --format=tar HEAD | ssh root@100.75.227.23 "mkdir -p /srv/nsosyal/src && tar -x -C /srv/nsosyal/src"
+ssh root@100.75.227.23 'ls /srv/nsosyal/src | head'
 ```
 
-Expected: both matrix legs succeed. The `infer` leg takes ~5-10 minutes on a cold cache (torch is large).
+Expected: the repo's top-level entries (`AI`, `backend`, `frontend`, `infra`, …).
 
-- [ ] **Step 3: Verify both images published and are amd64**
+- [ ] **Step 2: Record the memory baseline**
 
 ```bash
-docker manifest inspect ghcr.io/musaabalt/nsosyal-app:$(git rev-parse HEAD)   | grep architecture
-docker manifest inspect ghcr.io/musaabalt/nsosyal-infer:$(git rev-parse HEAD) | grep architecture
+ssh root@100.75.227.23 'free -m; docker service ls --format "{{.Name}} {{.Replicas}}" | grep -E "sahhil|workbench|traefik"'
 ```
 
-Expected: `"architecture": "amd64"` for both. A build that silently produced arm64 will fail to start on the host with `exec format error`.
+Keep this output — Step 5 compares against it.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Build the application image (small, fast)**
 
-Already committed by Step 2's push; no further action.
+```bash
+SHA=$(git rev-parse --short HEAD)
+ssh root@100.75.227.23 "cd /srv/nsosyal/src && docker build --memory=1g --memory-swap=3g \
+  -f infra/app.Dockerfile -t nsosyal-app:$SHA -t nsosyal-app:latest . 2>&1 | tail -20"
+```
 
----
+Expected: `Successfully tagged nsosyal-app:<sha>`. This stage exercises `npm ci`, the Vue
+build and the Go compile — if `go:embed all:dist` cannot find the SPA, it fails here.
+
+- [ ] **Step 4: Build the inference image (large, slow)**
+
+The capped build is the risky one. `--memory=1g` means a runaway fails the build rather
+than the storefront.
+
+```bash
+SHA=$(git rev-parse --short HEAD)
+ssh root@100.75.227.23 "cd /srv/nsosyal/src && docker build --memory=1g --memory-swap=3g \
+  -f infra/infer.Dockerfile -t nsosyal-infer:$SHA -t nsosyal-infer:latest . 2>&1 | tail -30"
+```
+
+Expected: success, and the torch assertion added in Task 5's fix round prints a `+cpu`
+version rather than aborting. If the build is OOM-killed, re-run with `--memory=1500m`
+**only after** confirming the storefront is healthy.
+
+- [ ] **Step 5: Verify the storefront survived the build**
+
+```bash
+ssh root@100.75.227.23 'free -m; docker service ls --format "{{.Name}} {{.Replicas}}" | grep -E "sahhil|workbench|traefik"'
+curl -s -o /dev/null -w "sahhil: %{http_code}
+" https://sahhil.com/
+ssh root@100.75.227.23 "docker images --format '{{.Repository}}:{{.Tag}} {{.Size}}' | grep nsosyal"
+```
+
+Expected: every service still at full replicas, sahhil `200`, and both images listed. The
+inference image will be roughly 2-3GB; the app image well under 100MB.
 
 ### Task 7: Application stack and the deploy gate
 
@@ -483,7 +474,7 @@ volumes:
 
 services:
   app:
-    image: ghcr.io/musaabalt/nsosyal-app:${APP_TAG}
+    image: nsosyal-app:${APP_TAG}
     networks: [traefik_proxy, nsosyal_internal]
     environment:
       NSOSYAL_SERVER_ADDR: "0.0.0.0:8080"
@@ -516,7 +507,7 @@ services:
           memory: "64M"
 
   infer:
-    image: ghcr.io/musaabalt/nsosyal-infer:${INFER_TAG}
+    image: nsosyal-infer:${INFER_TAG}
     networks: [nsosyal_internal]
     environment:
       NSOSYAL_M3_CHECKPOINT: "/models/berturk_epoch1.pt"
@@ -561,6 +552,12 @@ h=$(docker exec "$(docker ps -qf name=nsosyal_app | head -1)" \
 status=$(printf '%s' "$h" | sed -n 's/.*"status"[ :]*"\([^"]*\)".*/\1/p')
 if [ "$status" = "ok" ] && ! printf '%s' "$h" | grep -q 'm3'; then
   say "inference m3 loaded" "OK (artifact $(printf '%s' "$h" | sed -n 's/.*"artifact_hash"[ :]*"\([^"]*\)".*/\1/p' | cut -c1-12))"
+elif [ "${PRE_WEIGHTS:-0}" = "1" ] && [ "$status" = "ok" ]; then
+  # Pre-weights mode: the model artifacts have not been delivered yet (Task 3 is
+  # parked). The service is up and the wiring is proven, but it detects nothing.
+  # NEVER set PRE_WEIGHTS=1 once the weights are on the box — this is the only
+  # check standing between a green deploy and a silently blind detector.
+  say "inference m3 loaded" "WARN (PRE_WEIGHTS=1: m3 degraded, detector inactive)"
 else
   say "inference m3 loaded" "FAIL (status=$status degraded=$h)"; fail=1
 fi
@@ -657,105 +654,42 @@ Expected: public returns `302` to the Access login (**not** `200` — a 200 mean
 
 ---
 
-### Task 9: Automatic deploy on every commit
+### Task 9: Manual update procedure
 
-**Files:**
-- Modify: `.github/workflows/deploy.yml`
+**Replaces the original CD task, which is dropped.** The user asked for manual updates
+("if important commits are done i'll give u info to update it"), and the permission
+constraints in Task 6 rule out GitHub Actions regardless.
+
+**Files:** none. This task defines the repeatable command sequence Task 10 documents.
 
 **Interfaces:**
-- Consumes: images from Task 6, the gate from Task 7.
-- Produces: a push to `master` that ends with a verified running deployment.
+- Consumes: Tasks 6 and 7.
+- Produces: a verified redeploy from a new commit.
 
-- [ ] **Step 1: Create a scoped Tailscale auth key**
-
-In the Tailscale admin console: Settings → Keys → Generate auth key. **Reusable, ephemeral, tagged `tag:ci`.** In the ACL, `tag:ci` may reach `tevekkul:22` and nothing else. Ephemeral nodes deregister themselves after each run.
-
-This avoids registering a third self-hosted runner. The existing two cost 269MB of RSS between them — headroom this deployment is already rationing.
-
-- [ ] **Step 2: Add repo secrets**
+- [ ] **Step 1: Rebuild and redeploy from current HEAD**
 
 ```bash
-gh secret set TS_AUTHKEY   --repo MusaabAlt/nsosyal-bstar   # the key from Step 1
-gh secret set DEPLOY_SSH_KEY --repo MusaabAlt/nsosyal-bstar  # private key whose public half is in root's authorized_keys
+SHA=$(git rev-parse --short HEAD)
+git archive --format=tar HEAD | ssh root@100.75.227.23 "rm -rf /srv/nsosyal/src && mkdir -p /srv/nsosyal/src && tar -x -C /srv/nsosyal/src"
+ssh root@100.75.227.23 "cd /srv/nsosyal/src && \
+  docker build --memory=1g --memory-swap=3g -f infra/app.Dockerfile   -t nsosyal-app:$SHA . && \
+  docker build --memory=1g --memory-swap=3g -f infra/infer.Dockerfile -t nsosyal-infer:$SHA ."
+ssh root@100.75.227.23 "docker service update --image nsosyal-app:$SHA   nsosyal_app && \
+                        docker service update --image nsosyal-infer:$SHA nsosyal_infer"
 ```
 
-Verify the public half is installed:
+- [ ] **Step 2: Gate the result**
 
 ```bash
-ssh root@100.75.227.23 'grep -c "ci-deploy" ~/.ssh/authorized_keys'
+ssh root@100.75.227.23 /srv/verify-deploy.sh
 ```
 
-- [ ] **Step 3: Append the deploy job**
+Expected: all `OK`. Rollback is `docker service update --image nsosyal-app:<previous-sha> nsosyal_app`.
 
-```yaml
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master'
-    steps:
-      - uses: actions/checkout@v4
+- [ ] **Step 3: Prove rollback once, deliberately**
 
-      - uses: tailscale/github-action@v3
-        with:
-          authkey: ${{ secrets.TS_AUTHKEY }}
-          tags: tag:ci
-
-      - name: Install deploy key
-        run: |
-          mkdir -p ~/.ssh && chmod 700 ~/.ssh
-          printf '%s\n' "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          ssh-keyscan -H 100.75.227.23 >> ~/.ssh/known_hosts 2>/dev/null
-
-      - name: Ship stack and gate
-        run: |
-          scp infra/docker-stack.yml infra/verify-deploy.sh root@100.75.227.23:/srv/
-          ssh root@100.75.227.23 'chmod +x /srv/verify-deploy.sh'
-
-      - name: Deploy
-        run: |
-          ssh root@100.75.227.23 bash -s <<EOF
-          set -e
-          set -a; . /srv/nsosyal/db.env; set +a
-          export APP_TAG=${{ github.sha }} INFER_TAG=${{ github.sha }}
-          docker stack deploy -c <(envsubst < /srv/docker-stack.yml) nsosyal
-          EOF
-
-      - name: Wait for convergence
-        run: |
-          ssh root@100.75.227.23 'for i in $(seq 1 30); do
-             docker service ls --filter name=nsosyal_ --format "{{.Replicas}}" \
-               | grep -qv "^\([0-9]*\)/\1$" || exit 0; sleep 10; done; exit 1'
-
-      - name: Verify
-        run: ssh root@100.75.227.23 /srv/verify-deploy.sh
-```
-
-The `Verify` step is what makes this a deploy pipeline rather than an image-push pipeline: it fails the run when m3 is silently degraded or when sahhil was harmed.
-
-- [ ] **Step 4: Prove it end to end**
-
-Merge `deploy/vps-cd` into `master`, then make a trivial commit and confirm the full chain runs:
-
-```bash
-git commit --allow-empty -m "chore: verify auto-deploy"
-git push origin master
-gh run watch
-```
-
-Expected: `build` (both legs) → `deploy` → `Verify` all green, and `docker service ps nsosyal_app` on the host shows the new SHA.
-
-- [ ] **Step 5: Prove rollback works**
-
-Rollback is untested until it is tested once, deliberately, while nothing is broken:
-
-```bash
-ssh root@100.75.227.23 'docker service update --image ghcr.io/musaabalt/nsosyal-app:<previous-sha> nsosyal_app && /srv/verify-deploy.sh'
-```
-
-Then redeploy current. Expected: gate passes in both directions.
-
----
+Rollback is untested until it is tested while nothing is broken. Roll back one tag, run
+the gate, then roll forward and run it again. Both must pass.
 
 ### Task 10: Runbook
 
