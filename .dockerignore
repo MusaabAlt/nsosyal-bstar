@@ -1,0 +1,7 @@
+.git
+docs
+diagnosis
+AI/eval
+**/node_modules
+**/__pycache__
+**/dist
