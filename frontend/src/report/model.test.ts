@@ -18,7 +18,8 @@ describe('verdict', () => {
     expect(v.tone).toBe('incomplete')
     expect(v.word).toBe('Değerlendirme tamamlanmadı')
     expect(v.word).not.toBe('Temiz')
-    expect(v.notRun.map((d) => d.module)).toEqual(['m2_deobf', 'm6_target', 'm1_lexicon', 'm3_encoder', 'm5_sarcasm'])
+    // m5_sarcasm is the one module still a stub; one is enough to block a clean verdict.
+    expect(v.notRun.map((d) => d.module)).toEqual(['m5_sarcasm'])
     expect(v.explanation).toBe(r.explanation) // verbatim
   })
 
@@ -56,18 +57,24 @@ describe('verdict', () => {
 })
 
 describe('stages read decisions, they do not make them', () => {
-  it('degraded: stub modules show "modül hazır değil", m0 ran and found nothing', () => {
+  // The sample the real pipeline produces today for a clean sentence: every
+  // module runs except m5, so the stages report findings instead of absence.
+  it('degraded: the modules that ran say they found nothing; only m5 is unavailable', () => {
     const stages = buildStages(load(degradedJson))
     expect(stages).toHaveLength(9)
     expect(stages.map((s) => s.number)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9])
     expect(stage(stages, 'charsafe')).toMatchObject({ status: 'passed', line: 'Şüpheli karakter bulunamadı' })
-    expect(stage(stages, 'obfuscation').status).toBe('moduleUnavailable')
-    expect(stage(stages, 'normalization').status).toBe('moduleUnavailable')
-    expect(stage(stages, 'content').status).toBe('moduleUnavailable')
-    expect(stage(stages, 'target').status).toBe('moduleUnavailable')
-    expect(stage(stages, 'guards').status).toBe('moduleUnavailable')
+    expect(stage(stages, 'obfuscation')).toMatchObject({ status: 'passed', line: 'Gizleme kalıbı bulunamadı' })
+    expect(stage(stages, 'normalization').status).toBe('passed')
+    // m3 scored the text below its threshold, so the offensive row is present but below.
+    expect(stage(stages, 'content').status).toBe('below')
+    // m6 ran and resolved no target: no data to show, not an unavailable module.
+    expect(stage(stages, 'target')).toMatchObject({ status: 'noData', target: null })
+    expect(stage(stages, 'guards')).toMatchObject({ status: 'passed', active: [] })
     expect(stage(stages, 'thread')).toMatchObject({ status: 'notApplied' })
     expect(stage(stages, 'reason').status).toBeNull()
+    // The verdict is still incomplete: m5 did not run (fail closed).
+    expect(verdictView(load(degradedJson)).tone).toBe('incomplete')
   })
 
   it('every stage that has no findings still says something (4.8)', () => {
@@ -107,7 +114,11 @@ describe('stages read decisions, they do not make them', () => {
       status: 'triggered',
       scorePair: { raw: { score: 0.44, fired: false }, normalized: { score: 0.81, fired: true } },
     })
-    expect(stage(stages, 'reason').triggeredStages).toEqual(['Gizleme tespiti', 'Normalleştirme', 'İçerik sınıflandırma'])
+    // m6 resolves "Seni" as an individual, so Hedef triggers too.
+    expect(stage(stages, 'target')).toMatchObject({ status: 'triggered', target: { type: 'individual', evidence: 'Seni' } })
+    expect(stage(stages, 'reason').triggeredStages).toEqual([
+      'Gizleme tespiti', 'Normalleştirme', 'İçerik sınıflandırma', 'Hedef',
+    ])
   })
 
   it('follows fired from the payload even when it disagrees with the numbers', () => {
@@ -147,10 +158,11 @@ describe('modules and consequence', () => {
   it('reads module state from the degraded list and per_module_ms', () => {
     const r = load(degradedJson)
     expect(moduleState(r, 'm0_charsafe')).toBe('ran')
-    expect(moduleState(r, 'm3_encoder')).toBe('stub')
+    expect(moduleState(r, 'm3_encoder')).toBe('ran')
     expect(moduleState(r, 'm4_implicit')).toBe('ran')
+    expect(moduleState(r, 'm5_sarcasm')).toBe('stub')
     r.signals.pipeline!.degraded![0]!.kinds = ['failed']
-    expect(moduleState(r, 'm2_deobf')).toBe('failed')
+    expect(moduleState(r, 'm5_sarcasm')).toBe('failed')
   })
 
   it('never implies a degraded post was cleared', () => {
@@ -180,6 +192,10 @@ describe('binary offensive score (m3 BERTurk)', () => {
 
   it('has no row when m3 did not score (checkpoint missing: score null)', () => {
     const r = load(degradedJson)
+    r.signals.decision!.binary_offensive = {
+      threshold: 0.320188, branch: 'scalar', signal: null, signal_value: null,
+      channels: { raw: { score: null, fired: null } }, fired: null, action: null,
+    }
     expect(stage(buildStages(r), 'content').rows).toEqual([])
   })
 })
