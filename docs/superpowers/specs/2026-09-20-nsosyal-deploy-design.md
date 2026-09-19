@@ -22,7 +22,7 @@ Three properties of the existing code shape the design:
 2. **Go supervises the Python inference service**, but only when `python.enabled: true`.
    With `enabled: false` the supervisor runs in monitor-only mode
    (`backend/internal/supervisor/python.go:16`, `Manage=false`) and Go simply calls
-   `python.url`. **Verified** — this is what makes a two-container split possible with no
+   `inference.url`. **Verified** — this is what makes a two-container split possible with no
    code changes.
 3. **Config is env-overridable.** Env names derive from the YAML path with an `NSOSYAL_`
    prefix (`backend/internal/config/config.go:9`), so every value below is set by env var,
@@ -52,7 +52,7 @@ Cloudflare (proxied, Access policy on nsosyal.daqqiq.com)
   ┌─────────────────────────────────────────────┐
   │ nsosyal_app        Go + embedded Vue SPA    │  image ~30MB   cap 256MB
   │   NSOSYAL_PYTHON_ENABLED=false              │
-  │   NSOSYAL_PYTHON_URL=http://infer:8001      │
+  │   NSOSYAL_INFERENCE_URL=http://infer:8001      │
   └───────────────┬─────────────────────────────┘
                   │ overlay net: nsosyal_internal
                   ▼

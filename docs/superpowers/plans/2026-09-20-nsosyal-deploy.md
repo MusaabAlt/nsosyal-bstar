@@ -491,7 +491,7 @@ services:
       # Monitor-only: Go calls python.url but never spawns it
       # (backend/internal/supervisor/python.go:16, Manage=false).
       NSOSYAL_PYTHON_ENABLED: "false"
-      NSOSYAL_PYTHON_URL: "http://infer:8001"
+      NSOSYAL_INFERENCE_URL: "http://infer:8001"
       # Tightened from the repo's LAN-demo defaults for public exposure.
       NSOSYAL_RATE_LIMIT_ANALYZE_PER_SECOND: "5"
       NSOSYAL_LOG_LEVEL: "info"
