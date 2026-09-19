@@ -31,6 +31,40 @@ The rule behind this: claiming sarcasm coverage with no evaluation set is the ea
 
 Be careful with dataset identity — there are at least two distinct small Turkish irony datasets with different sizes floating around in citations. Record the exact name, version and size of whatever you use.
 
+### 2.1 The datasets, identified (PROPOSED by Abdullah 2026-09-16 — awaiting Musaab's approval)
+
+Identification only: nothing has been requested, obtained or trained on. The full record,
+with the access request and its outcome, lives in [`GATE.md`](GATE.md).
+
+**Main corpus — SarcasTürk.** Metin, Yılmaz, Erdoğdu, Meydan, Sümer & Keküllüoğlu
+(Sabancı University), "SarcasTürk: Turkish Context-Aware Sarcasm Detection Dataset",
+SIGTURK 2026 (ACL), pp. 61–71, DOI 10.18653/v1/2026.sigturk-1.6. **1,515 entries** from 98
+titles, 774 sarcasm / 741 no-sarcasm, no version number. Shared **only on request by
+e-mail** (dilara.kekulluoglu@sabanciuniv.edu, cc ahmet.metin@sabanciuniv.edu) because the
+data contains sensitive and offensive language; **no licence is stated**, so terms of use
+must be asked for in the same message. It matches every property this section assumes,
+including the 0.73 → 0.76 context effect in §6 (fine-tuned BERTurk, entry-only vs.
+title-context) and the exclusion of abusive entries in §4.
+
+Two corrections this raises, for Musaab: the corpus is built from **Ekşi Sözlük** entries
+with LLM-written context summaries, **not** from news headlines or Zaytung (the Zaytung
+resource is Onan & Toçoğlu's larger *satire* corpus); and the exclusion of entries "whose
+main function was direct abuse or swearing" is a filtering rule at annotation time, not a
+claim that the data is clean — the paper's ethics section warns it still holds uncensored
+slurs and sexual content.
+
+**Fallback — IronyTR.** Öztürk, Cemek & Karagöz (METU), "IronyTR: Irony Detection in
+Turkish Informal Texts", IJIIT 17(4), 2021, pp. 1–18, DOI 10.4018/IJIIT.289965,
+https://github.com/teghub/IronyTR. **600 items**, 300 ironic / 300 non-ironic, publicly
+downloadable, no licence file in the repo (the paper says "open for research purposes").
+
+**The identity trap in this section, concretely.** Small Turkish irony sets run to 144
+(Dülger 2018), 194 (Taslıoğlu & Karagöz 2017), 220 (Cemek et al., SIU 2020) and 600
+(IronyTR). The 220 and the 600 come from the same METU group and share a GitHub
+organisation, and are routinely conflated in citations; the 600 is cited as Öztürk, Cemek
+& Karagöz (2021), never as Cemek et al. (2020). A count of 1,000 for SarcasTürk refers to
+its earlier subset, not the release.
+
 ---
 
 ## 3. What it catches / does not catch
