@@ -145,6 +145,22 @@ const bars = computed<BarDatum[]>(() => {
   return out
 })
 
+/**
+ * How many the system handed to a person IN THE SELECTED WINDOW. The queue
+ * counts are a running backlog with no time filter, so they must never be the
+ * headline of a window-scoped page; the backlog is the line underneath.
+ */
+const humanReview = computed(() => {
+  const o = overview.value
+  if (!o) return null
+  const value = o.verdicts.review + o.verdicts.escalate
+  return {
+    value,
+    share: o.detected.value > 0 ? (value / o.detected.value) * 100 : null,
+    waiting: o.queue.pending_detected,
+  }
+})
+
 // --------------------------------------------------------- status summary
 
 /** The verdict counts the server sent, as the four words the dashboard uses. */
@@ -224,10 +240,15 @@ function preview(text: string): string {
           <Icon name="flag" :size="16" :stroke="1.8" />
           <span>{{ copy.overview.humanReview }}</span>
         </div>
-        <div class="review__value num">{{ formatCount(overview?.queue.pending_detected) ?? '—' }}</div>
+        <div class="review__row">
+          <span class="review__value num">{{ formatCount(humanReview?.value) ?? '—' }}</span>
+          <span v-if="humanReview?.share != null" class="chip review__share">
+            {{ copy.overview.humanReviewShare(formatPercent(humanReview.share)!) }}
+          </span>
+        </div>
         <p class="review__note">{{ copy.overview.humanReviewNote }}</p>
         <div class="review__foot">
-          <span class="meta">{{ copy.overview.humanReviewTotal(formatCount(overview?.queue.pending) ?? '—') }}</span>
+          <span class="meta">{{ copy.overview.humanReviewTotal(formatCount(humanReview?.waiting) ?? '—') }}</span>
           <span class="review__cta">{{ copy.overview.humanReviewCta }}<Icon name="arrowRight" :size="16" :stroke="1.8" /></span>
         </div>
       </RouterLink>
@@ -463,8 +484,18 @@ function preview(text: string): string {
   font-weight: 600;
   color: var(--accent);
 }
-.review__value {
+.review__row {
   margin-top: 8px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.review__share {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+.review__value {
   font-size: 52px;
   line-height: 60px;
   font-weight: 700;

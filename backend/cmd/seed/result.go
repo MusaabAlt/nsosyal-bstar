@@ -22,11 +22,15 @@ const (
 	guardThreshold     = 0.50     // thresholds.yaml guards.*.threshold
 )
 
-// actionFor is thresholds.yaml categories.*.action.
+// actionFor is thresholds.yaml categories.*.action. It must be kept in step
+// with that file by hand: the seeder stands in for the decision layer, so a
+// disagreement here would show the panel a verdict the live system would not
+// have produced. Last checked against thresholds.yaml on 2026-09-18, after
+// the action policy revision.
 var actionFor = map[string]string{
-	"A1": "nudge", "A2": "review", "A3": "block", "A4": "review",
-	"B1": "review", "B2": "escalate", "B3": "review", "B4": "escalate", "B5": "block",
-	"C1": "review", "C2": "review", "C3": "review", "C4": "escalate", "C5": "review",
+	"A1": "nudge", "A2": "block", "A3": "block", "A4": "review",
+	"B1": "nudge", "B2": "escalate", "B3": "nudge", "B4": "escalate", "B5": "block",
+	"C1": "nudge", "C2": "nudge", "C3": "review", "C4": "escalate", "C5": "nudge",
 	"D1": "nudge",
 }
 

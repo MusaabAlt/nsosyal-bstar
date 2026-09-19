@@ -45,10 +45,16 @@ const defaultArtifactHash = "57466e1738c99c48ae87ba537df93c268d446b3cf4a258669ff
 var artifactHash = defaultArtifactHash
 
 // How the generated stream is made up. Clean dominates, as a real feed does.
+//
+// shareBorderline is deliberately small. A borderline message clears the
+// general offensive threshold without reaching any category threshold, so the
+// decision layer can only ask for a person: every one of them lands in the
+// human review queue. A feed where one message in sixteen is that ambiguous
+// would bury the moderators, and it is not what a real feed looks like.
 const (
-	shareClean      = 0.78
+	shareClean      = 0.825
 	shareGuarded    = 0.04
-	shareBorderline = 0.06
+	shareBorderline = 0.015
 	// the rest is shareDetected
 )
 
@@ -365,15 +371,15 @@ func (f *feed) maybeAct(rng *rand.Rand, id uuid.UUID, a analysed, created, now t
 	default:
 		return
 	}
-	// Older items were more likely to have been handled already; the last
-	// couple of hours are still waiting.
+	// A moderation queue is a working queue, not an archive: yesterday's items
+	// have almost all been dealt with, and what is still waiting is recent.
 	age := now.Sub(created)
-	handled := 0.15
+	handled := 0.35
 	if age > 2*time.Hour {
-		handled = 0.55
+		handled = 0.80
 	}
 	if age > 24*time.Hour {
-		handled = 0.86
+		handled = 0.985
 	}
 	if rng.Float64() >= handled {
 		return

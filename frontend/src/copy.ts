@@ -114,7 +114,8 @@ export const copy = {
 
     humanReview: 'İnsan incelemesi',
     humanReviewNote: 'Sistem kesin karar veremedi veya politika gereği moderatör onayı istiyor.',
-    humanReviewTotal: (n: string) => `kuyrukta toplam ${n} içerik`,
+    humanReviewShare: (pct: string) => `tespitlerin ${pct}'i`,
+    humanReviewTotal: (n: string) => `şu anda kuyrukta ${n} bekliyor`,
     humanReviewCta: 'Kuyruğa git',
 
     classes: 'Moderasyon sınıfları',
