@@ -261,8 +261,8 @@ PRE_WEIGHTS=1 /srv/verify-deploy.sh
 ```
 
 This turns the m3-degraded FAIL into a WARN, for the one legitimate case of
-deploying wiring before weights exist. **`PRE_WEIGHTS=1` must never be set
-once weights are actually present on the box.** It is the only thing
+deploying wiring before weights exist. **Weights are now present, so this
+flag is retired and must never be set again.** It is the only thing
 standing between a green gate and a silently blind detector — setting it
 unconditionally defeats the entire purpose of check 2.
 
@@ -271,12 +271,18 @@ unconditionally defeats the entire purpose of check 2.
 These are today's facts, not permanent design. Update this section as each
 item resolves; do not let it go stale.
 
-- **Model weights are not delivered.** They are held by the repo owner
-  (MusaabAlt), not on this machine. `m3_encoder` is in `degraded_modules`,
-  so **the detector is inactive** — the service answers requests, but
-  produces no offensive-content signal. The `nsosyal_models` volume exists
-  (created empty so `nsosyal_infer` had somewhere to mount without
-  crash-looping) but currently holds nothing.
+- **Model artifacts ARE delivered (2026-09-20) and the detector is ACTIVE.**
+  `berturk_epoch1.pt` (442544192 bytes) and `tokenizer/` sit on the
+  `nsosyal_models` volume; all four sha256 digests were verified against
+  `AI/artifacts/MANIFEST.md` locally before upload and again on the host.
+  `m3_encoder` is no longer in `degraded_modules` and `artifact_hash` is
+  `1bbfcce1…` (it was `20bae0c8…` while degraded). Verified functionally, not
+  just by health check: benign Turkish scored `0.0056`, offensive Turkish
+  `0.9839`, against the fitted threshold `0.320188`.
+- **`PRE_WEIGHTS` is retired — never set it again.** The gate now passes in
+  strict mode: `inference m3 loaded  OK (artifact 1bbfcce11585)`. From here
+  on, setting it would suppress the only check proving the detector is not
+  blind. The section below documents it for history, not for use.
 - **`m5_sarcasm` is also in `degraded_modules`. This is not a bug.** It is
   an unimplemented stub upstream: `AI/modules/m5_sarcasm/module.py` sets
   `stub = True` and its output is `notes=["stub: detection not
@@ -333,7 +339,7 @@ item resolves; do not let it go stale.
   automatically. Cloudflare Access is not configured and, per the decision
   above, is not currently intended to be for this event.
 
-## 7. When the weights arrive
+## 7. When the weights arrive (DONE 2026-09-20 — kept as the procedure for re-delivery)
 
 1. Copy `berturk_epoch1.pt` and the `tokenizer/` directory into the
    `nsosyal_models` volume's data directory on the host:
@@ -376,6 +382,12 @@ something wrong. A copy error will surface as `nsosyal_infer` failing to
 reach `status: ok`, not as a wrong-but-quiet result.
 
 ## 8. Memory budget
+
+**Measured with the model loaded (2026-09-20):** BERTurk costs ~700MB RSS, not the
+1.5-3GB the design planned for — 2459MB available before the load, 1722MB after,
+swap 147MB against the 2048MB cap. The host has materially more headroom than the
+original estimate assumed. The cap stays as-is: it is a ceiling, not a reservation.
+
 
 Host total: **3819MB** (`free -m`, `Mem:` row, total column).
 
