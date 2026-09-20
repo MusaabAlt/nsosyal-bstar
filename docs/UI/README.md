@@ -3,6 +3,12 @@
 > pages, NSosyal's look, dark and light) with real data only. The rules about
 > offline use, "every number comes from the API" and "the UI decides nothing"
 > are still kept. What was built and why: [`docs/FULLSTACK.md`](../FULLSTACK.md).
+>
+> One line below is now plainly wrong rather than merely superseded:
+> `design-system.md` says "Scope. Dark theme only. Desktop only, 1280px and
+> above." The panel has had a light theme since the rebuild and, since
+> 2026-09-20, a phone layout on every page. Do not take that Scope line as
+> current — see "On a phone" in [`docs/FULLSTACK.md`](../FULLSTACK.md).
 
 # Handover — Moderation Console UI
 

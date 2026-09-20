@@ -194,6 +194,33 @@ These are decisions, written down so nobody has to reverse-engineer them:
     action and the verdict is `review`, `escalate` or missing;
   - `auto` – no action and the verdict is `block` or `nudge`.
 - **Automatic action** = verdict `block` or `nudge`.
+- **İnsan incelemesi** = verdict `review` + `escalate`, and its share is **of
+  everything analysed**, not of the detections. The six verdict buckets
+  partition the analysed rows exactly (one SQL row set, one window predicate,
+  `final_action` CHECK-constrained to five values plus NULL), so the numerator
+  is a subset of the denominator and the share cannot pass 100 %. Over
+  `detected` it could, and did: the fail-closed rule hands a comment that fired
+  *nothing* to a person, so it counts here while being absent from `detected`,
+  and the card read "tespitlerin %125,0'i" until 2026-09-20. Go computes both
+  the count and the share (`human_review` in `panel/overview`); the screen only
+  formats them.
+- **Human review band** (`AI/decision/thresholds.yaml`
+  `binary_offensive.review_band`, added 2026-09-20 at the project owner's
+  request). A comment that fired no content code used to go to a moderator
+  whenever the general offensive score crossed its threshold — any score, all
+  the way to 1.00 — so on a quiet window every single detection went to a
+  person. The
+  channel now asks for a person only while its score sits **between 0.30 and
+  0.70**, the range where a moderator can still change the outcome; above
+  0.70 the score is decisive on its own and the content is blocked without a
+  person, below 0.30 the author is nudged. `AI/decision/actions.py` applies
+  it, `backend/cmd/seed` mirrors it for the demo feed, and both read the edges
+  and the replacement actions from that one file.
+  The band replaces **only** an action that asks for a person, and it bands
+  the general offensive channel **only**: `A4`, `B2`, `B4` and `C3` are marked
+  "STAYS HUMAN" in `thresholds.yaml` on purpose, and a high score is not a
+  reason to overrule that. Deleting the `review_band` block restores the flat
+  policy exactly.
 - **Change %** compares the part of the window that has passed with the same
   length of time just before it. `null` when the earlier period is empty.
 - **Active devices** = distinct IPs that sent a comment in the last 5 minutes
@@ -223,7 +250,7 @@ The frontend went through two designs on this branch.
 
 | Route | Page | Shows | Data |
 |---|---|---|---|
-| `/` | Genel Bakış | Headline card (total analysed, detected + share, automatic actions, general offensive signal, moderator actions), prominent **İnsan incelemesi** card, one card per moderation class (A / B / C / D) with a count for every category inside it, category distribution bars, moderation status (Temiz / Uyarı / İnceleme / Engellendi / Tamamlanmadı), and a recent-activity table where every row opens **Neden?**. Tabs: Canlı, Bugün (default), 7 Gün. | `panel/overview`, `panel/items` |
+| `/` | Genel Bakış | Headline card (total analysed, detected + share, automatic actions, general offensive signal, moderator actions), prominent **İnsan incelemesi** card, one card per moderation class (A / B / C / D) with a row for every category the *contract* puts in it, category distribution bars, moderation status (Temiz / Uyarı / İnceleme / Engellendi / Tamamlanmadı), and a recent-activity table where every row opens **Neden?**. Tabs: Canlı, Bugün (default), 7 Gün. | `panel/overview`, `panel/items` |
 | `/analiz` | Canlı Analiz | Composer with presets → normalization strip, one result card per category (score, threshold marker, fired or not, action, module time), the evidence panels of pages-spec stages 3 / 6 / 7 (Gizleme tespiti, Hedef, Koruyucu kontroller — `DetectionEvidence.vue`), explanation with highlighted spans, final decision with "Yanlış pozitif bildir" and "Kuyruğa ekle". | `POST /api/comments`, `categories`, `panel/actions` |
 | `/kuyruk` | Moderasyon Kuyruğu | Tabs Bekleyen / İncelenen / Otomatik işlenen, filters (only detected, category, search), list with checkboxes and bulk actions, detail panel (scores table, system decision, previous messages, history). Keys A / H / R. | `panel/items`, `panel/items/{id}`, `panel/queue-counts`, `panel/actions` |
 | `/motorlar` | Tespit Motorları | One card per category: module, status, threshold, default action, whether the threshold is derived or a placeholder, today's count and trend. | `panel/overview?range=today` |
@@ -238,6 +265,20 @@ scored with its threshold and outcome (fired / below threshold / suppressed by
 a guard), and the guards themselves with the codes they cleared. It reads the
 stored result only; it derives nothing.
 
+**All four moderation classes are always on the page.** The server counts a
+category only while the inference service reports it in `/health`
+(`AI/serving/capabilities.py`), so before 2026-09-20 the two classes it does
+not produce yet simply vanished and the panel looked as if it knew about two
+kinds of abuse. The class list now comes from the contract
+(`labels.generated.json`), and a code the AI does not produce shows **`—`
+"henüz üretilmiyor"**, never `0`: zero means the code was looked for and not
+found, and the panel may not claim a measurement that was never taken. A class
+with no live code at all (C örtük saldırganlık, D aşağılayıcı ironi today)
+carries the line "Bu sınıfın modülü henüz devrede değil"; a partly live class
+(A, missing A4) carries "1 kod henüz ölçülmüyor". When the server reports no
+category at all the AI is unreachable, which is not the same as "not built
+yet", and the section falls back to its error line instead.
+
 Always visible: the sidebar (with the pending badge), the header search, the
 **Sistem durumu** rail on wide screens, the **Canlı Akış** dock with the
 newest messages, the dark/light switch (remembered per browser) and the
@@ -248,6 +289,34 @@ Pages poll every 3–10 seconds and pause while the browser tab is hidden.
 **Deliberately not built** (no real data behind them): Gizlenmiş Küfür
 Sözlüğü, Değerlendirme, Ayarlar, per-engine F1 / precision / recall,
 restart buttons, user accounts.
+
+### On a phone
+
+The panel is used in a hand as well as on a projector, so every page has a
+layout below 900px and again below 600px. Nothing is hidden on a small screen:
+the same numbers are there, in one column.
+
+- **Shell.** The sidebar becomes an off-canvas drawer behind a menu button in
+  the header — seven navigation items with long Turkish labels do not survive
+  being squeezed into a rail, and the drawer keeps the labels, the analyse CTA
+  and the theme switch exactly as they are on a desktop. The header stacks:
+  title row, the search when it is asked for, then the page's tabs as a
+  sideways strip. The **Canlı Akış** dock becomes a full-width bar along the
+  bottom edge and starts collapsed, and the **Temsili veri** marker rides with
+  the page title instead of sitting under the dock.
+- **Tables become cards.** A table of eight columns cannot be read on a 360px
+  screen and a sideways scrollbar is not a design. `Kurallar & Eşikler` and the
+  queue's score table use the shared `.table--stack` pattern: one card per row,
+  each value keeping its column heading beside it. The Genel Bakış activity
+  table gets a layout of its own — message, then its categories, then who /
+  what / when on one line, then a full-width **Neden?**.
+- **Queue.** Selecting a message scrolls its detail panel into view, because
+  stacked it sits below thirty list items. The category filters are one
+  sideways strip rather than four wrapped lines.
+- **Neden?** opens as a bottom sheet rather than a centred dialog.
+- Controls are 38–40px tall for a thumb, inputs are 16px so iOS Safari does not
+  zoom the page on focus, and the breakpoints live in `styles/tokens.css`
+  (`--page-gutter`, `--header-height`).
 
 ### Rules kept from the original spec
 
@@ -354,6 +423,18 @@ cd backend && make run-loadtest   # then, in another terminal: make loadtest  (k
   preset texts double as the mock payload keys (`frontend/src/api/mocks/`), so
   changing one means adding its payload too — owner's call, in
   `frontend/src/api/presets.ts`.
+- **The human review band is placeholder policy.** 0.30 / 0.70 were chosen by
+  the project owner, not derived on the dev split, and they have the same
+  standing as every `action` in `thresholds.yaml`: they need sign-off and
+  derivation before they are anything but policy. The derived threshold the
+  band sits on (0.320188) is untouched — the band changes which *action*
+  follows a fire, never whether the channel fires.
+- **Fail-closed still sends clean sentences to a person.** The band only
+  governs the offensive channel. While `m5_sarcasm` is a stub every result is
+  degraded, and `actions.DEGRADED_ACTION` turns a would-be `clean` verdict into
+  `review` (owner policy, Phase 9). That is the other reason the queue fills,
+  and it is deliberate: it goes away when the last stub is implemented, not by
+  tuning a number.
 - **Moderator identity** is the browser's anonymous session nickname
   ("Operatör"); there are no accounts.
 - **Thresholds cannot be edited from the panel.** They live in

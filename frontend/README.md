@@ -9,6 +9,12 @@ from the Go backend; there is no sample-data mode. System overview:
 Runs fully offline: Inter is bundled, icons are inline SVG, and the build
 fails if it references an external host.
 
+Works on a phone as well as on a projector: every page has a layout below
+900px (sidebar becomes a drawer, header stacks, tabs become a sideways strip)
+and again below 600px (one column, dense tables become one card per row).
+Nothing is hidden on a small screen. See "On a phone" in
+[`docs/FULLSTACK.md`](../docs/FULLSTACK.md).
+
 ## Commands
 
 ```bash
@@ -28,7 +34,7 @@ If the Go server is not on 8080 (on this laptop Apache holds 8080), create
 
 | Route | Page | API it reads |
 |---|---|---|
-| `/` | Genel Bakış: KPIs, engine cards, chart, escape patterns, recent detections | `/api/panel/overview`, `/api/panel/items` |
+| `/` | Genel Bakış: KPIs, the four moderation classes, distribution, moderation status, recent activity | `/api/panel/overview`, `/api/panel/items` |
 | `/analiz` | Canlı Analiz: analyse a sentence, per-category results, final decision | `POST /api/comments`, `/api/categories`, `/api/panel/actions` |
 | `/kuyruk` | Moderasyon Kuyruğu: tabs, filters, bulk actions, detail panel, keys A/H/R | `/api/panel/items`, `/api/panel/items/{id}`, `/api/panel/queue-counts`, `/api/panel/actions` |
 | `/motorlar` | Tespit Motorları: one card per category the AI runs | `/api/panel/overview?range=today` |
@@ -44,8 +50,8 @@ the URL: `/kuyruk?id=<comment>&code=A1&status=reviewed&all=1`.
 | Path | What |
 |---|---|
 | `src/styles/tokens.css` | All colours, radii and fonts; dark by default, `html.light` for light. Components use these variables only. |
-| `src/styles/main.css` | Base styles and shared classes: `.card`, `.chip`, `.btn` (+ `--secondary`, `--danger`, `--solid`, `--brand`, `--ghost`), `.table`, `.progress`. |
-| `src/components/AppShell.vue` | Sidebar, header (title, `#page-tabs` target, search, avatar), rail, dock, theme switch. |
+| `src/styles/main.css` | Base styles and shared classes: `.card`, `.chip`, `.btn` (+ `--secondary`, `--danger`, `--solid`, `--brand`, `--ghost`), `.table` (+ `--stack`, one card per row on a phone), `.progress`. |
+| `src/components/AppShell.vue` | Sidebar (drawer on a phone), header (title, `#page-tabs` target, search, avatar, demo marker), rail, dock, theme switch. |
 | `src/components/SystemRail.vue`, `LiveDock.vue` | Sistem durumu and Canlı Akış. |
 | `src/components/panel/` | Page building blocks: `PageTabs` (teleports into the header), `KpiTile`, `Sparkline`, `LineChart`, `CategoryChip`, `HighlightedText`, `DetectionRow`, `ModeratorActions`, `StatusDot`, `EmptyState`. |
 | `src/components/icons.ts`, `Icon.vue` | Inline SVG icon paths. |
@@ -56,7 +62,7 @@ the URL: `/kuyruk?id=<comment>&code=A1&status=reviewed&all=1`.
 | `src/api/mocks/`, `mockSource.ts` | Sample payloads, **used by tests only**. |
 | `src/report/model.ts` | Reads an `AnalysisResult` (verdict word, per-category rows, module states); decides nothing. |
 | `src/report/useAnalysis.ts` | idle → analysing → report / error, with a 400 ms minimum so the change is visible. |
-| `src/lib/categories.ts` | Category label, family, colour and icon; `firedCategories()` reads what fired. |
+| `src/lib/categories.ts` | Category label, family, colour and icon; `familyMeta()` / `codesOfFamily()` build the moderation classes from the contract; `firedCategories()` reads what fired. |
 | `src/lib/spans.ts` | Code-point spans → highlighted segments (emoji-safe). |
 | `src/lib/format.ts` | Turkish number, percent, change and time formatting; missing values stay `null`. |
 | `src/composables/` | `usePoll` (pauses while the tab is hidden), `useTheme`, `useLiveOverview` (shared by the badge and the rail). |
@@ -75,8 +81,14 @@ a degraded result is never shown as clean.
 
 ## Categories and colours
 
-The panel lists only what the AI detects today (`AI/serving/capabilities.py`,
-served through `/api/categories`). When a module starts emitting a new code,
-it appears everywhere without a frontend change. Colours follow the family:
-A red, B pink, C orange, D blue, and the model's general offensive score
-("Genel saldırganlık") purple.
+Every page except one lists only what the AI detects today
+(`AI/serving/capabilities.py`, served through `/api/categories`). When a module
+starts emitting a new code, it appears everywhere without a frontend change.
+Colours follow the family: A red, B pink, C orange, D blue, and the model's
+general offensive score ("Genel saldırganlık") purple.
+
+The exception is **Moderasyon sınıfları** on Genel Bakış, which lists all four
+classes and every code the contract puts in them, so the panel does not look
+as if it only knows about two kinds of abuse. A code the AI does not produce
+yet shows `—` "henüz üretilmiyor" — never `0`, which would claim it was looked
+for and not found.

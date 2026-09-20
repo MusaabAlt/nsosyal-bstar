@@ -99,7 +99,7 @@ never changes `verdict`, `fired`, `active` or `suppressed`.
 
 | Endpoint | Request → response |
 |---|---|
-| `GET /api/panel/overview?range=live\|today\|week` | `{range, start, now, bucket_seconds, bucket_starts, analysed, detected, automatic, queue, categories[+total, buckets], patterns, system, representative}`. Each KPI is `{value, previous, change_pct, share_pct?}`. |
+| `GET /api/panel/overview?range=live\|today\|week` | `{range, start, now, bucket_seconds, bucket_starts, analysed, detected, automatic, human_review, verdicts, queue, categories[+total, buckets], patterns, system, representative}`. Each KPI is `{value, previous, change_pct, share_pct?}`. `verdicts` is `{block, escalate, review, nudge, clean, undecided}` and those six partition `analysed`, so `human_review` (review + escalate) carries its share OF ANALYSED — never of `detected`, which is a smaller population. |
 | `GET /api/panel/items?status=pending\|reviewed\|auto&detected=true&code=A1&q=text&limit&cursor` | `{items: [{id, nickname, text, created_at, final_action, fired_types, guards_active, degraded, explanation, detected, status, latest_action, latest_action_at, latency_ms, result}], next_cursor}` |
 | `GET /api/panel/items/{id}` | `{item, actions: [{action, nickname, created_at}], previous: [3 earlier items from the same sender]}` or `404` |
 | `GET /api/panel/queue-counts` | `{pending, pending_detected, reviewed, auto}` |
