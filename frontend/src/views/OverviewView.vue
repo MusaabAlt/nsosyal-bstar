@@ -155,14 +155,23 @@ const bars = computed<BarDatum[]>(() => {
  * How many the system handed to a person IN THE SELECTED WINDOW. The queue
  * counts are a running backlog with no time filter, so they must never be the
  * headline of a window-scoped page; the backlog is the line underneath.
+ *
+ * The count and its share are both read from the response. The screen used to
+ * add the two verdicts and divide by `detected` itself, and that is how the
+ * card came to say "tespitlerin %125,0'i": review and escalate are counted over
+ * every analysed comment, while `detected` counts only the ones that fired
+ * something, and the fail-closed rule hands undetected comments to a person
+ * too. Go counts both sides over the same rows now (panel.go, human_review).
  */
 const humanReview = computed(() => {
   const o = overview.value
   if (!o) return null
-  const value = o.verdicts.review + o.verdicts.escalate
+  // Optional reads: a server older than this build sends no human_review, and
+  // a missing section renders as unavailable rather than crashing the page.
+  const hr = o.human_review as typeof o.human_review | undefined
   return {
-    value,
-    share: o.detected.value > 0 ? (value / o.detected.value) * 100 : null,
+    value: hr?.value ?? null,
+    share: hr?.share_pct ?? null,
     waiting: o.queue.pending_detected,
   }
 })
@@ -186,7 +195,10 @@ const statuses = computed(() => {
     tone,
     meta: statusMeta(tone),
     value: counts[tone],
-    share: total > 0 ? (counts[tone] / total) * 100 : 0,
+    // A missing share renders as unavailable, never as 0. Unreachable while a
+    // tone is only listed when its own count is above zero, but 0 would be the
+    // wrong answer if that ever changes.
+    share: total > 0 ? (counts[tone] / total) * 100 : null,
   }))
 })
 

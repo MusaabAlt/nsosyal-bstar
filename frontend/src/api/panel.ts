@@ -100,6 +100,8 @@ export interface Overview {
   analysed: Kpi
   detected: Kpi
   automatic: Kpi
+  /** review + escalate, with its share of `analysed` already computed by Go. */
+  human_review: Kpi
   verdicts: VerdictCounts
   queue: QueueCounts
   categories: OverviewCategory[]

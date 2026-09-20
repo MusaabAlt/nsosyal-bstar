@@ -154,6 +154,23 @@ func TestPanelOverviewAndMetrics(t *testing.T) {
 	if counts.Analysed != (Pair{Current: 4}) || counts.Detected != (Pair{Current: 1}) || counts.Automatic != (Pair{}) {
 		t.Fatalf("totals = %+v", counts)
 	}
+	// degraded -> review with nothing fired, flagged -> escalate and detected.
+	if counts.Verdicts != (VerdictCounts{Review: 1, Escalate: 1, Clean: 2}) {
+		t.Fatalf("verdicts = %+v", counts.Verdicts)
+	}
+	// The dashboard divides "İnsan incelemesi" (review + escalate) by Analysed,
+	// which is only sound because the six buckets partition the analysed rows.
+	// Assert the partition itself, not the quotient: the card read 200% on this
+	// very fixture while it divided by Detected (2 asking for a person, 1
+	// detected), because the fail-closed rule sends undetected comments to a
+	// person too.
+	v := counts.Verdicts
+	if sum := v.Block + v.Escalate + v.Review + v.Nudge + v.Clean + v.Undecided; sum != counts.Analysed.Current {
+		t.Fatalf("verdicts sum to %d, analysed is %d: they must partition the same rows", sum, counts.Analysed.Current)
+	}
+	if v.Review+v.Escalate > counts.Analysed.Current {
+		t.Fatalf("human review %d exceeds analysed %d", v.Review+v.Escalate, counts.Analysed.Current)
+	}
 	want := map[string]int64{"A1": 0, "B2": 1, BinaryOffensive: 1}
 	for _, s := range counts.Series {
 		if s.Total != want[s.Code] || len(s.Buckets) != 12 || s.Buckets[11] != want[s.Code] {

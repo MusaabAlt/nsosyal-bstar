@@ -5,6 +5,7 @@ import degradedJson from '@/api/mocks/degraded.json'
 import { segmentByKey } from './spans'
 import { BINARY_OFFENSIVE, categoryMeta, firedCategories } from './categories'
 import { formatChange, formatCount, formatPercent } from './format'
+import { accusative, percentSuffix } from '@/copy'
 
 const load = (json: unknown) => JSON.parse(JSON.stringify(json)) as AnalysisResult
 
@@ -55,5 +56,29 @@ describe('formatting', () => {
     expect(formatPercent(9)).toBe('%9,0')
     expect(formatChange(12)).toBe('+%12,0')
     expect(formatChange(-5)).toBe('−%5,0')
+  })
+})
+
+describe('Turkish suffixes', () => {
+  it('reads a number the way it is spoken', () => {
+    // "2 kategoriden 1'i", "... 4'ü", "... 6'sı", "10'u", "0'ı".
+    expect(accusative(1)).toBe("'i")
+    expect(accusative(4)).toBe("'ü")
+    expect(accusative(6)).toBe("'sı")
+    expect(accusative(10)).toBe("'u")
+    expect(accusative(0)).toBe("'ı")
+  })
+
+  it('suffixes a percent from its decimal digit, not with a fixed i', () => {
+    // A percent is spoken ending in its decimal: "%100,0" is "yüzde yüz virgül
+    // sıfır", so it takes 'ı. A hardcoded "'i" was wrong for seven digits.
+    expect(percentSuffix(formatPercent(100)!)).toBe("'ı")
+    expect(percentSuffix(formatPercent(12.5)!)).toBe("'i")
+    expect(percentSuffix(formatPercent(33.4)!)).toBe("'ü")
+    expect(percentSuffix(formatPercent(0)!)).toBe("'ı")
+  })
+
+  it('leaves a percent it cannot read alone rather than guessing', () => {
+    expect(percentSuffix('%—')).toBe("'i")
   })
 })

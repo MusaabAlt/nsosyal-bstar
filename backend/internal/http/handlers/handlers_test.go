@@ -569,3 +569,123 @@ func TestCategoriesEndpoint(t *testing.T) {
 		t.Fatalf("binary_offensive row = %+v", last)
 	}
 }
+
+// fakePanel serves one fixed Overview so the dashboard's own arithmetic can be
+// checked without Postgres. Only Overview and QueueCounts are exercised here.
+type fakePanel struct{ counts store.OverviewCounts }
+
+func (f fakePanel) Items(context.Context, store.ItemFilter) (store.ItemPage, error) {
+	return store.ItemPage{}, nil
+}
+func (f fakePanel) Item(context.Context, uuid.UUID) (store.ItemDetail, error) {
+	return store.ItemDetail{}, nil
+}
+func (f fakePanel) QueueCounts(context.Context) (store.QueueCounts, error) {
+	return store.QueueCounts{}, nil
+}
+func (f fakePanel) AddActions(context.Context, []uuid.UUID, string, *uuid.UUID) ([]uuid.UUID, error) {
+	return nil, nil
+}
+func (f fakePanel) Events(context.Context, store.EventFilter) (store.EventPage, error) {
+	return store.EventPage{}, nil
+}
+func (f fakePanel) Overview(_ context.Context, r store.Range, codes []string) (store.OverviewCounts, error) {
+	out := f.counts
+	out.Series = make([]store.Series, len(codes))
+	for i, code := range codes {
+		out.Series[i] = store.Series{Code: code, Buckets: make([]int64, r.Buckets)}
+	}
+	return out, nil
+}
+func (f fakePanel) ActiveDevices(context.Context, time.Duration) (int64, error) { return 0, nil }
+func (f fakePanel) RequestSeries(context.Context, time.Time, time.Duration, int) (store.MetricSeries, error) {
+	return store.MetricSeries{}, nil
+}
+
+// overviewEnv is newEnv with a panel store, which must be present before
+// Register or the /api/panel routes are never mounted.
+func overviewEnv(t *testing.T, counts store.OverviewCounts) *env {
+	t.Helper()
+	e := &env{
+		store:    &fakeStore{sessions: map[uuid.UUID]bool{}},
+		writer:   &fakeWriter{},
+		analyzer: &fakeAnalyzer{result: mock(t, "flagged")},
+	}
+	e.api = New(Deps{
+		Store: e.store, Writer: e.writer, Analyzer: e.analyzer,
+		Panel:        fakePanel{counts: counts},
+		Inference:    fakeInference{hash: "h"},
+		Categories:   categories.NewStore("../../../../AI/decision/thresholds.yaml"),
+		Cache:        cache.New[CachedAnalysis](100, time.Minute),
+		Metrics:      metrics.NewRegistry(),
+		Log:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+		MaxBodyBytes: 64 << 10, MaxTextChars: 5000, StartedAt: time.Now(),
+	})
+	e.mux = http.NewServeMux()
+	e.api.Register(e.mux)
+	return e
+}
+
+func overviewKPI(t *testing.T, e *env, field string) (int64, *float64) {
+	t.Helper()
+	rr := e.do(http.MethodGet, "/api/panel/overview?range=today", "")
+	if rr.Code != http.StatusOK {
+		t.Fatalf("%d %s", rr.Code, rr.Body)
+	}
+	var body map[string]json.RawMessage
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("overview body: %v\n%s", err, rr.Body)
+	}
+	raw, ok := body[field]
+	if !ok {
+		t.Fatalf("overview has no %q: %s", field, rr.Body)
+	}
+	var kpi struct {
+		Value int64 `json:"value"`
+		// Absent on an empty window (omitempty), which is the "unavailable,
+		// never 0" contract sharePct exists to keep.
+		SharePct *float64 `json:"share_pct"`
+	}
+	if err := json.Unmarshal(raw, &kpi); err != nil {
+		t.Fatalf("overview %s: %v\n%s", field, err, raw)
+	}
+	return kpi.Value, kpi.SharePct
+}
+
+// The İnsan incelemesi card said "tespitlerin %125,0'i" because it divided
+// review + escalate by DETECTED. Those verdicts are counted over every analysed
+// comment, and the fail-closed rule (AI/decision/actions.py DEGRADED_ACTION)
+// sends a comment that fired NOTHING to a person, so the numerator is not a
+// subset of that denominator. Go now divides by Analysed and sends the share.
+func TestOverviewHumanReviewShareIsOfAnalysedNotDetected(t *testing.T) {
+	// Exactly the shape that broke: 2 comments asked for a person, only 1 of
+	// them was detected at all.
+	e := overviewEnv(t, store.OverviewCounts{
+		Analysed: store.Pair{Current: 4},
+		Detected: store.Pair{Current: 1},
+		Verdicts: store.VerdictCounts{Review: 1, Escalate: 1, Clean: 2},
+	})
+	value, share := overviewKPI(t, e, "human_review")
+	if value != 2 {
+		t.Fatalf("human_review.value = %d, want review + escalate = 2", value)
+	}
+	if share == nil {
+		t.Fatal("human_review.share_pct is null with 4 analysed comments")
+	}
+	if *share != 50 {
+		t.Fatalf("human_review.share_pct = %v, want 50 (2 of 4 analysed); 200 would be the old detected denominator", *share)
+	}
+	if *share > 100 {
+		t.Fatalf("share_pct = %v: a share of the analysed rows can never exceed 100", *share)
+	}
+}
+
+func TestOverviewSharesAreUnavailableRatherThanZeroOnAnEmptyWindow(t *testing.T) {
+	e := overviewEnv(t, store.OverviewCounts{})
+	for _, field := range []string{"human_review", "detected"} {
+		value, share := overviewKPI(t, e, field)
+		if value != 0 || share != nil {
+			t.Fatalf("%s = {value %d, share %v}, want 0 and null: an empty window has no share, and 0%% would be a claim", field, value, share)
+		}
+	}
+}

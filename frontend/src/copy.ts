@@ -18,6 +18,20 @@ export function accusative(n: number): string {
   return "'i" // bin
 }
 
+/**
+ * The partitive suffix after a formatted percent, so a sentence can read
+ * "analiz edilen içeriğin %12,5'i".
+ *
+ * A percent is spoken ending in its decimal digit - "%12,5" is "yüzde on iki
+ * virgül beş", "%100,0" is "yüzde yüz virgül sıfır" - and formatPercent always
+ * prints exactly one decimal, so the last character decides the suffix. A fixed
+ * "'i" is wrong for seven of the ten digits: "%100,0'i" instead of "%100,0'ı".
+ */
+export function percentSuffix(percent: string): string {
+  const last = percent.charCodeAt(percent.length - 1) - 48
+  return last >= 0 && last <= 9 ? accusative(last) : "'i"
+}
+
 export const copy = {
   app: {
     brand: 'ATI-SOSYAL',
@@ -116,7 +130,10 @@ export const copy = {
 
     humanReview: 'İnsan incelemesi',
     humanReviewNote: 'Sistem kesin karar veremedi veya politika gereği moderatör onayı istiyor.',
-    humanReviewShare: (pct: string) => `tespitlerin ${pct}'i`,
+    // Of everything analysed, not of the detections: the fail-closed rule sends
+    // comments that fired nothing to a person too, so they are in this count
+    // without being in "tespit". Over detections the card read %125,0.
+    humanReviewShare: (pct: string) => `analiz edilen içeriğin ${pct}${percentSuffix(pct)}`,
     humanReviewTotal: (n: string) => `şu anda kuyrukta ${n} bekliyor`,
     humanReviewCta: 'Kuyruğa git',
 

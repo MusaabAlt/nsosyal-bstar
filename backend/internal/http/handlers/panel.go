@@ -138,6 +138,7 @@ type overviewResponse struct {
 	Analysed       kpi                  `json:"analysed"`
 	Detected       kpi                  `json:"detected"`
 	Automatic      kpi                  `json:"automatic"`
+	HumanReview    kpi                  `json:"human_review"`
 	Verdicts       store.VerdictCounts  `json:"verdicts"`
 	Pending        store.QueueCounts    `json:"queue"`
 	Categories     []overviewCategory   `json:"categories"`
@@ -215,6 +216,20 @@ func (a *API) panelOverview(w http.ResponseWriter, r *http.Request) {
 		SharePct: sharePct(counts.Detected.Current, counts.Analysed.Current),
 	}
 	resp.Automatic = kpi{Value: counts.Automatic.Current, Previous: &counts.Automatic.Previous, ChangePct: changePct(counts.Automatic)}
+	// İnsan incelemesi: what this window handed to a person.
+	//
+	// The share is over ANALYSED, not over detected. review and escalate are two
+	// of the six verdict buckets, and those buckets partition every analysed
+	// comment (one SQL row set, one `created_at >= $1` predicate, final_action
+	// CHECK-constrained to five values plus NULL), so the numerator is a subset
+	// of the denominator and the share cannot pass 100%.
+	//
+	// Over `detected` it could, and did: the fail-closed rule sends a comment
+	// that fired NOTHING to a person (AI/decision/actions.py DEGRADED_ACTION),
+	// so it counts here while being absent from `detected`. That is what made
+	// the card read "tespitlerin %125,0'i".
+	humanReview := counts.Verdicts.Review + counts.Verdicts.Escalate
+	resp.HumanReview = kpi{Value: humanReview, SharePct: sharePct(humanReview, counts.Analysed.Current)}
 	resp.Verdicts = counts.Verdicts
 	resp.Patterns = counts.Patterns
 
