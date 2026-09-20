@@ -282,33 +282,56 @@ item resolves; do not let it go stale.
   `stub = True` and its output is `notes=["stub: detection not
   implemented"]`. The team is waiting on data access for this module; there
   is nothing to fix here from the infra side.
-- **A temporary Traefik basic-auth middleware guards the site**, user
-  `nsosyal`. It exists because the app has no authentication of its own and
-  the site was briefly reachable by anyone. It was applied out-of-band:
+- **The site is intentionally open to the public — no authentication of any
+  kind.** This is a deliberate decision for the tournament this deployment
+  supports, not an oversight and not a pending task. A temporary Traefik
+  basic-auth middleware existed earlier tonight and has since been removed
+  (`docker service update --label-rm` on `nsosyal_app`); `https://
+  nsosyal.daqqiq.com/` now returns `200` with no credentials required, and
+  `verify-deploy.sh`'s origin check reports `OK (200)`, exit 0. **Cloudflare
+  Access was considered for this and is deliberately NOT being used.**
+- **"Open" means fully open, including the write endpoints.** The
+  application has no authentication of its own, so any visitor can reach:
+  - `POST /api/sessions` — creates a session
+  - `POST /api/comments` — writes a comment into the database
+  - `POST /api/panel/actions` — performs moderation actions
+  (verified directly against `backend/internal/http/handlers/handlers.go`
+  and `backend/internal/http/handlers/panel.go`; every other registered
+  route is `GET`). **Any visitor can moderate and write to the database
+  right now.** Anything demonstrated live at the tournament could be
+  altered by another visitor at the same time — do not treat the panel's
+  state as trustworthy or exclusive to the presenter during the event.
+- **What actually defends the origin today:**
+  - `NSOSYAL_RATE_LIMIT_ANALYZE_PER_SECOND: "5"` per client IP, set in
+    `infra/docker-stack.yml` (tightened from the repo's LAN-demo default of
+    `1`/s — see `backend/config.yaml`'s `rate_limit.analyze_per_second`).
+    This limits abuse volume, it does not limit *who* can act.
+  - Cloudflare's proxy sits in front of the origin, and the host firewall
+    admits only Cloudflare's IP ranges on port 443 — the origin is not
+    directly reachable by IP, only through Cloudflare. This is network-level
+    protection, not application-level authentication; it does nothing
+    against a legitimate request routed through Cloudflare, which is every
+    request a browser makes to `nsosyal.daqqiq.com`.
+- **If you need to close it again**, reapply the same basic-auth labels
+  used earlier tonight:
   ```bash
+  HASH=$(openssl passwd -apr1 '<new password>')
   docker service update --label-add \
-    'traefik.http.middlewares.nsosyal_auth.basicauth.users=<htpasswd entry>' \
+    "traefik.http.middlewares.nsosyal_auth.basicauth.users=nsosyal:${HASH}" \
     --label-add 'traefik.http.routers.nsosyal.middlewares=nsosyal_auth' \
     nsosyal_app
   ```
-  **These labels are NOT in `infra/docker-stack.yml`.** A plain
-  `docker stack deploy` of that file wipes them, silently re-exposing the
-  site with no authentication. Until Cloudflare Access replaces this, check
-  for these labels after every deploy (`docker service inspect nsosyal_app`)
-  and reapply them if they're gone.
-  This middleware must be replaced by Cloudflare Access, not kept
-  long-term. Once Access is in front of the origin, `verify-deploy.sh`'s
-  origin check goes back to returning `200` on its own — **it currently and
-  correctly reports `FAIL (401)`**, because Traefik rejects unauthenticated
-  requests by design right now. Do not "fix" the gate to tolerate 401; fix
-  the missing Access configuration instead.
+  This is label-only, applied directly to the running service, and is
+  **NOT in `infra/docker-stack.yml`** — the next plain `docker stack deploy`
+  of that file wipes it and silently reopens the site. If you close access
+  this way, either add the middleware to the stack file for real or note it
+  here again so the next deploy doesn't undo it by accident.
 - **Cloudflare:** the DNS A record (`nsosyal.daqqiq.com` -> `46.224.235.180`,
   proxied) is done — created via the token already present in the Traefik
   service environment, which is scoped to both `daqqiq.com` and
   `sahhil.com`, so the existing DNS-01 certresolver issues the TLS cert
-  automatically. **Cloudflare Access is not configured.** The available
-  token is DNS-scoped only (403 on the Access API), so this step requires
-  the Cloudflare dashboard and is a manual, human action.
+  automatically. Cloudflare Access is not configured and, per the decision
+  above, is not currently intended to be for this event.
 
 ## 7. When the weights arrive
 
@@ -391,6 +414,14 @@ tuning.** The service's memory limit is already 2048M; there is very little
 headroom below that cap to tune into before hitting OOM kills on the
 container, and further squeezing this host risks starving
 `sahhil-alsayed` and `workbench`.
+
+The site being publicly open for the tournament (§6) changes this risk
+profile once weights are loaded: every visitor's analyze request then runs
+real BERTurk inference on the same host that serves `sahhil-alsayed`, not
+just idle health checks. Watch `mem available` during the event — it's the
+last line of `verify-deploy.sh`'s output — and re-run the gate after the
+weights go in specifically to get a fresh reading under that load, not just
+to check `degraded_modules`.
 
 ## 9. Deliberate omissions
 
