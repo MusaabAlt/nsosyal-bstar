@@ -88,7 +88,8 @@ any module, the contracts or the thresholds.
 | File | What it does |
 |---|---|
 | `app.py` | FastAPI app. `GET /health` and `POST /predict_batch`. Loads the pipeline in a background thread (BERTurk takes a while); until then `/health` says `loading` and `/predict_batch` answers `503`. Runs one analysis at a time (a lock), because the modules are not documented as thread-safe. One failing text never fails the batch. Runnable as `python serving/app.py` or with uvicorn. |
-| `capabilities.py` | The list of what the AI detects today and which module produces it. Today: `A1` from `m1_lexicon` (terlik) and `binary_offensive` from `m3_encoder` (BERTurk), shown as "Genel saldırganlık". **Update this list in the same change that makes a module emit a new code.** |
+| `capabilities.py` | The list of what the AI detects today and which module produces it. Since m1's routing, m2 and m6 landed (2026-09-17): `A1` / `A2` / `A3` / `B1` / `B2` / `B3` from `m1_lexicon` (terlik; A2 and A3 are the A1 carrier after the decision layer applies m6's target, ADR-005), `B4` (doxing) from `m6_target`, and `binary_offensive` from `m3_encoder` (BERTurk), shown as "Genel saldırganlık". **Update this list in the same change that makes a module emit a new code.** |
+| `normalization.py` | Turns m2's internal output into the optional `normalization` object of the Go contract. `to_span` is derived from m2's `_offsets` map (ADR-008); nothing is guessed and nothing enters the frozen result. |
 | `requirements.txt` | fastapi, uvicorn, httpx (tests). Kept out of the AI core requirements on purpose. |
 | `test_app.py` | Health, loading (503), results matched by id with the text unchanged, one failing item, load failure, oversized text. |
 
@@ -103,9 +104,16 @@ cd AI
 The full request/response shapes are in
 [`backend/docs/inference-contract.md`](../backend/docs/inference-contract.md).
 
-**Not done yet:** `normalization` (m2's de-obfuscated text) is part of the
-contract but is never sent, because `m2_deobf` is still a stub. The panel
-shows "Normalleştirme modülü hazır değil" until it is.
+`normalization` (m2's de-obfuscated text) is sent since 2026-09-19. It travels
+beside the result, never inside it: the `AnalysisResult` contract is frozen and
+leaves the recovered text out on purpose (decision 17/21), so the service asks
+the pipeline for it through `Pipeline.analyze_with_internals` and shapes it in
+`serving/normalization.py`.
+
+**Interpreter note:** m2's tier 2 (DEASCII) needs `zeyrek`, which only `AI/.venv`
+has. Under the repository-root `.venv` the service still runs, `tier2_enabled`
+is `false`, and the panel's "Kontrol edilen diğer N kalıpta eşleşme yok" line
+correctly counts six checked patterns instead of eight.
 
 ---
 
@@ -177,8 +185,9 @@ Panel API (added for the ATI-SOSYAL panel, `handlers/panel.go`):
 These are decisions, written down so nobody has to reverse-engineer them:
 
 - **Detected** = the decision layer fired at least one content code *or* the
-  binary offensive score. The verdict is not used, because while modules are
-  stubs every verdict is `review`, including clean sentences.
+  binary offensive score. The verdict is not used, because while `m5_sarcasm`
+  is a stub every result is degraded and a clean sentence still ends on
+  `review`.
 - **Queue status** of a comment:
   - `reviewed` – its latest moderator action is approve, hide or remove;
   - `pending` – its latest action is queue or false_positive, or it has no
@@ -215,7 +224,7 @@ The frontend went through two designs on this branch.
 | Route | Page | Shows | Data |
 |---|---|---|---|
 | `/` | Genel Bakış | Headline card (total analysed, detected + share, automatic actions, general offensive signal, moderator actions), prominent **İnsan incelemesi** card, one card per moderation class (A / B / C / D) with a count for every category inside it, category distribution bars, moderation status (Temiz / Uyarı / İnceleme / Engellendi / Tamamlanmadı), and a recent-activity table where every row opens **Neden?**. Tabs: Canlı, Bugün (default), 7 Gün. | `panel/overview`, `panel/items` |
-| `/analiz` | Canlı Analiz | Composer with presets → normalization strip, one result card per category (score, threshold marker, fired or not, action, module time), explanation with highlighted spans, final decision with "Yanlış pozitif bildir" and "Kuyruğa ekle". | `POST /api/comments`, `categories`, `panel/actions` |
+| `/analiz` | Canlı Analiz | Composer with presets → normalization strip, one result card per category (score, threshold marker, fired or not, action, module time), the evidence panels of pages-spec stages 3 / 6 / 7 (Gizleme tespiti, Hedef, Koruyucu kontroller — `DetectionEvidence.vue`), explanation with highlighted spans, final decision with "Yanlış pozitif bildir" and "Kuyruğa ekle". | `POST /api/comments`, `categories`, `panel/actions` |
 | `/kuyruk` | Moderasyon Kuyruğu | Tabs Bekleyen / İncelenen / Otomatik işlenen, filters (only detected, category, search), list with checkboxes and bulk actions, detail panel (scores table, system decision, previous messages, history). Keys A / H / R. | `panel/items`, `panel/items/{id}`, `panel/queue-counts`, `panel/actions` |
 | `/motorlar` | Tespit Motorları | One card per category: module, status, threshold, default action, whether the threshold is derived or a placeholder, today's count and trend. | `panel/overview?range=today` |
 | `/kurallar` | Kurallar & Eşikler | Read-only table of every category's threshold and action, with the source file. | `categories` |
@@ -304,7 +313,7 @@ make run
   command refuses to run on a database that already holds comments.
 - `mockinfer -demo` reports every category in `thresholds.yaml` as live, so the
   panel shows one card per moderation class. Without `-demo` it reports what the
-  real service reports today (A1 and `binary_offensive`).
+  real service reports today (m1's A1–B3, m6's B4 and `binary_offensive`).
 - Pass `-artifact <hash>` from the inference service's `/health` if you want
   **Model sürümü** on screen to match the service that is running.
 - Two weeks of data is the default on purpose: the "7 Gün" range compares
@@ -330,15 +339,21 @@ cd backend && make run-loadtest   # then, in another terminal: make loadtest  (k
 
 ## 6. Known limits and open items
 
-- **Most AI modules are still stubs** (`m2_deobf`, `m5_sarcasm`,
-  `m6_target`). Every result is therefore marked incomplete and every
-  verdict is `review`. The panel shows this honestly; the numbers become
-  more interesting on their own as modules land.
-- **Presets:** "Gizlenmiş hakaret" and "Zararsız benzerlik" use the old sample
-  texts (`Seni b1tireceğim`, `amcam geldi`), which the real model does not
-  flag today. Replace them with real demo sentences in
+- **`m5_sarcasm` is the one remaining stub.** m2 and m6 landed on 2026-09-17
+  and m4 is not a stub (it has nothing to score until m3's C head exists), so
+  the pipeline now produces obfuscation patterns, a recovered text, a target
+  and B1–B4 alongside A1–A3. One stub is still enough to mark every result
+  incomplete and keep `clean` unreachable (fail closed), so a harmless sentence
+  still ends on `review`; a real detection now reaches `nudge`, `escalate` or
+  `block` on its own. D1 and C1–C5 are not produced.
+- **Presets** still fire no category on the real model. `Seni b1tireceğim` and
+  `amcam geldi` now produce real evidence on the stage panels (LEET + an
+  individual target; `SUBSTRING_COLLISION`), but no content code reaches its
+  threshold, so the result cards stay empty. A sentence that fires end to end
+  today is `s4l4k herif, sen ne anlarsın` (B1, LEET, individual target). The
+  preset texts double as the mock payload keys (`frontend/src/api/mocks/`), so
+  changing one means adding its payload too — owner's call, in
   `frontend/src/api/presets.ts`.
-- **Normalization** is never sent until m2 exists (section 2).
 - **Moderator identity** is the browser's anonymous session nickname
   ("Operatör"); there are no accounts.
 - **Thresholds cannot be edited from the panel.** They live in

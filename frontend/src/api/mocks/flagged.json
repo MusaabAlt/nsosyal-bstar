@@ -36,7 +36,16 @@
       "fired": false
     }
   ],
-  "target": null,
+  "target": {
+    "type": "individual",
+    "confidence": 0.9,
+    "evidence": "Seni",
+    "span": [
+      0,
+      4
+    ],
+    "source": "m6_target"
+  },
   "guards": [],
   "thread": null,
   "signals": {
@@ -133,6 +142,28 @@
         }
       ],
       "post_offensive": true
+    },
+    "m6_target": {
+      "target_type": "individual",
+      "target_confidence": 0.9,
+      "target_evidence": {
+        "span": [
+          0,
+          4
+        ],
+        "how": "second person"
+      },
+      "target_candidates": [
+        {
+          "type": "individual",
+          "confidence": 0.9,
+          "span": [
+            0,
+            4
+          ],
+          "how": "second person"
+        }
+      ]
     }
   },
   "explanation": "İçerik 'Tehdit' (B2) nedeniyle üst incelemeye iletildi.",
@@ -140,6 +171,7 @@
   "per_module_ms": {
     "m0_charsafe": 0.05619996227324009,
     "m2_deobf": 0.028600043151527643,
+    "m6_target": 0.3848999913316221,
     "m3_encoder": 0.009300012607127428
   },
   "fast_path": false,

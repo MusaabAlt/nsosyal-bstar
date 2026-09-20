@@ -16,50 +16,35 @@
       "homoglyphs_mapped": 0,
       "charsafe_changed": false
     },
-    "m2_deobf": {},
-    "m6_target": {},
-    "m1_lexicon": {},
-    "m3_encoder": {},
+    "m2_deobf": {
+      "changed": false,
+      "codes": [],
+      "tier2_enabled": false,
+      "offsets_identity": false
+    },
+    "m6_target": {
+      "target_type": "none",
+      "target_confidence": 0.0,
+      "target_evidence": null,
+      "target_candidates": []
+    },
+    "m1_lexicon": {
+      "lexicon_hit": false,
+      "lexicon_hit_raw": false,
+      "lexicon_hit_norm": false,
+      "matched_roots": [],
+      "engine": "terlik 0.1.0 balanced"
+    },
+    "m3_encoder": {
+      "raw_score": 0.021411480382084846,
+      "artifact": "m3-berturk-pytorch-fp32-epoch1",
+      "truncated_differently": false,
+      "norm_score": 0.021325543522834778
+    },
     "m4_implicit": {},
     "m5_sarcasm": {},
     "pipeline": {
       "degraded": [
-        {
-          "module": "m2_deobf",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
-        {
-          "module": "m6_target",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
-        {
-          "module": "m1_lexicon",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
-        {
-          "module": "m3_encoder",
-          "kinds": [
-            "stub"
-          ],
-          "reasons": [
-            "stub: no detection logic yet"
-          ]
-        },
         {
           "module": "m5_sarcasm",
           "kinds": [
@@ -84,47 +69,41 @@
       "family_a": null,
       "threshold_branches": [],
       "binary_offensive": {
-        "threshold": 0.5,
+        "threshold": 0.320188,
         "branch": "scalar",
         "signal": null,
         "signal_value": null,
         "channels": {
           "raw": {
-            "score": null,
-            "fired": null
-          },
-          "normalized": {
-            "score": null,
-            "fired": null
+            "score": 0.021411480382084846,
+            "fired": false
           }
         },
-        "fired": null,
+        "fired": false,
         "action": "review"
       },
       "channel_scores": [],
       "post_offensive": false
     }
   },
-  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m2_deobf henüz uygulanmadı, m6_target henüz uygulanmadı, m1_lexicon henüz uygulanmadı, m3_encoder henüz uygulanmadı, m5_sarcasm henüz uygulanmadı.",
-  "latency_ms": 0.4658999969251454,
+  "explanation": "Karar verilemedi, içerik temiz sayılmadı ve incelemeye alındı: değerlendirme eksik çünkü m5_sarcasm henüz uygulanmadı.",
+  "latency_ms": 0.0,
   "per_module_ms": {
-    "m0_charsafe": 0.08140003774315119,
-    "m2_deobf": 0.006699992809444666,
-    "m6_target": 0.004099973011761904,
-    "m1_lexicon": 0.00300002284348011,
-    "m3_encoder": 0.003500026650726795,
-    "m4_implicit": 0.0030999653972685337,
-    "m5_sarcasm": 0.0025999615900218487
+    "m0_charsafe": 0.0,
+    "m2_deobf": 0.0,
+    "m6_target": 0.0,
+    "m1_lexicon": 0.0,
+    "m3_encoder": 0.0,
+    "m4_implicit": 0.0,
+    "m5_sarcasm": 0.0
   },
   "fast_path": false,
   "trace_id": "mock-degraded",
-  "artifact_hash": "5a2fa46738f645f2fa08d27bba1950cdbde19021c0b5ee8c5b658251dddd5381",
+  "artifact_hash": "20bae0c8a25497dd456ee13317dd037d114390903eca7c28b967aeaa0793cba3",
   "notes": [
-    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m2_deobf (stub), m6_target (stub), m1_lexicon (stub), m3_encoder (stub), m5_sarcasm (stub)",
-    "[m2_deobf] stub: detection not implemented",
-    "[m6_target] stub: detection not implemented",
-    "[m1_lexicon] stub: detection not implemented",
-    "[m3_encoder] stub: detection not implemented",
+    "[pipeline] DEGRADED - judgement incomplete, clean is not reachable: m5_sarcasm (stub)",
+    "[m2_deobf] tier 2 disabled: zeyrek unavailable (ModuleNotFoundError: No module named 'zeyrek')",
+    "[m4_implicit] C1–C5 not implemented yet",
     "[m5_sarcasm] stub: detection not implemented"
   ]
 }

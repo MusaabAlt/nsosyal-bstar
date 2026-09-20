@@ -112,7 +112,12 @@ type fakeInference struct {
 }
 
 // todaysCapabilities mirrors AI/serving/capabilities.py.
-var todaysCapabilities = []domain.Capability{{Code: "A1", Module: "m1_lexicon"}, {Code: "binary_offensive", Module: "m3_encoder"}}
+// Today's capabilities, as AI/serving/capabilities.py reports them.
+var todaysCapabilities = []domain.Capability{
+	{Code: "A1", Module: "m1_lexicon"}, {Code: "A2", Module: "m1_lexicon"}, {Code: "A3", Module: "m1_lexicon"},
+	{Code: "B1", Module: "m1_lexicon"}, {Code: "B2", Module: "m1_lexicon"}, {Code: "B3", Module: "m1_lexicon"},
+	{Code: "B4", Module: "m6_target"}, {Code: "binary_offensive", Module: "m3_encoder"},
+}
 
 func (f fakeInference) ArtifactHash() string { return f.hash }
 func (f fakeInference) Health() inference.Health {
@@ -504,8 +509,10 @@ func TestCommentResponseCarriesDisplayNormalizationAndMarker(t *testing.T) {
 	if !resp.Representative || resp.Normalization == nil || resp.Normalization.Text != "Seni bitireceğim" {
 		t.Fatalf("response = %s", rr.Body)
 	}
-	// flagged sample: m0, m2, m3 ran; of today's two capabilities only binary_offensive (m3) was evaluated.
-	if d.CategoriesTotal != 2 || d.CategoriesEvaluated != 1 || d.CategoriesHidden != 0 || d.PatternsCheckedOther == nil || *d.PatternsCheckedOther != 11 ||
+	// flagged sample: m0, m2, m3, m6 ran. Of today's eight capabilities, m3's
+	// binary_offensive and m6's B4 were evaluated; B4 is not in the result, so
+	// it is the one hidden category. m2 checked six tier-1 patterns, matched LEET.
+	if d.CategoriesTotal != 8 || d.CategoriesEvaluated != 2 || d.CategoriesHidden != 1 || d.PatternsCheckedOther == nil || *d.PatternsCheckedOther != 5 ||
 		len(d.ContentMargins) != 2 || d.Normalization == nil || d.Normalization.Replaced != 1 {
 		t.Fatalf("display = %s", rr.Body)
 	}
@@ -540,10 +547,25 @@ func TestCategoriesEndpoint(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
-	// Only what the AI detects today; m1 live, m3 degraded (checkpoint missing).
-	if len(body.Categories) != 2 || !body.Representative ||
-		body.Categories[0].Code != "A1" || body.Categories[0].Status != "live" ||
-		body.Categories[1].Code != "binary_offensive" || body.Categories[1].Status != "stub" || !body.Categories[1].Derived {
+	// Only what the AI detects today, in capability order, each with its own
+	// threshold and action from thresholds.yaml: m1's six codes live, m6's B4
+	// and m3's score marked stub because this health says those modules are down.
+	if len(body.Categories) != len(todaysCapabilities) || !body.Representative {
 		t.Fatalf("categories = %s", rr.Body)
+	}
+	for i, want := range todaysCapabilities {
+		got := body.Categories[i]
+		liveStatus := "live"
+		if want.Module == "m6_target" || want.Module == "m3_encoder" {
+			liveStatus = "stub"
+		}
+		if got.Code != want.Code || got.Module != want.Module || got.Status != liveStatus {
+			t.Fatalf("category %d = %+v, want %s from %s (%s)", i, got, want.Code, want.Module, liveStatus)
+		}
+	}
+	// binary_offensive is the one row thresholds.yaml records as derived on dev.
+	last := body.Categories[len(body.Categories)-1]
+	if last.Code != "binary_offensive" || !last.Derived {
+		t.Fatalf("binary_offensive row = %+v", last)
 	}
 }

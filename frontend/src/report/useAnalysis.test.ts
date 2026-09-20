@@ -80,7 +80,7 @@ describe('mock source', () => {
     expect(verdictOf('Bu bir test cumlesi')).toBe('clean')
     const other = resolveMock('başka bir cümle 😀', null)
     expect(other.ok && other.result.text).toBe('başka bir cümle 😀')
-    expect(other.ok && other.result.signals.pipeline?.degraded?.length).toBe(5)
+    expect(other.ok && other.result.signals.pipeline?.degraded?.length).toBe(1)
   })
 
   it('returns copies, so a screen cannot corrupt the sample data', () => {

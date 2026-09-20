@@ -15,8 +15,19 @@ var update = flag.Bool("update", false, "rewrite the frontend golden file")
 
 var mocksDir = filepath.Join("..", "..", "..", "frontend", "src", "api", "mocks")
 
-// Today's capabilities, as AI/serving/capabilities.py reports them.
-var today = []Capability{{Code: "A1", Module: "m1_lexicon"}, {Code: BinaryOffensive, Module: "m3_encoder"}}
+// Today's capabilities, as AI/serving/capabilities.py reports them: m1's
+// routed codes (A2 / A3 are its A1 carrier after the decision layer applies
+// m6's target), m6's doxing code, and the encoder's offensive score.
+var today = []Capability{
+	{Code: "A1", Module: "m1_lexicon"},
+	{Code: "A2", Module: "m1_lexicon"},
+	{Code: "A3", Module: "m1_lexicon"},
+	{Code: "B1", Module: "m1_lexicon"},
+	{Code: "B2", Module: "m1_lexicon"},
+	{Code: "B3", Module: "m1_lexicon"},
+	{Code: "B4", Module: "m6_target"},
+	{Code: BinaryOffensive, Module: "m3_encoder"},
+}
 
 func readJSON(t *testing.T, name string) json.RawMessage {
 	t.Helper()
@@ -56,17 +67,19 @@ func TestSamplePayloads(t *testing.T) {
 		margins           []float64
 		binaryMargin      *float64
 	}
-	eleven := 11
+	five := 5
 	f := func(v float64) *float64 { return &v }
 	cases := map[string]want{
 		// Default pipeline at the sample commit: only m0 and m4 ran.
 		"degraded": {evaluated: 0, hidden: 0, margins: []float64{}},
 		// Only m0 ran.
 		"clean": {evaluated: 0, hidden: 0, margins: []float64{}},
-		// m0, m2, m3 ran: binary_offensive evaluated (raw 0.44 vs 0.5); A1 not (m1 did not run).
-		"flagged": {evaluated: 1, hidden: 0, checkedOther: &eleven, margins: []float64{0.37, -0.38}, binaryMargin: f(-0.06)},
-		// m0, m1 ran: A1 evaluated and returned.
-		"guard": {evaluated: 1, hidden: 0, margins: []float64{0.22}},
+		// m0, m2, m3 ran: binary_offensive evaluated (raw 0.44 vs 0.5); m1's and
+		// m6's codes not (neither module ran), so none of them can be "hidden".
+		// m2 checked its six tier-1 patterns and matched one (LEET).
+		"flagged": {evaluated: 1, hidden: 0, checkedOther: &five, margins: []float64{0.37, -0.38}, binaryMargin: f(-0.06)},
+		// m0, m1 ran: m1's six codes evaluated, A1 returned, the other five below.
+		"guard": {evaluated: 6, hidden: 5, margins: []float64{0.22}},
 	}
 
 	golden := map[string]Display{}
@@ -78,7 +91,7 @@ func TestSamplePayloads(t *testing.T) {
 				t.Fatal(err)
 			}
 			w := cases[name]
-			if !intIs(d.CategoriesTotal, 2) || !intIs(d.CategoriesEvaluated, w.evaluated) || !intIs(d.CategoriesHidden, w.hidden) {
+			if !intIs(d.CategoriesTotal, len(today)) || !intIs(d.CategoriesEvaluated, w.evaluated) || !intIs(d.CategoriesHidden, w.hidden) {
 				t.Errorf("total %v evaluated %v hidden %v", d.CategoriesTotal, d.CategoriesEvaluated, d.CategoriesHidden)
 			}
 			if (d.PatternsCheckedOther == nil) != (w.checkedOther == nil) ||
@@ -147,13 +160,15 @@ func TestNoBinaryScoreNoMargin(t *testing.T) {
 	}
 }
 
-func TestA1EvaluatedButNotReturnedIsHidden(t *testing.T) {
+// A module that ran evaluated every one of its codes; the ones it did not
+// return are the hidden ones. m1 owns six of today's eight categories.
+func TestEvaluatedButNotReturnedIsHidden(t *testing.T) {
 	result := json.RawMessage(`{"content":[],"per_module_ms":{"m1_lexicon":1},"signals":{"pipeline":{"degraded":[]}}}`)
 	d, err := Build(result, nil, today)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !intIs(d.CategoriesEvaluated, 1) || !intIs(d.CategoriesHidden, 1) {
+	if !intIs(d.CategoriesEvaluated, 6) || !intIs(d.CategoriesHidden, 6) {
 		t.Fatalf("evaluated %v hidden %v", d.CategoriesEvaluated, d.CategoriesHidden)
 	}
 }
@@ -178,7 +193,9 @@ func TestRemovedCharactersAreCounted(t *testing.T) {
 	if d.Normalization == nil || d.Normalization.Removed != 3 || d.Normalization.Replaced != 0 {
 		t.Fatalf("summary = %+v", d.Normalization)
 	}
-	if !intIs(d.PatternsCheckedOther, 12) {
+	// Tier 2 is off in this result (no m2_deobf signal), so only the six tier-1
+	// patterns were checked and none matched.
+	if !intIs(d.PatternsCheckedOther, 6) {
 		t.Fatalf("m2 ran with no pattern: checked other = %v", d.PatternsCheckedOther)
 	}
 }

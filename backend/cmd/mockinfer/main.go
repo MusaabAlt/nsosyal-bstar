@@ -132,9 +132,17 @@ func (s *server) health(w http.ResponseWriter, _ *http.Request) {
 	// What the real service reports today (AI/serving/capabilities.py).
 	capabilities := []map[string]string{
 		{"code": "A1", "module": "m1_lexicon"},
+		{"code": "A2", "module": "m1_lexicon"},
+		{"code": "A3", "module": "m1_lexicon"},
+		{"code": "B1", "module": "m1_lexicon"},
+		{"code": "B2", "module": "m1_lexicon"},
+		{"code": "B3", "module": "m1_lexicon"},
+		{"code": "B4", "module": "m6_target"},
 		{"code": "binary_offensive", "module": "m3_encoder"},
 	}
-	degraded := []string{"m2_deobf", "m6_target", "m1_lexicon", "m3_encoder", "m5_sarcasm"}
+	// m5_sarcasm is the one module still a stub: m2 and m6 landed 2026-09-17,
+	// and m4 is not a stub (it has nothing to score until m3's C head exists).
+	degraded := []string{"m5_sarcasm"}
 	if s.demo {
 		capabilities, degraded = demoCapabilities, []string{}
 	}
@@ -218,21 +226,25 @@ func writeJSON(w http.ResponseWriter, status int, v any) {
 // in the order the panel shows them. Reported only with -demo, beside the
 // seeded feed from cmd/seed; the real service reports what it can actually
 // detect today.
+// Each code names the module that would produce it, as the pipeline is built:
+// B1-B3 are m1's routed lexicon codes (not m3's), B4 is m6's doxing detector,
+// and C1-C5 come from m3's C head - m4_implicit owns their thresholds and the
+// slice repair, not the scores.
 var demoCapabilities = []map[string]string{
 	{"code": "A1", "module": "m1_lexicon"},
 	{"code": "A2", "module": "m1_lexicon"},
 	{"code": "A3", "module": "m1_lexicon"},
 	{"code": "A4", "module": "m1_lexicon"},
-	{"code": "B1", "module": "m3_encoder"},
-	{"code": "B2", "module": "m3_encoder"},
-	{"code": "B3", "module": "m3_encoder"},
-	{"code": "B4", "module": "m3_encoder"},
+	{"code": "B1", "module": "m1_lexicon"},
+	{"code": "B2", "module": "m1_lexicon"},
+	{"code": "B3", "module": "m1_lexicon"},
+	{"code": "B4", "module": "m6_target"},
 	{"code": "B5", "module": "m3_encoder"},
-	{"code": "C1", "module": "m4_implicit"},
-	{"code": "C2", "module": "m4_implicit"},
-	{"code": "C3", "module": "m4_implicit"},
-	{"code": "C4", "module": "m4_implicit"},
-	{"code": "C5", "module": "m4_implicit"},
+	{"code": "C1", "module": "m3_encoder"},
+	{"code": "C2", "module": "m3_encoder"},
+	{"code": "C3", "module": "m3_encoder"},
+	{"code": "C4", "module": "m3_encoder"},
+	{"code": "C5", "module": "m3_encoder"},
 	{"code": "D1", "module": "m5_sarcasm"},
 	{"code": "binary_offensive", "module": "m3_encoder"},
 }

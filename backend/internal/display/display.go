@@ -32,12 +32,25 @@ const BinaryOffensive = "binary_offensive"
 // Capability is one thing the AI detects and the module that produces it.
 type Capability = domain.Capability
 
-// m2Patterns are the form codes m2 checks (m2 spec section 4 table).
-// EMOJI_SUB is listed there but declared unhandled in v1, so it is not
-// "checked". ZERO_WIDTH, HOMOGLYPH and DOTLESS_I belong to m0 (stage 2).
-var m2Patterns = []string{
-	"LEET", "REPEAT", "SPACED", "PUNCT_SPLIT", "CHAR_DROP", "WORD_MERGE",
-	"ABBREV", "DEASCII", "VOWEL_DROP", "SUFFIX_ON_MASKED", "DIALECT", "PHONETIC",
+// m2Tier1 and m2Tier2 are the form codes m2_deobf 0.1.1 actually checks, the
+// two tiers of its module docstring. ABBREV, VOWEL_DROP, WORD_MERGE,
+// CHAR_DROP, DIALECT and EMOJI_SUB are declared unhandled in v1 (m2 README),
+// so they are not "checked" and must not be counted: the line this feeds
+// promises the reader those patterns were looked for. ZERO_WIDTH and DOTLESS_I
+// belong to m0 (stage 2); m2's HOMOGLYPH is its accent rule, which is its own.
+var (
+	m2Tier1 = []string{"LEET", "REPEAT", "SPACED", "PUNCT_SPLIT", "HOMOGLYPH", "PHONETIC"}
+	// Tier 2 is morphology-backed and turns itself off when zeyrek is missing;
+	// Python says which in signals.m2_deobf.tier2_enabled.
+	m2Tier2 = []string{"DEASCII", "SUFFIX_ON_MASKED"}
+)
+
+// m2Checked is the pattern list m2 examined for this analysis.
+func m2Checked(tier2Enabled bool) []string {
+	if !tier2Enabled {
+		return m2Tier1
+	}
+	return append(append([]string{}, m2Tier1...), m2Tier2...)
 }
 
 // NormalizationSummary counts the changes m2 reported (pages-spec stage 4:
@@ -83,6 +96,9 @@ type resultFields struct {
 				Module string `json:"module"`
 			} `json:"degraded"`
 		} `json:"pipeline"`
+		M2Deobf *struct {
+			Tier2Enabled bool `json:"tier2_enabled"`
+		} `json:"m2_deobf"`
 		Decision *struct {
 			BinaryOffensive *struct {
 				Threshold *float64 `json:"threshold"`
@@ -163,13 +179,14 @@ func Build(result, normalization json.RawMessage, capabilities []Capability) (Di
 	}
 
 	if ran["m2_deobf"] {
+		checked := m2Checked(r.Signals.M2Deobf != nil && r.Signals.M2Deobf.Tier2Enabled)
 		detected := map[string]bool{}
 		for _, p := range r.Form.Patterns {
-			if strings.HasPrefix(p.Source, "m2_deobf") && slices.Contains(m2Patterns, p.Code) {
+			if strings.HasPrefix(p.Source, "m2_deobf") && slices.Contains(checked, p.Code) {
 				detected[p.Code] = true
 			}
 		}
-		other := len(m2Patterns) - len(detected)
+		other := len(checked) - len(detected)
 		d.PatternsCheckedOther = &other
 	}
 

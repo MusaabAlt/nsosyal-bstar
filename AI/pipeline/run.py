@@ -40,6 +40,7 @@ import math
 import sys
 import time
 import uuid
+from dataclasses import dataclass
 from types import MappingProxyType
 from typing import Any, Mapping
 
@@ -189,6 +190,19 @@ def public_signals(payload: Any) -> Any:
     return payload
 
 
+@dataclass(frozen=True)
+class Internals:
+    """What `Pipeline.analyze_with_internals` hands an in-process caller.
+
+    `signals` is the modules' RAW signal payloads, internal keys included - the
+    response carries `public_signals` of the same mapping instead (decision 17).
+    """
+
+    charsafe_text: str | None
+    normalized_text: str | None
+    signals: dict[str, Any]
+
+
 def span_declarations(modules: list[Any]) -> dict[str, bool]:
     """Module name -> whether its scores/guards must carry spans (undeclared = True)."""
     return {m.name.value: getattr(m, "emits_spans", None) is not False for m in modules}
@@ -219,6 +233,26 @@ class Pipeline:
                 trace_id: str | None = None, thread_block: ThreadBlock | None = None) -> AnalysisResult:
         """`thread` is a ready ThreadSignal (tests, harness); `thread_block` asks the
         in-memory counter to count this post (ADR-004). Not both."""
+        return self._analyze(text, thread, trace_id, thread_block)[0]
+
+    def analyze_with_internals(self, text: str, thread: ThreadSignal | None = None,
+                               trace_id: str | None = None,
+                               thread_block: ThreadBlock | None = None) -> tuple[AnalysisResult, Internals]:
+        """`analyze`, plus the parallel texts and the modules' signals WITH their
+        internal ("_"-prefixed) keys.
+
+        For IN-PROCESS callers that need what decision 17 deliberately keeps out
+        of the response: today only AI/serving, which builds the out-of-band
+        `normalization` object of the Go contract from m2's normalized text and
+        its `_repairs` (backend/docs/inference-contract.md). The AnalysisResult
+        this returns is byte-identical to `analyze`'s; nothing here is ever
+        merged into it, and none of it is serialisable by contract - `_offsets`
+        alone grows with the post."""
+        return self._analyze(text, thread, trace_id, thread_block)
+
+    def _analyze(self, text: str, thread: ThreadSignal | None = None,
+                 trace_id: str | None = None,
+                 thread_block: ThreadBlock | None = None) -> tuple[AnalysisResult, Internals]:
         if thread is not None and thread_block is not None:
             raise ValueError("pass either a ThreadSignal or a thread block, not both")
         # Server receive time, taken before any work (ADR-004).
@@ -301,7 +335,7 @@ class Pipeline:
             result.explanation = "Karar verilemedi: karar katmanında bir hata oluştu, içerik değerlendirilmedi."
             result.notes.append(f"[pipeline] decision layer failed: {type(exc).__name__}: {exc}")
         result.latency_ms = (time.perf_counter() - start) * 1000.0
-        return result
+        return result, Internals(charsafe_text=charsafe_text, normalized_text=normalized_text, signals=signals)
 
     @staticmethod
     def _merge(result: AnalysisResult, out: ModuleOutput, module: Any) -> list[str]:
