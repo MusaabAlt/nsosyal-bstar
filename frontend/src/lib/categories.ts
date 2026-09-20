@@ -17,6 +17,22 @@ export const BINARY_OFFENSIVE = 'binary_offensive'
  */
 export const CONTENT_FAMILIES = FAMILIES.filter((f) => f !== 'CLEAN')
 
+/**
+ * How many of the contract's content codes the AI does not produce at all,
+ * given the codes the server reports it can detect today (/api/categories).
+ *
+ * The panel counts coverage against what CAN be produced today, which on its
+ * own reads as if nothing were missing. This is the rest of that picture, and
+ * it is the same contract-minus-server difference the moderation classes are
+ * built from. An empty server list means the AI was not reachable, which is
+ * not the same as "not built", so it claims nothing.
+ */
+export function notProducedCount(serverCodes: string[]): number {
+  if (serverCodes.length === 0) return 0
+  const produced = new Set(serverCodes)
+  return CONTENT_CODES.filter((code) => code !== 'CLEAN' && !produced.has(code)).length
+}
+
 /** Every content code the contract puts in this family, in code order. */
 export function codesOfFamily(family: string): string[] {
   return CONTENT_CODES.filter((code) => code !== 'CLEAN' && familyOf(code) === family)

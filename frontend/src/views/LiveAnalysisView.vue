@@ -10,8 +10,8 @@ import { fetchCategories, type Category } from '@/api/panel'
 import { useAnalysis } from '@/report/useAnalysis'
 import { buildStages, degradedModules, moduleState, verdictView, type ContentRow, type ContentStage } from '@/report/model'
 import DetectionEvidence from '@/components/panel/DetectionEvidence.vue'
-import { categoryMeta } from '@/lib/categories'
-import { barPosition, formatMs, formatScore } from '@/lib/format'
+import { categoryMeta, notProducedCount } from '@/lib/categories'
+import { barPosition, formatCount, formatMs, formatScore } from '@/lib/format'
 import { actionLabel, formLabel } from '@/contract/labels'
 import type { ModuleName } from '@/contract/types'
 
@@ -96,6 +96,23 @@ const report = computed(() => {
     }),
   }
 })
+
+/**
+ * How many of the contract's content codes the AI does not produce at all.
+ *
+ * The line beside it counts what was evaluated out of what CAN be produced
+ * today, so on its own it reads as if nothing was missing - "8 kategoriden
+ * 8'i değerlendirildi" under a verdict that says the evaluation did not
+ * complete. This is the rest of that picture.
+ *
+ * Counted the way Genel Bakış counts it (OverviewView classes): the contract
+ * minus what the server reports. It is NOT the degraded module's doing - A4,
+ * B5 and C1-C5 are unbuilt and belong to no degraded list; only D1 is owned by
+ * the stub the block names - so the two facts are kept in separate sentences.
+ * When /api/categories has not answered there is nothing to compare, and the
+ * screen claims nothing.
+ */
+const notProduced = computed(() => notProducedCount(categories.value.map((c) => c.code)))
 
 const TONE_COLOR: Record<string, string> = {
   block: 'var(--danger)',
@@ -234,6 +251,9 @@ const TONE_COLOR: Record<string, string> = {
             </span>
             <span v-if="report.verdict.evaluated" class="mono decision__meta">
               {{ copy.verdict.evaluated(report.verdict.evaluated.total, report.verdict.evaluated.n) }}
+            </span>
+            <span v-if="notProduced > 0" class="mono decision__meta">
+              {{ copy.verdict.notProduced(formatCount(notProduced)!) }}
             </span>
             <span v-if="report.latency !== null" class="mono decision__meta">{{ report.latency }} ms</span>
             <span v-if="report.verdict.tone === 'incomplete' && report.notRun" class="meta decision__notrun">

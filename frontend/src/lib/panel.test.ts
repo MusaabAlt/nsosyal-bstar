@@ -3,7 +3,7 @@ import type { AnalysisResult } from '@/contract/types'
 import flaggedJson from '@/api/mocks/flagged.json'
 import degradedJson from '@/api/mocks/degraded.json'
 import { segmentByKey } from './spans'
-import { BINARY_OFFENSIVE, categoryMeta, firedCategories } from './categories'
+import { BINARY_OFFENSIVE, categoryMeta, firedCategories, notProducedCount } from './categories'
 import { formatChange, formatCount, formatPercent } from './format'
 import { accusative, percentSuffix } from '@/copy'
 
@@ -56,6 +56,27 @@ describe('formatting', () => {
     expect(formatPercent(9)).toBe('%9,0')
     expect(formatChange(12)).toBe('+%12,0')
     expect(formatChange(-5)).toBe('−%5,0')
+  })
+})
+
+describe('notProducedCount', () => {
+  // What the AI reports today (AI/serving/capabilities.py), through
+  // /api/categories. binary_offensive is not a content code and must not count.
+  const today = ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'B4', BINARY_OFFENSIVE]
+
+  it('counts the contract codes the AI does not produce', () => {
+    // 15 content codes in the contract, 7 produced: A4, B5, C1-C5, D1 remain.
+    expect(notProducedCount(today)).toBe(8)
+  })
+
+  it('counts nothing when every code is produced', () => {
+    const all = ['A1', 'A2', 'A3', 'A4', 'B1', 'B2', 'B3', 'B4', 'B5', 'C1', 'C2', 'C3', 'C4', 'C5', 'D1']
+    expect(notProducedCount(all)).toBe(0)
+  })
+
+  it('claims nothing when the server said nothing', () => {
+    // An empty list means the AI was unreachable, not that 15 codes are unbuilt.
+    expect(notProducedCount([])).toBe(0)
   })
 })
 

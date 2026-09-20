@@ -351,7 +351,17 @@ export const copy = {
     latencyLabel: 'Gecikme', // ours: accessible name for the latency metric
     notRunHeading: 'Çalışmayan modüller', // ours
     moduleStatusMissing: 'Yanıt modül durumunu içermiyor.', // ours
-    evaluated: (total: number, n: number) => `${total} kategoriden ${n}${accusative(n)} değerlendirildi`, // design-system 4.12
+    // "Üretilebilen" names the universe the count is measured against: the
+    // categories the AI can produce TODAY (AI/serving/capabilities.py), not
+    // every category the contract defines. Without that word the line reads as
+    // "the whole assessment completed" and contradicts the verdict above it,
+    // which says the opposite whenever a module did not run.
+    evaluated: (total: number, n: number) => `Üretilebilen ${total} kategoriden ${n}${accusative(n)} değerlendirildi`, // design-system 4.12
+    // The other half of that sentence, in the same words the dashboard uses
+    // for an unproduced code. Deliberately NOT attributed to the module named
+    // on the next line: most of these are simply not built, and only D1
+    // belongs to the stub.
+    notProduced: (n: string) => `${n} kategori henüz üretilmiyor`,
   },
 
   /*

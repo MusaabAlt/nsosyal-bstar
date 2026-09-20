@@ -221,6 +221,17 @@ These are decisions, written down so nobody has to reverse-engineer them:
   "STAYS HUMAN" in `thresholds.yaml` on purpose, and a high score is not a
   reason to overrule that. Deleting the `review_band` block restores the flat
   policy exactly.
+- **"Üretilebilen N kategoriden M'i değerlendirildi"** (Canlı Analiz) counts
+  what ran out of what the AI can produce **today**, not out of the contract's
+  fifteen codes. Unqualified it used to read as "the whole assessment
+  completed" directly under a verdict saying the opposite: `m5_sarcasm` is a
+  stub, so every result is degraded, yet m5 owns no category in that list
+  (D1 is excluded from capabilities *because* m5 is a stub), so the count never
+  showed a shortfall. The line now names its own universe and carries the gap
+  beside it — "8 kategori henüz üretilmiyor", counted from the contract exactly
+  as the moderation classes are. The two are deliberately separate sentences:
+  A4, B5 and C1–C5 are simply unbuilt and belong to no degraded list, and only
+  D1 is owned by the module the block names.
 - **Change %** compares the part of the window that has passed with the same
   length of time just before it. `null` when the earlier period is empty.
 - **Active devices** = distinct IPs that sent a comment in the last 5 minutes
