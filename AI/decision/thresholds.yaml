@@ -106,6 +106,27 @@ binary_offensive:
     raw: m3_encoder.raw_score
   threshold: 0.320188              # DERIVED - stage 1 global cost-derived threshold (r = 3)
   action: review                   # PLACEHOLDER policy (owner: stays review)
+  # Human review band. PLACEHOLDER POLICY, project owner request 2026-09-20,
+  # NOT derived and NOT signed off - the same standing as every `action` above.
+  #
+  # `action` is what this channel asks for while the score is genuinely
+  # uncertain, and a person can still change the outcome. Outside the band the
+  # score is decisive on its own, so asking a moderator only fills the queue
+  # with comments nobody would rule differently: above `high` the channel takes
+  # `above_action`, below `low` it takes `below_action`.
+  #
+  # It only ever REPLACES an action that asks for a person (review, escalate);
+  # a channel configured to block or nudge is not banded. Delete this block and
+  # the channel goes back to one flat action for every score.
+  #
+  # `low` sits under the derived threshold above, so the below_action branch is
+  # unreachable while that threshold stands: it is written out so the band stays
+  # correct if the threshold is ever re-derived lower.
+  review_band:
+    low: 0.30
+    high: 0.70
+    above_action: block
+    below_action: nudge
 
 fast_path:
   # Stop after `requires` have run when some category clears its threshold by

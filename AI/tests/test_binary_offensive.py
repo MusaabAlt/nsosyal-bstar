@@ -82,6 +82,20 @@ class BoundaryTest(unittest.TestCase):
         cls.cfg = fusion.load_config()
         cls.t = float(cls.cfg["binary_offensive"]["threshold"])
         cls.binary_action = Action(cls.cfg["binary_offensive"]["action"])
+        cls.band = cls.cfg["binary_offensive"].get("review_band")
+
+    def banded(self, score: float) -> Action:
+        """The shipped action for this score once the human review band is
+        applied. Mirrors the config so the sweep below still checks `fired`
+        at every score; the band's own edges are pinned with literal
+        expectations in ReviewBandTest, which is what guards the policy."""
+        if not self.band or self.binary_action not in actions.ASKS_FOR_PERSON:
+            return self.binary_action
+        if score > float(self.band["high"]):
+            return Action(self.band["above_action"])
+        if score < float(self.band["low"]):
+            return Action(self.band["below_action"])
+        return self.binary_action
 
     def decide(self, score: object) -> tuple[AnalysisResult, dict]:
         result = fusion.decide(AnalysisResult(text="x", signals=binary_signals(score)), self.cfg)
@@ -102,9 +116,11 @@ class BoundaryTest(unittest.TestCase):
         verdict, driver = actions.resolve(result, self.cfg)
         with self.subTest(stage="FINAL_ACTION", score=repr(score)):
             if fired:
-                # Only signal present, nothing degraded: the binary action is the verdict.
-                self.assertIs(result.verdict, self.binary_action)
-                self.assertIs(verdict, self.binary_action)
+                # Only signal present, nothing degraded: the binary action,
+                # after the review band, is the verdict.
+                expected = self.banded(score)
+                self.assertIs(result.verdict, expected)
+                self.assertIs(verdict, expected)
                 self.assertEqual(driver, "binary_offensive")
                 self.assertIn("genel saldırganlık skoru", result.explanation)
             else:
@@ -159,6 +175,64 @@ class BoundaryTest(unittest.TestCase):
         result, first = self.decide(self.t)
         fusion.decide(result, self.cfg)
         self.assertEqual(result.signals["decision"]["binary_offensive"], first)
+
+
+class ReviewBandTest(unittest.TestCase):
+    """NO-MODEL. The shipped `binary_offensive.review_band`, at its edges.
+
+    A moderator is asked only while the score is uncertain. Above the band the
+    score decides on its own, so the comment is acted on without a person -
+    that is the whole point of the band, and these expectations are literal so
+    a change to the policy has to be made here too.
+    """
+
+    @classmethod
+    def setUpClass(cls) -> None:
+        cls.cfg = fusion.load_config()
+        cls.band = cls.cfg["binary_offensive"].get("review_band")
+        if cls.band is None:
+            raise unittest.SkipTest("no review_band configured")
+        cls.high = float(cls.band["high"])
+
+    def verdict_for(self, score: float) -> tuple[Action, dict]:
+        result = fusion.decide(AnalysisResult(text="x", signals=binary_signals(score)), self.cfg)
+        return result.verdict, result.signals["decision"]["binary_offensive"]
+
+    def test_shipped_band_is_the_agreed_policy(self) -> None:
+        with self.subTest(stage="DECISION_THRESHOLD"):
+            self.assertEqual(float(self.band["low"]), 0.30)
+            self.assertEqual(self.high, 0.70)
+            self.assertEqual(self.band["above_action"], Action.BLOCK.value)
+            self.assertEqual(self.band["below_action"], Action.NUDGE.value)
+
+    def test_inside_the_band_asks_for_a_person(self) -> None:
+        for score in (0.40, 0.55, self.high):
+            with self.subTest(stage="FINAL_ACTION", score=score):
+                verdict, _ = self.verdict_for(score)
+                self.assertIs(verdict, Action.REVIEW)
+
+    def test_above_the_band_is_decided_without_a_person(self) -> None:
+        for score in (math.nextafter(self.high, 1.0), 0.85, 1.0):
+            with self.subTest(stage="FINAL_ACTION", score=score):
+                verdict, _ = self.verdict_for(score)
+                self.assertIs(verdict, Action.BLOCK)
+
+    def test_the_band_changes_the_verdict_only_not_the_recorded_action(self) -> None:
+        """signals.decision.binary_offensive.action stays what the file
+        configures: it is the channel's setting, not this comment's outcome."""
+        for score in (0.55, 1.0):
+            with self.subTest(stage="INTERFACE_CONTRACT", score=score):
+                _, binary = self.verdict_for(score)
+                self.assertEqual(binary["action"], self.cfg["binary_offensive"]["action"])
+
+    def test_without_a_band_the_configured_action_stands(self) -> None:
+        """Deleting the block restores the flat policy, for every score."""
+        cfg = copy.deepcopy(self.cfg)
+        cfg["binary_offensive"].pop("review_band")
+        for score in (0.55, 1.0):
+            with self.subTest(stage="FINAL_ACTION", score=score):
+                result = fusion.decide(AnalysisResult(text="x", signals=binary_signals(score)), cfg)
+                self.assertIs(result.verdict, Action(cfg["binary_offensive"]["action"]))
 
 
 class _BinaryOnly(BaseModule):

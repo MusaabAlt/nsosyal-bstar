@@ -64,6 +64,14 @@ def validate_config(cfg: dict[str, Any]) -> None:
     if binary is not None:
         Action(binary["action"])
         _validate_threshold_entry("binary_offensive", binary)
+        band = binary.get("review_band")
+        if band is not None:
+            # An inverted band would silently swap "decisive" and "uncertain".
+            low, high = float(band["low"]), float(band["high"])
+            if low > high:
+                raise ValueError(f"binary_offensive.review_band: low {low} is above high {high}")
+            Action(band["above_action"])
+            Action(band["below_action"])
         for channel, path in binary["channels"].items():
             if channel not in cfg["fusion"]["channels"]:
                 raise ValueError(f"binary_offensive.channels: unknown channel {channel!r}")

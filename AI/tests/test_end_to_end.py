@@ -149,11 +149,18 @@ class EndToEndTest(unittest.TestCase):
             # Every verdict today is under degradation (three stubs): the explanation says so.
             self.assertIn("değerlendirme eksik", result.explanation, diagnose(result))
 
-    def expected_verdict(self, code: ContentCode, *extra: Action) -> tuple[Action, object]:
+    def binary_action_of(self, result: AnalysisResult) -> Action:
+        """The binary channel's action for THIS post's score. thresholds.yaml
+        bands it (binary_offensive.review_band), so it is not the flat
+        configured action at every score; the band's own edges are pinned with
+        literal expectations in tests/test_binary_offensive.py."""
+        return actions.binary_action(result.signals["decision"]["binary_offensive"], self.cfg)
+
+    def expected_verdict(self, result: AnalysisResult, code: ContentCode, *extra: Action) -> tuple[Action, object]:
         """A content hit on `code` plus the binary fired: the more severe configured action wins; on
         equal severity actions.resolve keeps the content driver (it is visited first)."""
         candidates = [(Action(self.cfg["categories"][code.value]["action"]), code),
-                      (self.binary_action, "binary_offensive")]
+                      (self.binary_action_of(result), "binary_offensive")]
         candidates += [(a, "thread") for a in extra]
         best = candidates[0]
         for action, driver in candidates[1:]:
@@ -161,14 +168,14 @@ class EndToEndTest(unittest.TestCase):
                 best = (action, driver)
         return best
 
-    def expected_offensive_verdict(self, target_type: str, *extra: Action) -> tuple[Action, object]:
+    def expected_offensive_verdict(self, result: AnalysisResult, target_type: str, *extra: Action) -> tuple[Action, object]:
         """A family-A hit assigned from m6's target (ADR-005: family_a.by_target[type]) plus the binary
         fired: the more severe configured action wins; on equal severity actions.resolve keeps the
         content driver (it is visited first). `target_type` is what m6's declared rules resolve for
         the post (protocols/m6_target_guideline.md), asserted separately at the DECISION stage."""
         code = ContentCode(self.cfg["family_a"]["by_target"][target_type])
         candidates = [(Action(self.cfg["categories"][code.value]["action"]), code),
-                      (self.binary_action, "binary_offensive")]
+                      (self.binary_action_of(result), "binary_offensive")]
         candidates += [(a, "thread") for a in extra]
         best = candidates[0]
         for action, driver in candidates[1:]:
@@ -240,7 +247,7 @@ class EndToEndTest(unittest.TestCase):
             self.assertTrue(result.content[0].fired, diagnose(result))
         with self.subTest(stage="FINAL_ACTION/post_offensive"):
             self.assertTrue(result.signals["decision"]["post_offensive"], diagnose(result))
-        verdict, driver = self.expected_verdict(ContentCode.B1)
+        verdict, driver = self.expected_verdict(result, ContentCode.B1)
         self.check_verdict(result, verdict, driver)
 
     def test_collision_word_raises_a_guard_and_no_content(self) -> None:
@@ -343,7 +350,7 @@ class EndToEndTest(unittest.TestCase):
             self.assertEqual(guard.suppressed, [], diagnose(result))          # ADR-001: spans do not overlap
             self.assertTrue(result.content[0].fired, diagnose(result))
         self.check_binary(result, fired=True)
-        verdict, driver = self.expected_offensive_verdict("individual")
+        verdict, driver = self.expected_offensive_verdict(result, "individual")
         self.check_verdict(result, verdict, driver)
 
     def test_zero_width_inside_a_word_maps_the_span_through_m0(self) -> None:
@@ -386,9 +393,9 @@ class EndToEndTest(unittest.TestCase):
                              diagnose(results[-1]))
         with self.subTest(stage="DECISION_THRESHOLD"):
             self.assertTrue(all(r.signals["decision"]["post_offensive"] for r in results))
-        first_verdict, first_driver = self.expected_verdict(ContentCode.B1)
+        first_verdict, first_driver = self.expected_verdict(results[0], ContentCode.B1)
         self.check_verdict(results[0], first_verdict, first_driver)
-        last_verdict, last_driver = self.expected_verdict(ContentCode.B1, Action(self.cfg["thread"]["action"]))
+        last_verdict, last_driver = self.expected_verdict(results[-1], ContentCode.B1, Action(self.cfg["thread"]["action"]))
         self.check_verdict(results[-1], last_verdict, last_driver)
         after = pipeline.analyze("Bu bir test cumlesi", thread_block=block)
         with self.subTest(stage="FINAL_ACTION/clean post after abuse"):

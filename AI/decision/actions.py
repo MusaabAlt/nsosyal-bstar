@@ -21,6 +21,10 @@ from contracts.schema import AnalysisResult, ContentScore
 # Policy, not a tunable: an incomplete judgement may never be clean.
 DEGRADED_ACTION = Action.REVIEW
 
+# The actions that put a comment in front of a moderator. Only these are
+# banded: a channel configured to block or to nudge already decides alone.
+ASKS_FOR_PERSON = frozenset({Action.REVIEW, Action.ESCALATE})
+
 _VERB_TR: dict[Action, str] = {
     Action.BLOCK: "engellendi",
     Action.ESCALATE: "üst incelemeye iletildi",
@@ -44,6 +48,38 @@ def action_for(score: ContentScore, cfg: dict[str, Any]) -> Action:
     return Action(cfg["categories"][score.code.value]["action"])
 
 
+def _fired_score(binary: dict[str, Any]) -> float | None:
+    """The strongest channel score that crossed the threshold, or None."""
+    scores = [c["score"] for c in binary.get("channels", {}).values()
+              if c.get("fired") and isinstance(c.get("score"), (int, float))]
+    return max(scores) if scores else None
+
+
+def binary_action(binary: dict[str, Any], cfg: dict[str, Any]) -> Action:
+    """The binary offensive channel's action for THIS score.
+
+    thresholds.yaml `binary_offensive.action` is what the channel asks for
+    while the score is uncertain. `binary_offensive.review_band` narrows that
+    to a range: above it the score is decisive and the content is acted on
+    without a person, below it the same. Nothing is decided here that the
+    config does not name - the band, its edges and both replacement actions
+    all come from the file, and without a band the configured action stands
+    exactly as before.
+    """
+    configured = Action(binary["action"])
+    band = (cfg.get("binary_offensive") or {}).get("review_band")
+    if not band or configured not in ASKS_FOR_PERSON:
+        return configured
+    score = _fired_score(binary)
+    if score is None:
+        return configured
+    if score > float(band["high"]):
+        return Action(band["above_action"])
+    if score < float(band["low"]):
+        return Action(band["below_action"])
+    return configured
+
+
 def degraded_modules(result: AnalysisResult) -> list[dict[str, Any]]:
     return list(result.signals.get("pipeline", {}).get("degraded") or [])
 
@@ -59,9 +95,9 @@ def resolve(result: AnalysisResult, cfg: dict[str, Any]) -> tuple[Action, Conten
             verdict, driver = action, score
     binary = result.signals.get("decision", {}).get("binary_offensive")
     if binary and binary.get("fired"):
-        binary_action = Action(binary["action"])
-        if severity(binary_action) < severity(verdict):
-            verdict, driver = binary_action, "binary_offensive"
+        action = binary_action(binary, cfg)
+        if severity(action) < severity(verdict):
+            verdict, driver = action, "binary_offensive"
     if result.thread is not None and result.thread.fired:
         thread_action = Action(cfg["thread"]["action"])
         if severity(thread_action) < severity(verdict):

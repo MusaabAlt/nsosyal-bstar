@@ -196,7 +196,10 @@ class TrapBinaryTest(_Harness):
             self.assertTrue(binary["fired"])
             self.assertEqual(binary["threshold"], float(self.cfg["binary_offensive"]["threshold"]))
         with self.subTest(stage="FINAL_VERDICT"):
-            self.assertEqual(report["observations"][0]["verdict"], self.cfg["binary_offensive"]["action"])
+            # 0.99 is above binary_offensive.review_band.high, so the score is
+            # decisive on its own and no moderator is asked (thresholds.yaml).
+            self.assertEqual(report["observations"][0]["verdict"],
+                             actions.binary_action(binary, self.cfg).value)
             self.assertEqual(report["observations"][0]["driver"], "binary_offensive")
             self.assertTrue(report["observations"][0]["post_offensive"])
 
