@@ -22,6 +22,41 @@ const (
 	guardThreshold     = 0.50     // thresholds.yaml guards.*.threshold
 )
 
+// The human review band for the general offensive score, mirroring
+// thresholds.yaml `binary_offensive.review_band` (project owner request,
+// 2026-09-20). A comment that fired NO content code is put in front of a
+// moderator only while that score is genuinely uncertain; above the band it is
+// decisive on its own and the content is blocked without a person.
+//
+// It bands the general offensive channel ONLY, exactly as
+// AI/decision/actions.py does. The per-category actions above are NOT banded:
+// A4, B2, B4 and C3 are marked "STAYS HUMAN" in thresholds.yaml on purpose,
+// and a high score is not a reason to overrule that.
+//
+// Kept in step with that file by hand, like contentThreshold above: a
+// disagreement here would show the panel a verdict the live system would not
+// have produced.
+const (
+	reviewBandLow      = 0.30
+	reviewBandHigh     = 0.70
+	reviewBandAbove    = "block"
+	reviewBandBelow    = "nudge"
+	binaryOffensiveAct = "review" // thresholds.yaml binary_offensive.action
+)
+
+// offensiveAction is the verdict for a comment that only the general
+// offensive score flagged, after the band.
+func offensiveAction(score float64) string {
+	switch {
+	case score > reviewBandHigh:
+		return reviewBandAbove
+	case score < reviewBandLow:
+		return reviewBandBelow
+	default:
+		return binaryOffensiveAct
+	}
+}
+
 // actionFor is thresholds.yaml categories.*.action. It must be kept in step
 // with that file by hand: the seeder stands in for the decision layer, so a
 // disagreement here would show the panel a verdict the live system would not
@@ -61,6 +96,15 @@ var verdictSentence = map[string]string{
 	"nudge":    "%s (%s) tespit edildi, kullanıcı uyarıldı.",
 }
 
+// offensiveSentence is the explanation when no category threshold was crossed
+// and only the general offensive score decided, by where in the human review
+// band that score fell.
+var offensiveSentence = map[string]string{
+	"block":  "Belirli bir kategori eşiği aşılmadı; genel saldırganlık skoru belirsizlik bandının üstünde kaldığı için içerik engellendi.",
+	"review": "Belirli bir kategori eşiği aşılmadı; genel saldırganlık skoru belirsizlik bandında olduğu için içerik insan incelemesine alındı.",
+	"nudge":  "Belirli bir kategori eşiği aşılmadı; genel saldırganlık skoru belirsizlik bandının altında kaldığı için kullanıcı uyarıldı.",
+}
+
 // contentScore is one row of result.content and one analysis_results row.
 type contentScore struct {
 	Code      string   `json:"code"`
@@ -90,6 +134,14 @@ type analysed struct {
 func ptrF(v float64) *float64 { return &v }
 func ptrB(v bool) *bool       { return &v }
 func ptrS(v string) *string   { return &v }
+
+// deref reads a verdict that the caller has already established is not nil.
+func deref(v *string) string {
+	if v == nil {
+		return ""
+	}
+	return *v
+}
 
 // distractors are the codes the encoder also scored but that stayed low. A
 // real result always carries a few, and the "Neden?" panel shows them.
@@ -208,7 +260,7 @@ func analyse(s sample, rng *rand.Rand, degraded bool) analysed {
 	binaryOffensive := map[string]any{
 		"threshold": offensiveThreshold, "branch": "scalar", "signal": nil, "signal_value": nil,
 		"channels": map[string]any{"raw": map[string]any{"score": rawScore, "fired": offensiveFired}},
-		"fired":    offensiveFired, "action": "review",
+		"fired":    offensiveFired, "action": binaryOffensiveAct,
 	}
 
 	// ---- target (m6)
@@ -233,7 +285,7 @@ func analyse(s sample, rng *rand.Rand, degraded bool) analysed {
 	case len(firedTypes) > 0:
 		verdict = ptrS(actionFor[firedTypes[0]])
 	case offensiveFired:
-		verdict = ptrS("review")
+		verdict = ptrS(offensiveAction(rawScore))
 	default:
 		verdict = ptrS("clean")
 	}
@@ -348,7 +400,7 @@ func explain(verdict *string, firedTypes, guardsActive []string, offensiveFired,
 		code := firedTypes[0]
 		return fmt.Sprintf(verdictSentence[actionFor[code]], labelFor[code], code)
 	case offensiveFired:
-		return "Belirli bir kategori eşiği aşılmadı; genel saldırganlık skoru yüksek olduğu için içerik insan incelemesine alındı."
+		return offensiveSentence[deref(verdict)]
 	case len(guardsActive) > 0:
 		return fmt.Sprintf("Eşleşme %s bağlamında olduğu için tespit düşürüldü; içerik temiz.", guardLabelFor[guardsActive[0]])
 	default:

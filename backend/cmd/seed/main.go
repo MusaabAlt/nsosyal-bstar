@@ -47,10 +47,15 @@ var artifactHash = defaultArtifactHash
 // How the generated stream is made up. Clean dominates, as a real feed does.
 //
 // shareBorderline is deliberately small. A borderline message clears the
-// general offensive threshold without reaching any category threshold, so the
-// decision layer can only ask for a person: every one of them lands in the
+// general offensive threshold without reaching any category threshold, and its
+// score sits inside the human review band (result.go reviewBandLow/High), so
+// the decision layer can only ask for a person: every one of them lands in the
 // human review queue. A feed where one message in sixteen is that ambiguous
 // would bury the moderators, and it is not what a real feed looks like.
+//
+// The band is why they are no longer the only thing in that queue's company: a
+// detected message whose own score is decisive is now acted on automatically
+// instead of being escalated, so the queue holds the genuinely uncertain ones.
 const (
 	shareClean      = 0.825
 	shareGuarded    = 0.04
