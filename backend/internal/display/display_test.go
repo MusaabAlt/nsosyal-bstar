@@ -3,9 +3,11 @@ package display
 import (
 	"encoding/json"
 	"flag"
+	"fmt"
 	"math"
 	"os"
 	"path/filepath"
+	"strconv"
 	"testing"
 )
 
@@ -60,6 +62,25 @@ func textOf(t *testing.T, raw json.RawMessage) string {
 
 func intIs(p *int, want int) bool { return p != nil && *p == want }
 
+// show prints what a pointer field HOLDS. %v on a *int prints its address, so
+// a failure here used to read "total 0x30872fc87e0 evaluated 0x30872fc87e8"
+// and told the reader nothing.
+func show(p any) string {
+	switch v := p.(type) {
+	case *int:
+		if v == nil {
+			return "<nil>"
+		}
+		return strconv.Itoa(*v)
+	case *float64:
+		if v == nil {
+			return "<nil>"
+		}
+		return strconv.FormatFloat(*v, 'g', -1, 64)
+	}
+	return fmt.Sprintf("%v", p)
+}
+
 func TestSamplePayloads(t *testing.T) {
 	type want struct {
 		evaluated, hidden int
@@ -67,17 +88,23 @@ func TestSamplePayloads(t *testing.T) {
 		margins           []float64
 		binaryMargin      *float64
 	}
-	five := 5
+	five, six := 5, 6
 	f := func(v float64) *float64 { return &v }
 	cases := map[string]want{
-		// Default pipeline at the sample commit: only m0 and m4 ran.
-		"degraded": {evaluated: 0, hidden: 0, margins: []float64{}},
+		// Every module has a timing and only m5_sarcasm is degraded, so every
+		// capability's owner ran: all 8 evaluated. m5 owns no capability of its
+		// own, which is why a stub does not reduce the count. content is empty,
+		// so all 7 content codes were evaluated and returned nothing - hidden;
+		// binary_offensive always has its own bar and is never hidden.
+		// m2 ran with tier 2 off: six tier-1 patterns checked, none matched.
+		"degraded": {evaluated: 8, hidden: 7, checkedOther: &six, margins: []float64{}, binaryMargin: f(-0.2987765196179151)},
 		// Only m0 ran.
 		"clean": {evaluated: 0, hidden: 0, margins: []float64{}},
-		// m0, m2, m3 ran: binary_offensive evaluated (raw 0.44 vs 0.5); m1's and
-		// m6's codes not (neither module ran), so none of them can be "hidden".
+		// m0, m2, m3, m6 ran: binary_offensive and m6's B4 evaluated; m1's six
+		// codes not, because m1 has no timing. content is B2 and C4, so B4 is
+		// the one evaluated code that returned nothing.
 		// m2 checked its six tier-1 patterns and matched one (LEET).
-		"flagged": {evaluated: 1, hidden: 0, checkedOther: &five, margins: []float64{0.37, -0.38}, binaryMargin: f(-0.06)},
+		"flagged": {evaluated: 2, hidden: 1, checkedOther: &five, margins: []float64{0.37, -0.38}, binaryMargin: f(-0.06)},
 		// m0, m1 ran: m1's six codes evaluated, A1 returned, the other five below.
 		"guard": {evaluated: 6, hidden: 5, margins: []float64{0.22}},
 	}
@@ -92,11 +119,11 @@ func TestSamplePayloads(t *testing.T) {
 			}
 			w := cases[name]
 			if !intIs(d.CategoriesTotal, len(today)) || !intIs(d.CategoriesEvaluated, w.evaluated) || !intIs(d.CategoriesHidden, w.hidden) {
-				t.Errorf("total %v evaluated %v hidden %v", d.CategoriesTotal, d.CategoriesEvaluated, d.CategoriesHidden)
+				t.Errorf("total %s evaluated %s hidden %s, want %d/%d/%d", show(d.CategoriesTotal), show(d.CategoriesEvaluated), show(d.CategoriesHidden), len(today), w.evaluated, w.hidden)
 			}
 			if (d.PatternsCheckedOther == nil) != (w.checkedOther == nil) ||
 				(w.checkedOther != nil && *d.PatternsCheckedOther != *w.checkedOther) {
-				t.Errorf("patterns checked other = %v", d.PatternsCheckedOther)
+				t.Errorf("patterns checked other = %s, want %s", show(d.PatternsCheckedOther), show(w.checkedOther))
 			}
 			if len(d.ContentMargins) != len(w.margins) {
 				t.Fatalf("margins = %d entries, want %d", len(d.ContentMargins), len(w.margins))
@@ -108,7 +135,7 @@ func TestSamplePayloads(t *testing.T) {
 			}
 			if (d.BinaryOffensiveMargin == nil) != (w.binaryMargin == nil) ||
 				(w.binaryMargin != nil && math.Abs(*d.BinaryOffensiveMargin-*w.binaryMargin) > 1e-9) {
-				t.Errorf("binary margin = %v, want %v", d.BinaryOffensiveMargin, w.binaryMargin)
+				t.Errorf("binary margin = %s, want %s", show(d.BinaryOffensiveMargin), show(w.binaryMargin))
 			}
 			golden[name] = d
 		})
