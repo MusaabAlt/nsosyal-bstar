@@ -78,6 +78,9 @@
   --rail-width: 300px;
   --header-height: 72px;
   --content-max: 1200px;
+  /* The page's side margin. One value so the header, the body, the offline
+     banner and the full-bleed strips on a phone all breathe the same. */
+  --page-gutter: 24px;
 
   color-scheme: dark;
 }
@@ -132,4 +135,15 @@ html.light {
   --scrim: rgba(2, 8, 23, 0.3);
 
   color-scheme: light;
+}
+
+/*
+ * Phone. Only the measurements change: the palette above is the same in a
+ * hand as it is on the projector at the back of the room.
+ */
+@media (max-width: 899px) {
+  :root {
+    --header-height: 56px;
+    --page-gutter: 16px;
+  }
 }

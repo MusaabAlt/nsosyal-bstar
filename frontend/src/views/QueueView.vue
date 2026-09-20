@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import Icon from '@/components/Icon.vue'
 import PageTabs from '@/components/panel/PageTabs.vue'
@@ -51,6 +51,21 @@ const detailMissing = ref(false)
 const checked = ref<Set<string>>(new Set())
 const actionsRef = ref<InstanceType<typeof ModeratorActions> | null>(null)
 const bulkBusy = ref(false)
+const detailEl = ref<HTMLElement | null>(null)
+
+/*
+ * Picking a message. On a wide screen the detail is the column next to the
+ * list and nothing needs to move; stacked on a phone it is below thirty list
+ * items, so the panel that just changed is brought to the operator rather
+ * than left for them to find. Only a deliberate pick scrolls: the first item
+ * selects itself when the list loads, and that must not move the page.
+ */
+function select(id: string) {
+  const moved = selectedId.value !== id
+  selectedId.value = id
+  if (!moved || !window.matchMedia('(max-width: 899px)').matches) return
+  void nextTick(() => detailEl.value?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
+}
 
 const tabs = computed(() => {
   const c = counts.value
@@ -175,20 +190,22 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
 
   <div class="queue">
     <div class="filters">
-      <button type="button" class="btn" :class="{ 'btn--active': detectedOnly }" @click="detectedOnly = !detectedOnly">
-        {{ copy.queue.detectedOnly }}
-      </button>
-      <button type="button" class="btn" :class="{ 'btn--active': code === '' }" @click="code = ''">{{ copy.queue.allCategories }}</button>
-      <button
-        v-for="c in categories"
-        :key="c.code"
-        type="button"
-        class="btn"
-        :style="code === c.code ? { background: categoryMeta(c.code).tint, color: categoryMeta(c.code).ink } : undefined"
-        @click="code = code === c.code ? '' : c.code"
-      >
-        {{ categoryMeta(c.code).label }}
-      </button>
+      <div class="filters__chips">
+        <button type="button" class="btn" :class="{ 'btn--active': detectedOnly }" @click="detectedOnly = !detectedOnly">
+          {{ copy.queue.detectedOnly }}
+        </button>
+        <button type="button" class="btn" :class="{ 'btn--active': code === '' }" @click="code = ''">{{ copy.queue.allCategories }}</button>
+        <button
+          v-for="c in categories"
+          :key="c.code"
+          type="button"
+          class="btn"
+          :style="code === c.code ? { background: categoryMeta(c.code).tint, color: categoryMeta(c.code).ink } : undefined"
+          @click="code = code === c.code ? '' : c.code"
+        >
+          {{ categoryMeta(c.code).label }}
+        </button>
+      </div>
       <form class="filters__search" role="search" @submit.prevent="appliedQ = q.trim()">
         <input v-model="q" type="search" class="input" :placeholder="copy.queue.search" :aria-label="copy.queue.search" maxlength="200" />
       </form>
@@ -211,7 +228,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           :key="item.id"
           class="item"
           :class="{ 'item--selected': item.id === selectedId }"
-          @click="selectedId = item.id"
+          @click="select(item.id)"
         >
           <input
             type="checkbox"
@@ -240,7 +257,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
         <button v-if="cursor" type="button" class="btn list__more" :disabled="loading" @click="loadList(true)">{{ copy.panel.loadMore }}</button>
       </div>
 
-      <aside class="card detail">
+      <aside ref="detailEl" class="card detail">
         <template v-if="detailView">
           <div class="detail__head">
             <h3 class="card__title">{{ copy.queue.detail }}</h3>
@@ -265,7 +282,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           <p class="meta detail__keys">{{ copy.queue.keyboard }}</p>
 
           <h4 class="detail__section">{{ copy.queue.scores }}</h4>
-          <table v-if="detailView.rows.length" class="table">
+          <table v-if="detailView.rows.length" class="table table--stack">
             <thead>
               <tr>
                 <th>{{ copy.queue.category }}</th>
@@ -277,9 +294,9 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
             <tbody>
               <tr v-for="row in detailView.rows" :key="row.key">
                 <td>{{ row.meta.label }}</td>
-                <td class="mono num" :style="row.fired === true ? { color: row.meta.ink } : undefined">{{ row.score }}</td>
-                <td class="mono num">{{ row.threshold ?? copy.panel.noThreshold }}</td>
-                <td :class="{ 'detail__hit': row.fired === true }">{{ row.outcome }}</td>
+                <td class="mono num" :data-label="copy.queue.score" :style="row.fired === true ? { color: row.meta.ink } : undefined">{{ row.score }}</td>
+                <td class="mono num" :data-label="copy.queue.threshold">{{ row.threshold ?? copy.panel.noThreshold }}</td>
+                <td :data-label="copy.queue.outcome" :class="{ 'detail__hit': row.fired === true }">{{ row.outcome }}</td>
               </tr>
             </tbody>
           </table>
@@ -292,7 +309,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
           </p>
 
           <h4 class="detail__section">{{ copy.queue.context }}</h4>
-          <div v-for="p in detailView.previous" :key="p.id" class="context" @click="selectedId = p.id">
+          <div v-for="p in detailView.previous" :key="p.id" class="context" @click="select(p.id)">
             <span class="meta">{{ formatAgo(p.created_at, now) }}</span>
             <span class="context__text">{{ p.text }}</span>
           </div>
@@ -320,6 +337,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   gap: 16px;
 }
 .filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.filters__chips {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -508,6 +533,96 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKey))
   .detail {
     position: static;
     max-height: none;
+  }
+}
+
+/* ------------------------------------------------------------------ phone */
+/*
+ * The filter row becomes a single sideways strip instead of four stacked
+ * lines of wrapped pills, the search takes the full width under it, and the
+ * bulk bar wraps rather than pushing its buttons off the screen.
+ */
+@media (max-width: 599px) {
+  .queue {
+    gap: 12px;
+  }
+  .filters {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  /* One sideways strip: eight category pills stacked would push the list
+     itself below the fold before a single message is read. */
+  .filters__chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 calc(var(--page-gutter) * -1);
+    padding: 2px var(--page-gutter);
+  }
+  .filters__chips::-webkit-scrollbar {
+    display: none;
+  }
+  .filters__chips .btn {
+    flex: none;
+  }
+  .filters__search {
+    margin-left: 0;
+  }
+  .filters__search .input {
+    width: 100%;
+  }
+  .bulk {
+    flex-wrap: wrap;
+    border-radius: var(--radius-lg);
+    padding: 10px 12px;
+  }
+  .bulk__spacer {
+    flex-basis: 100%;
+    height: 0;
+  }
+  .bulk .btn {
+    flex: 1;
+  }
+  .item {
+    padding: 12px 8px;
+    gap: 10px;
+  }
+  .item__avatar {
+    width: 32px;
+    height: 32px;
+  }
+  /* The name, the age and the "already acted on" chip wrap as whole words
+     instead of the time being split around the chip. */
+  .item__head {
+    flex-wrap: wrap;
+    gap: 4px 6px;
+  }
+  .item__head .meta {
+    white-space: nowrap;
+  }
+  .item__spacer {
+    display: none;
+  }
+  .item__text {
+    font-size: 14px;
+    line-height: 21px;
+  }
+  .detail__text {
+    font-size: 15px;
+    line-height: 24px;
+  }
+  .detail__hit {
+    color: var(--danger) !important;
+  }
+  .context__text {
+    white-space: normal;
+  }
+  .history {
+    flex-wrap: wrap;
+  }
+  .history__time {
+    margin-left: 24px;
   }
 }
 </style>

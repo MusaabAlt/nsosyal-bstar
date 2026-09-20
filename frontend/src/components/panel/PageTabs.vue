@@ -63,4 +63,16 @@ defineEmits<{ 'update:modelValue': [key: string] }>()
 .tab--active .tab__bar {
   background: var(--accent);
 }
+
+/* The shell gives the tabs their own scrollable strip on a phone. */
+@media (max-width: 899px) {
+  .tabs {
+    height: 44px;
+  }
+  .tab {
+    height: 44px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+}
 </style>

@@ -7,8 +7,14 @@ import { categoryMeta, firedCategories } from '@/lib/categories'
 import { formatAgo } from '@/lib/format'
 import { usePoll } from '@/composables/usePoll'
 
-/* Canlı Akış: the newest analysed messages, whatever their outcome. */
-const open = ref(true)
+/*
+ * Canlı Akış: the newest analysed messages, whatever their outcome.
+ *
+ * It opens itself on a desktop, where it costs a corner. On a phone it is a
+ * full-width strip along the bottom edge and an open one would cover the page,
+ * so it starts collapsed and the operator opens it when they want it.
+ */
+const open = ref(typeof window === 'undefined' || window.innerWidth >= 900)
 const items = shallowRef<PanelItem[]>([])
 const now = ref(Date.now())
 
@@ -129,5 +135,24 @@ const rows = computed(() =>
 }
 .dock__empty {
   margin: 8px 0;
+}
+
+/* ------------------------------------------------------------------ phone */
+@media (max-width: 899px) {
+  .dock {
+    left: 12px;
+    right: 12px;
+    bottom: 12px;
+    width: auto;
+    /* Collapsed it is a 44px bar; open it never grows past half the screen. */
+    max-height: 56dvh;
+    overflow-y: auto;
+  }
+  .dock__head {
+    height: 46px;
+  }
+  .dock__row {
+    padding: 10px 0;
+  }
 }
 </style>

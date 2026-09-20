@@ -359,21 +359,21 @@ function preview(text: string): string {
         <tbody>
           <tr v-for="item in recent" :key="item.id">
             <td class="activity__content">{{ preview(item.text) }}</td>
-            <td>
+            <td class="activity__user">
               <span class="who">
                 <span class="who__avatar">{{ initials(item.nickname) }}</span>
                 <span class="who__name">{{ item.nickname }}</span>
               </span>
             </td>
-            <td>
+            <td class="activity__cats">
               <span class="cats">
                 <CategoryChip v-for="f in categoriesOf(item)" :key="f.code" :code="f.code" />
                 <span v-if="categoriesOf(item).length === 0" class="chip">{{ copy.panel.noDetection }}</span>
               </span>
             </td>
-            <td><StatusPill :action="item.final_action" /></td>
+            <td class="activity__status"><StatusPill :action="item.final_action" /></td>
             <td class="activity__time meta">{{ formatAgo(item.created_at, now) }}</td>
-            <td>
+            <td class="activity__why">
               <button type="button" class="btn btn--secondary why" @click="explaining = item">
                 <Icon name="info" :size="15" :stroke="1.8" />
                 {{ copy.overview.why }}
@@ -736,6 +736,130 @@ function preview(text: string): string {
   .review__value {
     font-size: 42px;
     line-height: 50px;
+  }
+}
+
+/* -------------------------------------------------------------- phone */
+/*
+ * One column, and the six-column activity table becomes one card per
+ * message: the text and its categories get the full width, and who / what /
+ * when sit on one line underneath.
+ */
+@media (max-width: 599px) {
+  .headline,
+  .split,
+  .classes {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .hero__value,
+  .review__value {
+    font-size: 38px;
+    line-height: 46px;
+  }
+  .hero__stats {
+    margin-top: 16px;
+    padding-top: 14px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 14px 12px;
+  }
+  /* Two columns is room enough to wrap: "Genel saldırganlık sinyali" must
+     not lose its last word to an ellipsis. */
+  .stat__label {
+    white-space: normal;
+    align-items: flex-start;
+  }
+  .stat__value {
+    font-size: 20px;
+    line-height: 26px;
+  }
+  .section-head {
+    gap: 4px;
+    margin-bottom: 10px;
+  }
+  .review__foot {
+    padding-top: 12px;
+  }
+
+  .activity,
+  .activity tbody,
+  .activity tr {
+    display: block;
+    width: 100%;
+  }
+  .activity thead {
+    display: none;
+  }
+  .activity tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--border-divider);
+  }
+  .activity tbody tr:last-child {
+    border-bottom: 0;
+    padding-bottom: 0;
+  }
+  .activity tbody tr:hover td {
+    background: transparent;
+  }
+  /* No width here: the per-cell rules below would lose to it on specificity. */
+  .activity td {
+    display: block;
+    padding: 0;
+    border: 0;
+  }
+  .activity__content {
+    order: 1;
+    width: 100%;
+    font-size: 15px;
+    line-height: 22px;
+  }
+  .activity__cats {
+    order: 2;
+    width: 100%;
+  }
+  /* Who, what and when share one line under the message and its categories. */
+  .activity__user {
+    order: 3;
+  }
+  .activity__status {
+    order: 4;
+  }
+  .activity__time {
+    order: 5;
+    margin-left: auto;
+  }
+  .activity__why {
+    order: 6;
+    width: 100%;
+  }
+  .why {
+    width: 100%;
+    height: 36px;
+  }
+
+  .activity__head {
+    flex-wrap: wrap;
+  }
+  .activity__controls {
+    width: 100%;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .toggle {
+    flex: 1;
+  }
+  .toggle__btn {
+    flex: 1;
+    height: 34px;
+  }
+
+  .status__item {
+    grid-template-columns: 10px 1fr auto 48px;
+    height: 42px;
   }
 }
 </style>

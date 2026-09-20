@@ -213,4 +213,40 @@ function exportCsv() {
 .more {
   align-self: center;
 }
+
+/* ------------------------------------------------------------------ phone */
+@media (max-width: 599px) {
+  .event {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 0;
+  }
+  .event__time {
+    width: auto;
+    padding-top: 0;
+    order: 2;
+  }
+  .event__icon {
+    width: 28px;
+    height: 28px;
+  }
+  .event__body {
+    flex-basis: calc(100% - 38px);
+  }
+  /* Two lines of the message beat one line with the end cut off. */
+  .event__text {
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  .event__open {
+    order: 3;
+    margin-left: auto;
+    padding-top: 0;
+  }
+  .toolbar {
+    flex-wrap: wrap;
+  }
+}
 </style>

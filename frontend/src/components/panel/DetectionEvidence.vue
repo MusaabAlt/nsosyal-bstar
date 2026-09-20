@@ -297,4 +297,30 @@ const guardViews = computed(() =>
     grid-template-columns: 1fr;
   }
 }
+
+/* ------------------------------------------------------------------ phone */
+@media (max-width: 599px) {
+  .evidence,
+  .evidence__pair {
+    gap: 12px;
+  }
+  .evidence__head {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .evidence__head .card__title {
+    flex: 1 1 auto;
+  }
+  /* Pattern name over its evidence, so neither is truncated. */
+  .pattern {
+    flex-wrap: wrap;
+    gap: 2px 8px;
+  }
+  .pattern__evidence {
+    flex-basis: 100%;
+  }
+  .target__word {
+    font-size: 17px;
+  }
+}
 </style>

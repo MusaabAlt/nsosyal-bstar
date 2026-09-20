@@ -278,4 +278,37 @@ const services = computed<Service[]>(() => {
     grid-template-columns: 1fr;
   }
 }
+
+/* ------------------------------------------------------------------ phone */
+@media (max-width: 599px) {
+  .kpis,
+  .charts {
+    gap: 12px;
+  }
+  .chart {
+    margin-top: 14px;
+  }
+  /* The service name and its three facts stack instead of sharing one line. */
+  .service {
+    flex-wrap: wrap;
+    gap: 12px;
+    padding: 14px 0;
+  }
+  .service__icon {
+    width: 34px;
+    height: 34px;
+  }
+  .service__main {
+    width: auto;
+    flex: 1;
+  }
+  .service__facts {
+    flex-basis: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px 16px;
+  }
+  .service__fact dd {
+    overflow-wrap: anywhere;
+  }
+}
 </style>

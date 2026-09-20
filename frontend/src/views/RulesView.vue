@@ -41,7 +41,7 @@ onMounted(load)
     </div>
 
     <div v-else-if="list && list.categories.length" class="card">
-      <table class="table">
+      <table class="table table--stack">
         <thead>
           <tr>
             <th>{{ copy.rules.columns.category }}</th>
@@ -62,19 +62,19 @@ onMounted(load)
                 {{ categoryMeta(c.code).label }}
               </span>
             </td>
-            <td class="mono">{{ c.code }}</td>
-            <td>{{ categoryMeta(c.code).family }}</td>
-            <td class="mono num">
+            <td class="mono" :data-label="copy.rules.columns.code">{{ c.code }}</td>
+            <td :data-label="copy.rules.columns.family">{{ categoryMeta(c.code).family }}</td>
+            <td class="mono num" :data-label="copy.rules.columns.threshold">
               <template v-if="c.threshold !== null">{{ formatScore(c.threshold) }}</template>
               <span v-else class="unavailable">{{ copy.panel.unavailable }}</span>
             </td>
-            <td>
+            <td :data-label="copy.rules.columns.action">
               <template v-if="c.action">{{ actionLabel(c.action) }}</template>
               <span v-else class="unavailable">{{ copy.panel.unavailable }}</span>
             </td>
-            <td class="mono">{{ c.module }}</td>
-            <td :class="{ warn: !c.derived }">{{ c.derived ? copy.engines.derived : copy.engines.placeholder }}</td>
-            <td><StatusDot :status="c.status" /></td>
+            <td class="mono" :data-label="copy.rules.columns.module">{{ c.module }}</td>
+            <td :data-label="copy.rules.columns.source" :class="{ warn: !c.derived }">{{ c.derived ? copy.engines.derived : copy.engines.placeholder }}</td>
+            <td :data-label="copy.rules.columns.status"><StatusDot :status="c.status" /></td>
           </tr>
         </tbody>
       </table>
@@ -121,5 +121,24 @@ onMounted(load)
 }
 .warn {
   color: var(--warning) !important;
+}
+
+/* ------------------------------------------------------------------ phone */
+@media (max-width: 599px) {
+  .note {
+    gap: 10px;
+  }
+  .note__text {
+    font-size: 14px;
+    line-height: 22px;
+  }
+  .failed {
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+  /* The category name is the card's heading, so its colour dot leads it. */
+  .cat {
+    font-weight: 600;
+  }
 }
 </style>

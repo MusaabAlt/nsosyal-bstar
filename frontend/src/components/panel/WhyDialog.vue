@@ -500,4 +500,56 @@ function outcome(code: string, fired: boolean | null | undefined): string {
   display: flex;
   gap: 6px;
 }
+
+/* ------------------------------------------------------------------ phone */
+/*
+ * A bottom sheet, not a centred dialog: it opens where the thumb already is
+ * and uses the full width for the module and score tables.
+ */
+@media (max-width: 599px) {
+  .scrim {
+    align-items: flex-end;
+    padding: 0;
+  }
+  .sheet {
+    width: 100%;
+    max-height: 92dvh;
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+    border-bottom: 0;
+  }
+  .sheet__head {
+    padding: 14px 16px;
+  }
+  .sheet__body {
+    padding: 16px 16px 24px;
+    gap: 16px;
+  }
+  /* Name and timing on the first line, the detail sentence under the name
+     instead of being cut. Placed explicitly: auto-placement would push the
+     timing onto a third row and break "0.1 ms" across two lines. */
+  .module {
+    grid-template-columns: 20px 1fr auto;
+    column-gap: 8px;
+    row-gap: 2px;
+  }
+  .module__mark {
+    grid-area: 1 / 1;
+  }
+  .module__name {
+    grid-area: 1 / 2;
+  }
+  .module__ms {
+    grid-area: 1 / 3;
+    white-space: nowrap;
+  }
+  .module__detail {
+    grid-area: 2 / 2 / 3 / -1;
+    white-space: normal;
+    overflow: visible;
+  }
+  .quote__text {
+    font-size: 15px;
+    line-height: 23px;
+  }
+}
 </style>

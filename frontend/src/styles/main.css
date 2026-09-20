@@ -11,6 +11,9 @@
 @layer base {
   html {
     scrollbar-gutter: stable;
+    /* A phone in landscape must not inflate the panel's type on its own. */
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
   }
   html,
   body {
@@ -262,5 +265,96 @@
   }
   to {
     transform: translateX(100%);
+  }
+}
+
+/* ----------------------------------------------------------------- phone */
+/*
+ * Below 600px the panel is one column in a hand. The shared primitives give
+ * back the room the desktop padding takes, raise every control to a thumb's
+ * size, and turn a dense table into one card per row: a table of eight
+ * columns cannot be read on a 360px screen, and a sideways scrollbar is not
+ * a design.
+ */
+@media (max-width: 599px) {
+  .card {
+    padding: 16px;
+    border-radius: var(--radius-lg);
+  }
+  .card--tight {
+    padding: 14px;
+  }
+  .card__head {
+    gap: 10px;
+  }
+  .stack {
+    gap: 14px;
+  }
+  .section-title {
+    font-size: 16px;
+    line-height: 24px;
+  }
+  /* Thumb-sized controls: 32px is a mouse target, not a finger one. */
+  .btn {
+    height: 38px;
+    padding: 0 16px;
+  }
+  .btn--brand {
+    height: 40px;
+  }
+  .btn--ghost {
+    height: auto;
+  }
+  .input {
+    height: 40px;
+    /* 16px keeps iOS Safari from zooming the page on focus. */
+    font-size: 16px;
+  }
+
+  .table--stack thead {
+    display: none;
+  }
+  .table--stack,
+  .table--stack tbody,
+  .table--stack tr,
+  .table--stack td {
+    display: block;
+    width: 100%;
+  }
+  .table--stack tr {
+    border: 1px solid var(--border-card);
+    border-radius: var(--radius-lg);
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .table--stack tr:last-child {
+    margin-bottom: 0;
+  }
+  .table--stack td {
+    height: auto;
+    border: 0;
+    padding: 3px 0;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+  }
+  /* The column heading travels with the cell, so a value never loses its name. */
+  .table--stack td::before {
+    content: attr(data-label);
+    flex: none;
+    font-size: 12px;
+    line-height: 18px;
+    color: var(--text-meta);
+  }
+  .table--stack td:first-child {
+    display: block;
+    padding: 0 0 8px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text-heading);
+  }
+  .table--stack td:first-child::before {
+    display: none;
   }
 }

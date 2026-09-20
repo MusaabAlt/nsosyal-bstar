@@ -175,4 +175,30 @@ const cards = computed(() =>
     grid-template-columns: 1fr;
   }
 }
+
+/* ------------------------------------------------------------------ phone */
+@media (max-width: 599px) {
+  .grid {
+    gap: 12px;
+  }
+  .engine__stats {
+    gap: 16px;
+  }
+  .engine__count {
+    font-size: 24px;
+    line-height: 32px;
+  }
+  .facts {
+    margin-top: 16px;
+    padding-top: 12px;
+    gap: 10px 16px;
+  }
+  .engine__foot {
+    margin-top: 16px;
+    justify-content: stretch;
+  }
+  .engine__foot .btn {
+    flex: 1;
+  }
+}
 </style>

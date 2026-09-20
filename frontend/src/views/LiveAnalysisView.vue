@@ -540,4 +540,95 @@ const TONE_COLOR: Record<string, string> = {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+/* ------------------------------------------------------------------ phone */
+/*
+ * One score card at a time, and the input -> normalized pair reads downwards
+ * with the arrow turned to match, instead of two code blocks fighting for a
+ * 360px line.
+ */
+@media (max-width: 599px) {
+  .results {
+    grid-template-columns: 1fr !important;
+    gap: 12px;
+  }
+  .composer {
+    gap: 0;
+  }
+  .composer__avatar {
+    display: none;
+  }
+  .composer__input {
+    min-height: 84px;
+    padding-top: 0;
+  }
+  .composer__presets {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 calc(var(--page-gutter) * -1);
+    padding: 12px var(--page-gutter);
+  }
+  .composer__presets::-webkit-scrollbar {
+    display: none;
+  }
+  .composer__preset {
+    flex: none;
+    height: 34px;
+  }
+  .composer__bar {
+    flex-wrap: wrap;
+    gap: 8px 12px;
+    padding-top: 12px;
+  }
+  .composer__spacer {
+    display: none;
+  }
+  .composer__bar .btn--brand {
+    flex-basis: 100%;
+  }
+
+  .norm {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+  .norm__pair {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+  .norm__code {
+    width: 100%;
+  }
+  .norm__arrow {
+    align-self: center;
+    transform: rotate(90deg);
+  }
+  .norm__steps {
+    margin-left: 0;
+  }
+
+  .result__score {
+    font-size: 26px;
+    line-height: 32px;
+  }
+  .explain__body {
+    padding: 16px;
+  }
+  .explain__text {
+    font-size: 15px;
+    line-height: 24px;
+  }
+  .decision {
+    padding: 14px 16px;
+    gap: 12px;
+  }
+  .decision__main {
+    gap: 8px 12px;
+  }
+  .error {
+    flex-wrap: wrap;
+  }
+}
 </style>

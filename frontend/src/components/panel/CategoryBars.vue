@@ -111,4 +111,45 @@ function share(value: number): string | null {
     display: none;
   }
 }
+
+/* ------------------------------------------------------------------ phone */
+/*
+ * The track gets its own line under the label: squeezed into the leftover
+ * 90px of a 360px screen it stops being a comparison at all.
+ */
+@media (max-width: 599px) {
+  .bar {
+    grid-template-columns: 26px 1fr auto auto;
+    column-gap: 8px;
+    row-gap: 6px;
+  }
+  /* Placed explicitly: the track sits after the label in the markup, and
+     auto-placement would push the count and the share below it. */
+  .bar__code {
+    grid-area: 1 / 1;
+  }
+  .bar__label {
+    grid-area: 1 / 2;
+  }
+  .bar__value {
+    grid-area: 1 / 3;
+  }
+  .bar__share {
+    grid-area: 1 / 4;
+  }
+  .bar__track {
+    grid-area: 2 / 1 / 3 / -1;
+    height: 8px;
+  }
+  .bar__label {
+    font-size: 14px;
+  }
+  .bar__value {
+    font-size: 14px;
+  }
+  .bar__share {
+    display: block;
+    min-width: 48px;
+  }
+}
 </style>

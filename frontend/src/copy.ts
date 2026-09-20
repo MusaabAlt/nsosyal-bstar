@@ -26,6 +26,8 @@ export const copy = {
     darkMode: 'Karanlık mod',
     searchPlaceholder: 'Mesaj veya kullanıcı ara',
     searchLabel: 'Ara',
+    openMenu: 'Menüyü aç',
+    closeMenu: 'Menüyü kapat',
     operator: 'Operatör',
     liveFeed: 'Canlı Akış',
     liveFeedEmpty: 'Henüz mesaj yok.',

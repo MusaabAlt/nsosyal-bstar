@@ -70,6 +70,7 @@ export const ICONS = {
   download: ['M12 4v11', 'm7.5 10.5 4.5 4.5 4.5-4.5', 'M4.5 19.5h15'],
   flag: ['M5.5 20.5v-16', 'M5.5 4.5h11l-2 4 2 4h-11'],
   x: ['M6 6l12 12', 'M18 6 6 18'],
+  menu: ['M3.5 6.5h17', 'M3.5 12h17', 'M3.5 17.5h17'],
 } as const
 
 export type IconName = keyof typeof ICONS

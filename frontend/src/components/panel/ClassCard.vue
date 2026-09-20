@@ -193,4 +193,29 @@ function width(value: number): string {
   height: 100%;
   border-radius: var(--radius-full);
 }
+.klass__note {
+  margin: 12px 0 0;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-card);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+/* ------------------------------------------------------------------ phone */
+@media (max-width: 599px) {
+  .klass__total {
+    margin-top: 10px;
+    font-size: 28px;
+    line-height: 34px;
+  }
+  .klass__label {
+    font-size: 13px;
+  }
+  .klass__count {
+    font-size: 14px;
+  }
+  .klass__row {
+    min-height: 28px;
+  }
+}
 </style>
