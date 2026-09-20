@@ -10,10 +10,9 @@ import WhyDialog from '@/components/panel/WhyDialog.vue'
 import EmptyState from '@/components/panel/EmptyState.vue'
 import { copy } from '@/copy'
 import { fetchItems, fetchOverview, type Overview, type PanelItem, type RangeName } from '@/api/panel'
-import { categoryMeta, BINARY_OFFENSIVE, firedCategories } from '@/lib/categories'
+import { categoryMeta, familyMeta, codesOfFamily, CONTENT_FAMILIES, BINARY_OFFENSIVE, firedCategories } from '@/lib/categories'
 import { STATUS_ORDER, statusMeta, type ModerationTone } from '@/lib/moderation'
 import { formatAgo, formatChange, formatCount, formatPercent, initials } from '@/lib/format'
-import { familyLabel } from '@/contract/labels'
 import { usePoll } from '@/composables/usePoll'
 
 /*
@@ -104,29 +103,36 @@ const analysedUp = computed(() => (overview.value?.analysed.change_pct ?? 0) > 0
 
 // ------------------------------------------------------------ class cards
 
-/** One card per content-code family, in code order, with every category inside it. */
+/**
+ * One card per content-code family, in code order, with every category the
+ * CONTRACT defines inside it - not only the ones the AI produces today.
+ *
+ * The server counts a category only while the inference service reports it in
+ * /health (AI/serving/capabilities.py); a code it does not report gets no row
+ * of its own. Dropping those codes hid two whole classes (C örtük saldırganlık
+ * and D aşağılayıcı ironi) and read as if the panel only knew about two. They
+ * are shown with a null total, which ClassCard renders as "henüz üretilmiyor"
+ * rather than as a zero, so the card states the difference between "looked for,
+ * found none" and "not measured".
+ *
+ * When the server reports no content category at all the AI is unreachable or
+ * misconfigured, and "not produced yet" would be the wrong word for it: the
+ * page falls back to the error line instead.
+ */
 const classes = computed(() => {
-  const groups: Array<{ family: string; rows: ClassRow[] }> = []
+  const counted = new Map<string, number>()
   for (const c of overview.value?.categories ?? []) {
-    if (c.code === BINARY_OFFENSIVE) continue
-    let group = groups.find((g) => g.family === c.family)
-    if (!group) {
-      group = { family: c.family, rows: [] }
-      groups.push(group)
-    }
-    group.rows.push({ code: c.code, label: categoryMeta(c.code).label, total: c.total })
+    if (c.code !== BINARY_OFFENSIVE) counted.set(c.code, c.total)
   }
-  return groups.map((g) => {
-    const meta = categoryMeta(g.rows[0]!.code)
-    return {
-      family: g.family,
-      title: familyLabel(g.family),
-      icon: meta.icon,
-      color: meta.color,
-      ink: meta.ink,
-      tint: meta.tint,
-      rows: g.rows,
-    }
+  if (counted.size === 0) return []
+  return CONTENT_FAMILIES.map((family) => {
+    const meta = familyMeta(family)
+    const rows: ClassRow[] = codesOfFamily(family).map((code) => ({
+      code,
+      label: categoryMeta(code).label,
+      total: counted.get(code) ?? null,
+    }))
+    return { family, title: meta.label, icon: meta.icon, color: meta.color, ink: meta.ink, tint: meta.tint, rows }
   })
 })
 

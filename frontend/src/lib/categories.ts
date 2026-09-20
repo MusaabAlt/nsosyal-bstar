@@ -1,5 +1,5 @@
 import type { AnalysisResult } from '@/contract/types'
-import { contentLabel, familyLabel } from '@/contract/labels'
+import { CONTENT_CODES, FAMILIES, contentLabel, familyLabel, familyOf } from '@/contract/labels'
 import { copy } from '@/copy'
 import type { IconName } from '@/components/icons'
 
@@ -10,6 +10,17 @@ import type { IconName } from '@/components/icons'
  */
 
 export const BINARY_OFFENSIVE = 'binary_offensive'
+
+/**
+ * The content-code families the moderation classes are drawn from, in code
+ * order. CLEAN is not a moderation class: it is the absence of one.
+ */
+export const CONTENT_FAMILIES = FAMILIES.filter((f) => f !== 'CLEAN')
+
+/** Every content code the contract puts in this family, in code order. */
+export function codesOfFamily(family: string): string[] {
+  return CONTENT_CODES.filter((code) => code !== 'CLEAN' && familyOf(code) === family)
+}
 
 export type Tone = 'direct' | 'bully' | 'veiled' | 'sarcasm' | 'obf' | 'clean'
 
@@ -41,6 +52,30 @@ export function categoryMeta(code: string): CategoryMeta {
     family: family === '' ? copy.panel.generalFamily : familyLabel(family),
     tone,
     icon: code === BINARY_OFFENSIVE ? 'brain' : (ICON_BY_FAMILY[family] ?? 'check'),
+    color: `var(--cat-${tone})`,
+    ink: `var(--cat-${tone}-ink)`,
+    tint: `var(--cat-${tone}-bg)`,
+  }
+}
+
+export interface FamilyMeta {
+  family: string
+  label: string
+  tone: Tone
+  icon: IconName
+  color: string
+  ink: string
+  tint: string
+}
+
+/** How a whole moderation class looks: the family's colour, icon and Turkish name. */
+export function familyMeta(family: string): FamilyMeta {
+  const tone: Tone = TONE_BY_FAMILY[family] ?? 'clean'
+  return {
+    family,
+    label: familyLabel(family),
+    tone,
+    icon: ICON_BY_FAMILY[family] ?? 'check',
     color: `var(--cat-${tone})`,
     ink: `var(--cat-${tone}-ink)`,
     tint: `var(--cat-${tone}-bg)`,

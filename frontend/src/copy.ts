@@ -122,6 +122,12 @@ export const copy = {
     classesNote: 'Her sınıf kendi modülü, kendi eşiği ve kendi eylemiyle değerlendirilir',
     classEmpty: 'Bu aralıkta tespit yok',
     classTotal: 'toplam tespit',
+    // Sözleşme dört sınıfın da kodlarını tanımlar; yapay zekâ bugün hepsini
+    // üretmiyor. Üretilmeyen bir kod 0 değil, "ölçülmedi" olarak gösterilir.
+    classPending: 'henüz üretilmiyor',
+    classPendingRow: 'Bu kodu üreten modül henüz devrede değil',
+    classPendingNote: 'Bu sınıfın modülü henüz devrede değil, kodları ölçülmüyor',
+    classPartial: (n: string) => `${n} kod henüz ölçülmüyor`,
 
     distribution: 'Kategori dağılımı',
     distributionEmpty: 'Bu aralıkta hiçbir kategori tespit edilmedi.',
