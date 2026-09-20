@@ -17,7 +17,7 @@ import { representative } from '@/api/representative'
  * sidebar with the gradient CTA and the theme switch, a sticky header with
  * the page title, the page's own tabs (teleported into #page-tabs), search
  * and the operator avatar; the Sistem durumu rail on wide screens; the Canlı
- * Akış dock bottom-right.
+ * Akış dock bottom-right.  fvgfvf
  */
 const route = useRoute()
 const router = useRouter()
