@@ -2,6 +2,13 @@
 
 **Canlı demo: <https://nsosyal.daqqiq.com>**
 
+
+Sayın jüri üyeleri,
+
+Model dosyaları boyutlarının büyük olması nedeniyle repository içerisinde yer almamaktadır. İlgili model dosyalarına aşağıdaki bağlantı üzerinden ulaşabilirsiniz:
+
+https://drive.google.com/file/d/15PrbVRRGWDj7CPJKbd0kmPTzi7sy538X/view?usp=sharing
+
 Türkçe saldırgan içerik tespiti için uçtan uca bir sistem: araştırma çalışması, yedi
 modüllü tespit hattı ve canlı bir moderasyon paneli. Yukarıdaki adres çalışan sistemin
 kendisidir — kayıt yoktur, kimlik doğrulama yoktur, açılır açılmaz kullanılabilir.
