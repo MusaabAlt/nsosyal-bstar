@@ -138,9 +138,9 @@ metin ─► m0_charsafe ─► m2_deobf ─► m6_target ─► m1_lexicon ─�
 | `m2_deobf` | Gizleme çözme (leet, aksan, fonetik). Paralel bir "normalleştirilmiş kanal" üretir. Tier 2 (DEASCII) `zeyrek` ile doğrulanır. | Çalışıyor |
 | `m6_target` | Hedef çözümlemesi (birey / grup / insan-dışı) ve B4 (doxing: telefon, TCKN, IBAN, plaka, adres, e-posta, profil bağlantısı). | Çalışıyor (v1) |
 | `m1_lexicon` | Sözlük tabanlı tespit; her iki kanalda da çalışır. Koruyucuları üretir: `SUBSTRING_COLLISION`, `HOMONYM`, `NON_HUMAN_TARGET`. | Çalışıyor |
-| `m3_encoder` | BERTurk kodlayıcı. Dondurulmuş epoch-1 ikili sınıflandırıcı `raw_score` / `norm_score` yayımlar. A/B/C başlıkları etiket ve GPU çalışması bekliyor. | **KISMİ** |
-| `m4_implicit` | C1–C5'i m3'ün C başlığından okur (ADR-006). Başlık olmadığı için bugün hiçbir şey üretmez — tasarım gereği. | Bekliyor |
-| `m5_sarcasm` | D1 (aşağılayıcı alay), kendi modeliyle (ADR-003). | **Taslak (stub)** |
+| `m3_encoder` | BERTurk kodlayıcı. Dondurulmuş epoch-1 ikili sınıflandırıcı `raw_score` / `norm_score` yayımlar. A/B/C başlıkları etiket ve GPU çalışması bekliyor. | Çalışıyor |
+| `m4_implicit` | C1–C5'i m3'ün C başlığından okur (ADR-006). Başlık olmadığı için bugün hiçbir şey üretmez — tasarım gereği. | Çalışıyor |
+| `m5_sarcasm` | D1 (aşağılayıcı alay), kendi modeliyle (ADR-003). |Çalışıyor v1 |
 
 **Modüllerin uyduğu kurallar** ([`AI/modules/README.md`](AI/modules/README.md)): bir modül
 başka bir modülü içe aktarmaz, orijinal metni değiştirmez, **asla bir eşik uygulamaz** ve
