@@ -2,10 +2,11 @@
 
 **Canlı demo: <https://nsosyal.daqqiq.com>**
 
-
 Sayın jüri üyeleri,
 
-Model dosyaları boyutlarının büyük olması nedeniyle repository içerisinde yer almamaktadır. İlgili model dosyalarına aşağıdaki bağlantı üzerinden ulaşabilirsiniz:
+Model dosyaları, boyutlarının büyük olması nedeniyle GitHub reposuna yüklenmemiştir.
+
+Model dosyalarının normalde **nsosyal-bstar/AI/artifacts/** dizininde bulunması gerekmektedir. İlgili dosyalara aşağıdaki bağlantı üzerinden ulaşabilirsiniz:
 
 https://drive.google.com/file/d/15PrbVRRGWDj7CPJKbd0kmPTzi7sy538X/view?usp=sharing
 
